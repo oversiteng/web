@@ -1,0 +1,158 @@
+.welcome-section-card-wrapper {
+	background-repeat: no-repeat;
+	background-position: top right;
+	position: relative;
+	z-index: 1;
+}
+
+.welcome-section-card::before {
+	background-image: url("../../assets/images/welcome-section-card-bg.png");
+	background-size: 70% 170px;
+	background-repeat: no-repeat;
+	background-position: center right;
+	position: absolute;
+	height: 100%;
+	width: 100%;
+	content: "";
+	inset: 0;
+	z-index: -1;
+}
+
+.upgrade-card-wrapper {
+	/* width: 400px; */
+	background-repeat: no-repeat;
+	background-position: top right;
+	position: relative;
+	z-index: 1;
+}
+
+.upgrade-card::before {
+	background-image: url("../../assets/images/upgrade-card-bg.png");
+	background-size: 120px;
+	background-repeat: no-repeat;
+	background-position: top right;
+	opacity: 0.2;
+	transition: opacity 0.5s;
+	position: absolute;
+	height: 100%;
+	width: 100%;
+	content: "";
+	inset: 0;
+	flex-direction: column;
+	z-index: -1;
+}
+
+
+.status-card-wrapper,
+.property-status-cards-wrapper {
+	/* width: 400px; */
+	background-repeat: no-repeat;
+	background-position: top right;
+	position: relative;
+	z-index: 1;
+}
+
+.status-card::before,
+.property-status-cards::before {
+	background-size: 120px;
+	background-repeat: no-repeat;
+	background-position: bottom right;
+	position: absolute;
+	height: 100%;
+	width: 100%;
+	content: "";
+	inset: 0;
+	z-index: -1;
+	color: #ffffff00;
+}
+
+
+.status-cards {
+	&& div:nth-child(1) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/money-bag.png");
+	}
+
+	&& div:nth-child(2) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/house-02.png");
+	}
+
+	&& div:nth-child(3) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/star.png");
+	}
+
+	&& div:nth-child(4) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/court-law.png");
+	}
+
+	&& div:nth-child(2) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/house-02.png");
+	}
+
+	&& div:nth-child(3) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/star.png");
+	}
+
+	&& div:nth-child(4) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/court-law.png");
+	}
+}
+
+
+.property-status-cards {
+	&& div:nth-child(1) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/money-bag.png");
+	}
+
+	&& div:nth-child(2) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/house-02.png");
+	}
+
+	&& div:nth-child(3) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/flag.png");
+	}
+
+	&& div:nth-child(4) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/star.png");
+	}
+
+	&& div:nth-child(5) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/court-law.png");
+	}
+
+	&& div:nth-child(6) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/microphone.png");
+	}
+
+	&& div:nth-child(7) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/speaker-high.png");
+	}
+
+	&& div:nth-child(8) .status-card-wrapper .status-card::before {
+		background-image: url("../../assets/images/joystick.png");
+	}
+}
+
+
+/* .money-card::before { */
+
+/* } */
+
+.money-card-wrapper {
+	background-repeat: no-repeat;
+	background-position: top right;
+	position: relative;
+	z-index: 1;
+}
+.money-card::before {
+	background-image: url("../../assets/images/money-bag.png");
+	background-size: 10rem;
+	background-repeat: no-repeat;
+	background-position: bottom right;
+	position: absolute;
+	height: 100%;
+	width: 100%;
+	content: "";
+	inset: 0;
+	z-index: -1;
+	color: #ffffff00;
+}
