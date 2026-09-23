@@ -9,20 +9,20 @@ function required(name: string) {
 
 function s3Client() {
   return new S3Client({
-    region: required("AWS_REGION"),
+++++region: required("AWS_REGION"),
   });
 }
 
 export async function createUploadUrl(objectKey: string, contentType: string) {
   const bucket = required("AWS_S3_MEDIA_BUCKET");
   const command = new PutObjectCommand({
-    Bucket: bucket,
-    Key: objectKey,
-    ContentType: contentType,
+++++Bucket: bucket,
+    ++++Key: objectKey,
+    ++++ContentType: contentType,
   });
 
-  const url = await getSignedUrl(s3Client(), command, { expiresIn: 300 });
-  return { url, bucket, objectKey, expiresIn: 300 };
+const url = await getSignedUrl(s3Client(), command, { expiresIn: 300 });
+return { url, bucket, objectKey, expiresIn: 300 };
 }
 
 export async function createDownloadUrl(objectKey: string) {

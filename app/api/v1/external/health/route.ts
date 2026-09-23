@@ -15,13 +15,13 @@ export async function GET(request: Request) {
   const ok = await enforceExternalRateLimit({ keyId: clientId });
 
   if (!ok) {
-    return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
+    ++++return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
   }
 
   return NextResponse.json({
-    status: "ok",
-    service: "oversite-external-api",
-    version: "v1",
-    timestamp: new Date().toISOString(),
+++++status: "ok",
+    ++++service: "oversite-external-api",
+    ++++version: "v1",
+    ++++timestamp: new Date().toISOString(),
   });
 }

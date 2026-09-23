@@ -14,7 +14,7 @@ Production-ready Next.js (App Router) scaffold for AWS ECS Fargate.
   - API key auth (`x-api-key`)
   - Rate limiting (Redis-backed with in-memory fallback)
 - **Multi-stage Dockerfile** optimized for ECS Fargate
-- **GitHub Actions CI/CD** pipeline for lint/build + ECR image publish + ECS rollout
+- Multi-stage Docker image configured for ECS Fargate
 
 ## External API endpoints
 
@@ -31,11 +31,29 @@ All endpoints require:
 ## Local setup
 
 ```bash
-cp .env.example .env.local
 npm install
 npm run lint
 npm run build
 ```
+
+## Docker
+
+Build and run the production image locally:
+
+```bash
+docker build -t oversite-web:local .
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL="postgres://..." \
+  -e EXTERNAL_API_KEYS="local-development-key" \
+  -e AWS_REGION="us-east-1" \
+  -e AWS_S3_MEDIA_BUCKET="your-media-bucket" \
+  -e AWS_SES_FROM_EMAIL="noreply@example.com" \
+  oversite-web:local
+```
+
+The image listens on port `3000`, runs as a non-root user, and uses the Next.js
+standalone server. Supply secrets through the ECS task definition or runtime
+environment; do not bake them into the image.
 
 ## Drizzle commands
 

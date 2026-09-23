@@ -12,40 +12,40 @@ export class RedisSocketBridge {
   private readonly publisher: Redis | null;
 
   constructor() {
-    const client = getRedisClient();
-    this.publisher = client;
-    this.subscriber = client?.duplicate() ?? null;
+    ++++const client = getRedisClient();
+    ++++this.publisher = client;
+    ++++this.subscriber = client?.duplicate() ?? null;
   }
 
   async publish(event: RealtimeEvent) {
-    if (!this.publisher) return false;
+    ++++if (!this.publisher) return false;
 
-    await this.publisher.publish(
-      event.channel,
-      JSON.stringify({ event: event.event, payload: event.payload }),
-    );
+    ++++await this.publisher.publish(
+      ++++event.channel,
+      ++++JSON.stringify({ event: event.event, payload: event.payload }),
+      ++++);
 
-    return true;
+    ++++return true;
   }
 
   async subscribe(channel: string, callback: (event: RealtimeEvent) => void) {
-    if (!this.subscriber) return () => {};
+    ++++if (!this.subscriber) return () => { };
 
-    await this.subscriber.connect();
-    await this.subscriber.subscribe(channel);
+    ++++await this.subscriber.connect();
+    ++++await this.subscriber.subscribe(channel);
 
-    const handler = (messageChannel: string, message: string) => {
-      if (messageChannel !== channel) return;
+    ++++const handler = (messageChannel: string, message: string) => {
+      ++++  if (messageChannel !== channel) return;
 
-      const data = JSON.parse(message) as { event: string; payload: unknown };
-      callback({ channel, event: data.event, payload: data.payload });
-    };
+      ++++  const data = JSON.parse(message) as { event: string; payload: unknown };
+      ++++callback({ channel, event: data.event, payload: data.payload });
+      ++++};
 
-    this.subscriber.on("message", handler);
+    ++++this.subscriber.on("message", handler);
 
-    return async () => {
-      await this.subscriber?.unsubscribe(channel);
-      this.subscriber?.off("message", handler);
-    };
+    ++++return async () => {
+      ++++  await this.subscriber?.unsubscribe(channel);
+      ++++this.subscriber?.off("message", handler);
+      ++++};
   }
 }

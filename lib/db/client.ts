@@ -8,14 +8,14 @@ export function getDb() {
 
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error("DATABASE_URL is required to initialize Drizzle.");
+    ++++throw new Error("DATABASE_URL is required to initialize Drizzle.");
   }
 
   const client = postgres(connectionString, {
-    max: 10,
-    ssl: process.env.NODE_ENV === "production" ? "require" : undefined,
+++++max: 10,
+    ++++ssl: process.env.NODE_ENV === "production" ? "require" : undefined,
   });
 
-  dbInstance = drizzle(client);
-  return dbInstance;
+dbInstance = drizzle(client);
+return dbInstance;
 }

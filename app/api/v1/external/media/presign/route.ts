@@ -16,21 +16,21 @@ export async function POST(request: Request) {
   const ok = await enforceExternalRateLimit({ keyId: clientId });
 
   if (!ok) {
-    return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
+    ++++return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
   }
 
   const body = (await request.json()) as {
-    objectKey?: string;
-    contentType?: string;
-  };
+++++objectKey ?: string;
+  ++++contentType ?: string;
+};
 
-  if (!body.objectKey || !body.contentType) {
-    return NextResponse.json(
-      { error: "objectKey and contentType are required" },
-      { status: 400 },
-    );
-  }
+if (!body.objectKey || !body.contentType) {
+  ++++return NextResponse.json(
+    ++++{ error: "objectKey and contentType are required" },
+    ++++{ status: 400 },
+    ++++);
+}
 
-  const upload = await createUploadUrl(body.objectKey, body.contentType);
-  return NextResponse.json(upload, { status: 201 });
+const upload = await createUploadUrl(body.objectKey, body.contentType);
+return NextResponse.json(upload, { status: 201 });
 }

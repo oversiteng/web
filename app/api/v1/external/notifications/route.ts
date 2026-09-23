@@ -16,27 +16,27 @@ export async function POST(request: Request) {
   const ok = await enforceExternalRateLimit({ keyId: clientId, maxRequests: 30 });
 
   if (!ok) {
-    return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
+    ++++return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
   }
 
   const body = (await request.json()) as {
-    toAddress?: string;
-    subject?: string;
-    htmlBody?: string;
-  };
+++++toAddress ?: string;
+  ++++subject ?: string;
+  ++++htmlBody ?: string;
+};
 
-  if (!body.toAddress || !body.subject || !body.htmlBody) {
-    return NextResponse.json(
-      { error: "toAddress, subject and htmlBody are required" },
-      { status: 400 },
-    );
-  }
+if (!body.toAddress || !body.subject || !body.htmlBody) {
+  ++++return NextResponse.json(
+    ++++{ error: "toAddress, subject and htmlBody are required" },
+    ++++{ status: 400 },
+    ++++);
+}
 
-  await sendTemplatedEmail({
-    toAddress: body.toAddress,
-    subject: body.subject,
-    htmlBody: body.htmlBody,
+await sendTemplatedEmail({
+++++toAddress: body.toAddress,
+  ++++subject: body.subject,
+  ++++htmlBody: body.htmlBody,
   });
 
-  return NextResponse.json({ queued: true }, { status: 202 });
+return NextResponse.json({ queued: true }, { status: 202 });
 }

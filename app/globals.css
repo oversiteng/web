@@ -1,49 +1,201 @@
+/* ============================================================
+   OVERSITE.NG — DESIGN SYSTEM (globals.css)
+   Extracted from the Around Bootstrap UI theme used in
+   landing-Index.html. Provides light + dark mode tokens,
+   base reset, typography, responsive design, and CSS variables.
+   ============================================================ */
+
+/* ----- CSS Custom Properties (Light — default) ----- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand */
+  --primary: #448c74;
+  --primary-rgb: 68, 140, 116;
+  --primary-hover: #35705d;
+  --primary-light: rgba(68, 140, 116, 0.12);
+  --primary-border: rgba(68, 140, 116, 0.25);
+
+  /* Semantic */
+  --warning: #ffc107;
+  --warning-rgb: 255, 193, 7;
+  --danger: #ef4444;
+  --danger-rgb: 239, 68, 68;
+  --info: #0ea5e9;
+  --info-rgb: 14, 165, 233;
+  --success: #10b981;
+  --success-rgb: 16, 185, 129;
+
+  /* Surfaces (Light Mode) */
+  --bg-body: #ffffff;
+  --bg-secondary: #f3f6ff;
+  --bg-card: #ffffff;
+  --bg-nav: rgba(255, 255, 255, 0.95);
+  --bg-footer: #111827;
+
+  /* Text */
+  --text-heading: #111827;
+  --text-body: #565973;
+  --text-muted: #6f788b;
+  --text-on-primary: #ffffff;
+  --text-on-dark: #ffffff;
+
+  /* Borders & Shadows */
+  --border-color: #e2e5f1;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.16);
+
+  /* Radius */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 2rem;
+  --radius-pill: 50rem;
+  --radius-circle: 50%;
+
+  /* Transitions */
+  --transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Layout */
+  --container-max: 1200px;
+  --nav-height: 76px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ----- Dark Mode Tokens (Exact Around Theme Dark Palette) ----- */
+[data-theme="dark"] {
+  --bg-body: #121519;
+  --bg-secondary: #1a1e24;
+  --bg-card: #1a1e24;
+  --bg-nav: rgba(18, 21, 25, 0.95);
+  --bg-footer: #0c0e11;
+
+  --text-heading: #ffffff;
+  --text-body: rgba(255, 255, 255, 0.75);
+  --text-muted: rgba(255, 255, 255, 0.5);
+
+  --border-color: rgba(255, 255, 255, 0.08);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.6);
+}
+
+/* ----- Base Reset ----- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 html {
   height: 100%;
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-body);
+  color: var(--text-body);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--transition-slow), color var(--transition-slow);
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
+/* ----- Typography ----- */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text-heading);
+  font-weight: 700;
+  line-height: 1.2;
   margin: 0;
+  transition: color var(--transition-slow);
+}
+
+h1 {
+  font-size: clamp(2.1rem, 5vw, 3.5rem);
+}
+
+h2 {
+  font-size: clamp(1.75rem, 3.8vw, 2.75rem);
+}
+
+h3 {
+  font-size: clamp(1.2rem, 2.5vw, 1.375rem);
+}
+
+h4 {
+  font-size: 1.125rem;
+}
+
+p {
+  margin: 0;
+  color: var(--text-body);
+  transition: color var(--transition-slow);
 }
 
 a {
   color: inherit;
   text-decoration: none;
+  transition: color var(--transition-base);
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+ul {
+  list-style: none;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+/* ----- Utility: Container ----- */
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+@media (max-width: 576px) {
+  .container {
+    ++++padding: 0 1rem;
   }
+}
+
+/* ----- Selection & Scrollbar ----- */
+::selection {
+  background: var(--primary);
+  color: var(--text-on-primary);
+}
+
+::-webkit-scrollbar {
+  width: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
 }

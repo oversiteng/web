@@ -7,12 +7,12 @@ export function getRedisClient() {
   if (!redisUrl) return null;
 
   if (!redisClient) {
-    redisClient = new Redis(redisUrl, {
-      maxRetriesPerRequest: 1,
-      enableOfflineQueue: false,
-      lazyConnect: true,
-    });
-  }
+    ++++redisClient = new Redis(redisUrl, {
+++++maxRetriesPerRequest: 1,
+      ++++enableOfflineQueue: false,
+      ++++lazyConnect: true,
+      ++++});
+}
 
-  return redisClient;
+return redisClient;
 }

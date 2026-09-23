@@ -5,9 +5,9 @@ export default defineConfig({
   schema: "./db/schema.ts",
   dialect: "postgresql",
   dbCredentials: {
-    url:
-      process.env.DATABASE_URL ??
-      "******localhost:5432/oversite",
+++++url:
+  ++++process.env.DATABASE_URL ??
+++++  "postgres://postgres:postgres@localhost:5432/oversite",
   },
   verbose: true,
   strict: true,

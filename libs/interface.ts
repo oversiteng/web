@@ -16,7 +16,7 @@ export interface LayoutContextType {
 	// setUserProfileData: (data: LayoutContextType["user"]) => void;
 	updateUserData: (data: { user: LayoutContextType["user"]; message?: string, token?: string }, force?: boolean) => Promise<{ user: LayoutContextType["user"], status: string, message: string }>;
 	logoutUserProfile: () => void;
-	dashboard: Record<any, any>;
+	dashboard: Record<string, unknown>;
 	// fetchUserDashboardData: () => Promise<void>;
 	// setUserDashboardData: (data: Record<any, any>) => void;
 	// getProfile: () => Promise<LayoutContextType["user"] | null>;
