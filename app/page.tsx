@@ -424,7 +424,7 @@ export default function Home() {
 
             {/* 4-Layer Hero Parallax Component with Floating & Mouse Animation */}
             <div className={s.heroImageContainer} >
-              <heroParallax theme={theme} />
+              <HeroParallax theme={theme} />
             </div >
           </div >
         </div >
