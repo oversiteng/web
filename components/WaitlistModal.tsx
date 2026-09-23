@@ -81,186 +81,186 @@ export default function WaitlistModal({ isOpen, onClose, defaultPlan = "Basic Ti
   };
 
   return (
-    < div className={styles.backdrop} onClick={onClose} >
-      < div className={styles.modal} onClick={(e) => e.stopPropagation()
+    <div className={styles.backdrop} onClick={onClose} >
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()
       }>
-        < button className={styles.closeBtn} onClick={onClose} aria - label="Close modal" >
-        & times;
-      </button >
+        <button className={styles.closeBtn} onClick={onClose} aria-label="Close modal" >
+          & times;
+        </button >
 
-      {step === "form" ? (
-        <div>
-          < div className={styles.header} >
-            < span className={styles.badge} > Priority Waitlist</span >
-            < h2 > Get Early Access to Oversite.ng</h2 >
-            <p>
-              Reserve your < strong > Free Tier Spot</strong > and tell us which services you need help with right now.
-            </p >
-          </div >
-
-          < form onSubmit={handleSubmit} className={styles.form} >
-            {/* Personal Info */}
-            < div className={styles.formGroup} >
-              < label htmlFor="fullName" > Full Name</label >
-              < input
-                id="fullName"
-                type="text"
-                required
-                placeholder="e.g. Chukwuma Adeniyi"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className={styles.input}
-              />
+        {step === "form" ? (
+          <div>
+            <div className={styles.header} >
+              <span className={styles.badge} > Priority Waitlist</span >
+              <h2 > Get Early Access to Oversite.ng</h2 >
+              <p>
+                Reserve your <strong > Free Tier Spot</strong > and tell us which services you need help with right now.
+              </p >
             </div >
 
-            < div className={styles.rowTwo} >
-              < div className={styles.formGroup} >
-                < label htmlFor="email" > Email Address</label >
-                < input
-                  id="email"
-                  type="email"
+            < form onSubmit={handleSubmit} className={styles.form} >
+              {/* Personal Info */}
+              <div className={styles.formGroup} >
+                <label htmlFor="fullName" > Full Name</label >
+                <input
+                  id="fullName"
+                  type="text"
                   required
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. Chukwuma Adeniyi"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
                   className={styles.input}
                 />
               </div >
 
-              < div className={styles.formGroup} >
-                < label htmlFor="phone" > WhatsApp / Phone</label >
-                < input
-                  id="phone"
-                  type="tel"
-                  required
-                  placeholder="+234 801 234 5678"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className={styles.input}
-                />
-              </div >
-            </div >
+              <div className={styles.rowTwo} >
+                <div className={styles.formGroup} >
+                  <label htmlFor="email" > Email Address</label >
+                  <input
+                    id="email"
+                    type="email"
+                    required
+                    placeholder="name@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={styles.input}
+                  />
+                </div >
 
-            {/* Service Selection Checklist */}
-            < div className={styles.servicesSection} >
-              < div className={styles.servicesHeader} >
-                < label className={styles.sectionLabel} >
-                  Select Services You Need Currently:
-                </label >
-                < button
-                  type="button"
-                  className={styles.selectAllBtn}
-                  onClick={selectAllServices}
-                >
-                  {selectedServices.length === AVAILABLE_SERVICES.length
-                    ? "Deselect All"
-                    : "Select All"}
-                </button >
+                <div className={styles.formGroup} >
+                  <label htmlFor="phone" > WhatsApp / Phone</label >
+                  <input
+                    id="phone"
+                    type="tel"
+                    required
+                    placeholder="+234 801 234 5678"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className={styles.input}
+                  />
+                </div >
               </div >
 
-              < div className={styles.servicesGrid} >
-                {
-                  AVAILABLE_SERVICES.map((serv) => {
-                    const isChecked = selectedServices.includes(serv.id);
-                    return (
-                      < div
-                        key={serv.id}
-                        className={
-                          `${styles.serviceCard} ${isChecked ? styles.serviceCardSelected : ""
-                          } `}
-                        onClick={() => toggleService(serv.id)}
-                      >
-                        <div className={`${styles.customCheck} ${isChecked ? styles.customCheckChecked : ""} `}>
-                          {isChecked && <IconCheck className={styles.customCheckIcon} />}
-                        </div>
-                        <div className={styles.serviceText}>
-                          <strong>{serv.label}</strong>
-                          <span>{serv.desc}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
+              {/* Service Selection Checklist */}
+              <div className={styles.servicesSection} >
+                <div className={styles.servicesHeader} >
+                  <label className={styles.sectionLabel} >
+                    Select Services You Need Currently:
+                  </label >
+                  <button
+                    type="button"
+                    className={styles.selectAllBtn}
+                    onClick={selectAllServices}
+                  >
+                    {selectedServices.length === AVAILABLE_SERVICES.length
+                      ? "Deselect All"
+                      : "Select All"}
+                  </button >
+                </div >
 
-            {/* Plan Tier Choice */}
-            <div className={styles.planChoiceRow}>
-              <label className={styles.sectionLabel}>Starting Plan Tier:</label>
-              <div className={styles.planOptions}>
-                <button
-                  type="button"
-                  className={`${styles.planChip} ${selectedPlan.includes("Basic") ? styles.planChipActive : ""
-                    } `}
-                  onClick={() => setSelectedPlan("Basic Tier (Free Reserved)")}
-                >
-                  Basic (Free Reserved)
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.planChip} ${selectedPlan.includes("Premium") ? styles.planChipActive : ""
-                    } `}
-                  onClick={() => setSelectedPlan("Premium Tier (₦50,000 Priority Access)")}
-                >
-                  Premium (Priority Waitlist &bull; ₦50,000)
-                </button>
-              </div>
-            </div>
-
-            {/* Payment Notice for Premium Plan */}
-            {selectedPlan.includes("Premium") && (
-              <div className={styles.paymentNoticeBox}>
-                <div className={styles.paymentNoticeHeader}>
-                  <span className={styles.paymentBadge}>Priority Onboarding &bull; ₦50,000 Deposit</span>
+                <div className={styles.servicesGrid} >
+                  {
+                    AVAILABLE_SERVICES.map((serv) => {
+                      const isChecked = selectedServices.includes(serv.id);
+                      return (
+                        <div
+                          key={serv.id}
+                          className={
+                            `${styles.serviceCard} ${isChecked ? styles.serviceCardSelected : ""
+                            } `}
+                          onClick={() => toggleService(serv.id)}
+                        >
+                          <div className={`${styles.customCheck} ${isChecked ? styles.customCheckChecked : ""} `}>
+                            {isChecked && <IconCheck className={styles.customCheckIcon} />}
+                          </div>
+                          <div className={styles.serviceText}>
+                            <strong>{serv.label}</strong>
+                            <span>{serv.desc}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
-                <p>
-                  Premium Priority Waitlist reserves an instant dedicated manager, zero queue delay, and ₦50,000 initial platform credit upon launch.
+              </div>
+
+              {/* Plan Tier Choice */}
+              <div className={styles.planChoiceRow}>
+                <label className={styles.sectionLabel}>Starting Plan Tier:</label>
+                <div className={styles.planOptions}>
+                  <button
+                    type="button"
+                    className={`${styles.planChip} ${selectedPlan.includes("Basic") ? styles.planChipActive : ""
+                      } `}
+                    onClick={() => setSelectedPlan("Basic Tier (Free Reserved)")}
+                  >
+                    Basic (Free Reserved)
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.planChip} ${selectedPlan.includes("Premium") ? styles.planChipActive : ""
+                      } `}
+                    onClick={() => setSelectedPlan("Premium Tier (₦50,000 Priority Access)")}
+                  >
+                    Premium (Priority Waitlist &bull; ₦50,000)
+                  </button>
+                </div>
+              </div>
+
+              {/* Payment Notice for Premium Plan */}
+              {selectedPlan.includes("Premium") && (
+                <div className={styles.paymentNoticeBox}>
+                  <div className={styles.paymentNoticeHeader}>
+                    <span className={styles.paymentBadge}>Priority Onboarding &bull; ₦50,000 Deposit</span>
+                  </div>
+                  <p>
+                    Premium Priority Waitlist reserves an instant dedicated manager, zero queue delay, and ₦50,000 initial platform credit upon launch.
+                  </p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting || selectedServices.length === 0}
+                className={styles.submitBtn}
+              >
+                {submitting
+                  ? "Processing..."
+                  : selectedPlan.includes("Premium")
+                    ? "Proceed to ₦50,000 Payment & Reserve"
+                    : "Claim Free Early Access"}
+              </button>
+            </form>
+          </div>
+        ) : (
+          <div className={styles.successState}>
+            <div className={styles.successIconWrap}>
+              <IconCheck className={styles.successIcon} />
+            </div>
+            <h2>You&apos;re on the Early Access List!</h2>
+            <p>
+              Thank you, <strong>{fullName}</strong>. We have reserved your spot on the{" "}
+              <strong>{selectedPlan}</strong> with priority onboarding for your selected services.
+            </p>
+
+            {selectedPlan.includes("Premium") ? (
+              <div className={styles.successDetails}>
+                <p style={{ fontWeight: 700, color: "var(--primary)", marginBottom: "4px" }}>
+                  Payment Link &amp; Order Invoice Sent!
                 </p>
+                <span>Check <strong>{email}</strong> or WhatsApp (<strong>{phone}</strong>) for your ₦50,000 priority access invoice.</span>
+              </div>
+            ) : (
+              <div className={styles.successDetails}>
+                <span>We will notify you at <strong>{email}</strong> as soon as your access opens.</span>
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={submitting || selectedServices.length === 0}
-              className={styles.submitBtn}
-            >
-              {submitting
-                ? "Processing..."
-                : selectedPlan.includes("Premium")
-                  ? "Proceed to ₦50,000 Payment & Reserve"
-                  : "Claim Free Early Access"}
+            <button className={styles.submitBtn} onClick={handleResetAndClose}>
+              Back to Overview
             </button>
-          </form>
-        </div>
-      ) : (
-        <div className={styles.successState}>
-          <div className={styles.successIconWrap}>
-            <IconCheck className={styles.successIcon} />
           </div>
-          <h2>You&apos;re on the Early Access List!</h2>
-          <p>
-            Thank you, <strong>{fullName}</strong>. We have reserved your spot on the{" "}
-            <strong>{selectedPlan}</strong> with priority onboarding for your selected services.
-          </p>
-
-          {selectedPlan.includes("Premium") ? (
-            <div className={styles.successDetails}>
-              <p style={{ fontWeight: 700, color: "var(--primary)", marginBottom: "4px" }}>
-                Payment Link &amp; Order Invoice Sent!
-              </p>
-              <span>Check <strong>{email}</strong> or WhatsApp (<strong>{phone}</strong>) for your ₦50,000 priority access invoice.</span>
-            </div>
-          ) : (
-            <div className={styles.successDetails}>
-              <span>We will notify you at <strong>{email}</strong> as soon as your access opens.</span>
-            </div>
-          )}
-
-          <button className={styles.submitBtn} onClick={handleResetAndClose}>
-            Back to Overview
-          </button>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
     </div >
   );
 }
