@@ -85,7 +85,7 @@ export default function WaitlistModal({ isOpen, onClose, defaultPlan = "Basic Ti
       <div className={styles.modal} onClick={(e) => e.stopPropagation()
       }>
         <button className={styles.closeBtn} onClick={onClose} aria-label="Close modal" >
-          & times;
+          &times;
         </button >
 
         {step === "form" ? (
