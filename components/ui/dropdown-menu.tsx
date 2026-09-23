@@ -16,7 +16,7 @@ function DropdownMenuPortal({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>) {
   return (
-    <dropdownMenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
+    <DropdownMenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
   )
 }
 
@@ -24,7 +24,7 @@ function DropdownMenuTrigger({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Trigger>) {
   return (
-    <dropdownMenuPrimitive.Trigger
+    <DropdownMenuPrimitive.Trigger
       data-slot="dropdown-menu-trigger"
       {...props}
     />
@@ -37,8 +37,8 @@ function DropdownMenuContent({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   return (
-    <dropdownMenuPrimitive.Portal >
-      <dropdownMenuPrimitive.Content
+    <DropdownMenuPrimitive.Portal >
+      <DropdownMenuPrimitive.Content
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={
@@ -57,7 +57,7 @@ function DropdownMenuGroup({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Group>) {
   return (
-    <dropdownMenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
+    <DropdownMenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
   )
 }
 
@@ -71,7 +71,7 @@ function DropdownMenuItem({
   variant?: "default" | "destructive"
 }) {
   return (
-    <dropdownMenuPrimitive.Item
+    <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
@@ -93,7 +93,7 @@ function DropdownMenuCheckboxItem({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>) {
   return (
-    <dropdownMenuPrimitive.CheckboxItem
+    <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       className={
         cn(
@@ -118,7 +118,7 @@ function DropdownMenuRadioGroup({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>) {
   return (
-    <dropdownMenuPrimitive.RadioGroup
+    <DropdownMenuPrimitive.RadioGroup
       data-slot="dropdown-menu-radio-group"
       {...props}
     />
@@ -131,7 +131,7 @@ function DropdownMenuRadioItem({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
   return (
-    <dropdownMenuPrimitive.RadioItem
+    <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={
         cn(
@@ -159,7 +159,7 @@ function DropdownMenuLabel({
   inset?: boolean
 }) {
   return (
-    <dropdownMenuPrimitive.Label
+    <DropdownMenuPrimitive.Label
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={
@@ -178,7 +178,7 @@ function DropdownMenuSeparator({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Separator>) {
   return (
-    <dropdownMenuPrimitive.Separator
+    <DropdownMenuPrimitive.Separator
       data-slot="dropdown-menu-separator"
       className={cn("bg-border -mx-1 my-1 h-px", className)}
       {...props}
@@ -219,7 +219,7 @@ function DropdownMenuSubTrigger({
   inset?: boolean
 }) {
   return (
-    <dropdownMenuPrimitive.SubTrigger
+    <DropdownMenuPrimitive.SubTrigger
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={
@@ -241,7 +241,7 @@ function DropdownMenuSubContent({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
   return (
-    <dropdownMenuPrimitive.SubContent
+    <DropdownMenuPrimitive.SubContent
       data-slot="dropdown-menu-sub-content"
       className={
         cn(
