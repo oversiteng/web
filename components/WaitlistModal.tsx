@@ -99,6 +99,41 @@ export default function WaitlistModal({ isOpen, onClose, defaultPlan = "Basic Ti
             </div >
 
             < form onSubmit={handleSubmit} className={styles.form} >
+              {/* Plan Tier Choice */}
+              <div className={styles.planChoiceRow}>
+                <label className={styles.sectionLabel}>Starting Plan Tier:</label>
+                <div className={styles.planOptions}>
+                  <button
+                    type="button"
+                    className={`${styles.planChip} ${selectedPlan.includes("Basic") ? styles.planChipActive : ""
+                      } `}
+                    onClick={() => setSelectedPlan("Basic Tier (Free Reserved)")}
+                  >
+                    Basic (Free Reserved)
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.planChip} ${selectedPlan.includes("Premium") ? styles.planChipActive : ""
+                      } `}
+                    onClick={() => setSelectedPlan("Premium Tier (₦50,000 Priority Access)")}
+                  >
+                    Premium (Priority Waitlist &bull; ₦50,000)
+                  </button>
+                </div>
+              </div>
+
+              {/* Payment Notice for Premium Plan */}
+              {selectedPlan.includes("Premium") && (
+                <div className={styles.paymentNoticeBox}>
+                  <div className={styles.paymentNoticeHeader}>
+                    <span className={styles.paymentBadge}>Priority Onboarding &bull; ₦50,000 Deposit</span>
+                  </div>
+                  <p>
+                    Premium Priority Waitlist reserves an instant dedicated manager, zero queue delay, and ₦50,000 initial platform credit upon launch.
+                  </p>
+                </div>
+              )}
+
               {/* Personal Info */}
               <div className={styles.formGroup} >
                 <label htmlFor="fullName" > Full Name</label >
@@ -182,41 +217,6 @@ export default function WaitlistModal({ isOpen, onClose, defaultPlan = "Basic Ti
                     })}
                 </div>
               </div>
-
-              {/* Plan Tier Choice */}
-              <div className={styles.planChoiceRow}>
-                <label className={styles.sectionLabel}>Starting Plan Tier:</label>
-                <div className={styles.planOptions}>
-                  <button
-                    type="button"
-                    className={`${styles.planChip} ${selectedPlan.includes("Basic") ? styles.planChipActive : ""
-                      } `}
-                    onClick={() => setSelectedPlan("Basic Tier (Free Reserved)")}
-                  >
-                    Basic (Free Reserved)
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.planChip} ${selectedPlan.includes("Premium") ? styles.planChipActive : ""
-                      } `}
-                    onClick={() => setSelectedPlan("Premium Tier (₦50,000 Priority Access)")}
-                  >
-                    Premium (Priority Waitlist &bull; ₦50,000)
-                  </button>
-                </div>
-              </div>
-
-              {/* Payment Notice for Premium Plan */}
-              {selectedPlan.includes("Premium") && (
-                <div className={styles.paymentNoticeBox}>
-                  <div className={styles.paymentNoticeHeader}>
-                    <span className={styles.paymentBadge}>Priority Onboarding &bull; ₦50,000 Deposit</span>
-                  </div>
-                  <p>
-                    Premium Priority Waitlist reserves an instant dedicated manager, zero queue delay, and ₦50,000 initial platform credit upon launch.
-                  </p>
-                </div>
-              )}
 
               <button
                 type="submit"
