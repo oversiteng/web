@@ -8,7 +8,7 @@ function required(name: string) {
 
 function sesClient() {
   return new SESClient({
-++++region: required("AWS_REGION"),
+    region: required("AWS_REGION"),
   });
 }
 
@@ -20,15 +20,15 @@ export async function sendTemplatedEmail(params: {
   const source = required("AWS_SES_FROM_EMAIL");
 
   return sesClient().send(
-    ++++new SendEmailCommand({
-++++Source: source,
-      ++++Destination: { ToAddresses: [params.toAddress] },
-      ++++Message: {
-++++++++Subject: { Data: params.subject },
-      ++++++++Body: {
-++++++++Html: { Data: params.htmlBody },
-      ++++++++},
-++++  },
-++++}),
+    new SendEmailCommand({
+      Source: source,
+      Destination: { ToAddresses: [params.toAddress] },
+      Message: {
+        Subject: { Data: params.subject },
+        Body: {
+          Html: { Data: params.htmlBody },
+        },
+      },
+    }),
   );
 }

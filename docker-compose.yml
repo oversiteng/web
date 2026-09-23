@@ -3,56 +3,56 @@ name: oversite-web
 services:
   # Main Next.js Web Application
   web:
-++++build:
-++++  context: .
-++++  dockerfile: Dockerfile
-++++container_name: oversite_web_app
-++++ports:
-++++  - "3000:3000"
-++++env_file:
-++++  - .env.local
-++++environment:
-++++  - NODE_ENV=development
-++++  # Overrides localhost to point to container service names when running in docker compose
-++++  - DATABASE_URL=postgres://postgres:abraham2003.com@postgres:5432/oversitedb
-++++  - REDIS_URL=redis://redis:6379
-++++depends_on:
-++++  postgres:
-++++++++condition: service_healthy
-++++  redis:
-++++++++condition: service_healthy
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oversite_web_app
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    environment:
+      - NODE_ENV=development
+      # Overrides localhost to point to container service names when running in docker compose
+      - DATABASE_URL=postgres://postgres:abraham2003.com@postgres:5432/oversitedb
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   # Local PostgreSQL Database Service
   postgres:
-++++image: postgres:16-alpine
-++++container_name: oversite_postgres
-++++environment:
-++++  POSTGRES_USER: oversite_user
-++++  POSTGRES_PASSWORD: oversite_password
-++++  POSTGRES_DB: oversitedb
-++++ports:
-++++  - "5432:5432"
-++++volumes:
-++++  - postgres_data:/var/lib/postgresql/data
-++++healthcheck:
-++++  test: ["CMD-SHELL", "pg_isready -U oversite_user -d oversitedb"]
-++++  interval: 5s
-++++  timeout: 5s
-++++  retries: 5
+    image: postgres:16-alpine
+    container_name: oversite_postgres
+    environment:
+      POSTGRES_USER: oversite_user
+      POSTGRES_PASSWORD: oversite_password
+      POSTGRES_DB: oversitedb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U oversite_user -d oversitedb" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # Local Redis Service for Realtime / Rate Limiting
   redis:
-++++image: redis:7-alpine
-++++container_name: oversite_redis
-++++ports:
-++++  - "6379:6379"
-++++volumes:
-++++  - redis_data:/data
-++++healthcheck:
-++++  test: ["CMD", "redis-cli", "ping"]
-++++  interval: 5s
-++++  timeout: 5s
-++++  retries: 5
+    image: redis:7-alpine
+    container_name: oversite_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:

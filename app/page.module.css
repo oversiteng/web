@@ -1211,100 +1211,100 @@
 
   .cardNarrow,
   .cardWide {
-    ++++flex: 0 0 100%;
-    ++++max-width: 100%;
+    flex: 0 0 100%;
+    max-width: 100%;
   }
 
   .stepRow,
   .stepRowReverse {
-    ++++grid-template-columns: 1fr;
-    ++++gap: 2.5rem;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
   }
 
   .stepArrowWrap {
-    ++++display: none;
+    display: none;
   }
 
   .plansRow {
-    ++++grid-template-columns: 1fr;
-    ++++max-width: 480px;
-    ++++margin: 0 auto;
+    grid-template-columns: 1fr;
+    max-width: 480px;
+    margin: 0 auto;
   }
 
   .planFeatured {
-    ++++transform: none;
+    transform: none;
   }
 
   .testimonialGrid {
-    ++++grid-template-columns: 1fr;
-    ++++gap: 2.5rem;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
   }
 
   .benefitsGrid {
-    ++++grid-template-columns: 1fr;
-    ++++max-width: 480px;
-    ++++margin: 0 auto;
+    grid-template-columns: 1fr;
+    max-width: 480px;
+    margin: 0 auto;
   }
 
   .resourcesGrid {
-    ++++grid-template-columns: 1fr;
-    ++++max-width: 480px;
-    ++++margin: 0 auto;
+    grid-template-columns: 1fr;
+    max-width: 480px;
+    margin: 0 auto;
   }
 
   .footerGrid {
-    ++++grid-template-columns: 1fr 1fr;
-    ++++gap: 2.5rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
   }
 }
 
 /* Below Mobile (max-width: 576px) */
 @media (max-width: 576px) {
   .navLinks {
-    ++++display: none;
+    display: none;
   }
 
   .hamburger {
-    ++++display: flex;
+    display: flex;
   }
 
   .hero {
-    ++++padding-top: calc(var(--nav-height) + 2rem);
+    padding-top: calc(var(--nav-height) + 2rem);
   }
 
   .btnPrimarySm {
-    ++++display: none;
+    display: none;
   }
 
   .cardHorizontal {
-    ++++flex-direction: column;
+    flex-direction: column;
   }
 
   .cardHorizImage {
-    ++++order: 1;
-    ++++width: 100%;
-    ++++max-width: 100%;
+    order: 1;
+    width: 100%;
+    max-width: 100%;
   }
 
   .cardHorizontal .cardBody {
-    ++++order: 2;
-    ++++padding: 1.25rem;
+    order: 2;
+    padding: 1.25rem;
   }
 
   .ctaButtons {
-    ++++flex-direction: column;
-    ++++width: 100%;
-    ++++max-width: 320px;
-    ++++margin: 0 auto;
+    flex-direction: column;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
   }
 
   .btnWarningPill,
   .btnOutlineWarningPill {
-    ++++width: 100%;
-    ++++text-align: center;
+    width: 100%;
+    text-align: center;
   }
 
   .footerGrid {
-    ++++grid-template-columns: 1fr;
+    grid-template-columns: 1fr;
   }
 }

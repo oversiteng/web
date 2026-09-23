@@ -47,7 +47,7 @@ ENV HOSTNAME=0.0.0.0
 
 # Create a non-root system group (nodejs) and user (nextjs) with GID/UID 1001 for security
 RUN addgroup --system --gid 1001 nodejs \
-  ++++&& adduser --system --uid 1001 nextjs
+  && adduser --system --uid 1001 nextjs
 
 # Copy static public assets from builder stage
 COPY --from=builder /app/public ./public

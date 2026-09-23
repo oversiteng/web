@@ -371,32 +371,32 @@
 
 @keyframes fadeIn {
   from {
-    ++++opacity: 0;
+    opacity: 0;
   }
 
   to {
-    ++++opacity: 1;
+    opacity: 1;
   }
 }
 
 @keyframes slideUp {
   from {
-    ++++opacity: 0;
-    ++++transform: translateY(20px) scale(0.97);
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
   }
 
   to {
-    ++++opacity: 1;
-    ++++transform: translateY(0) scale(1);
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
 @media (max-width: 576px) {
   .rowTwo {
-    ++++grid-template-columns: 1fr;
+    grid-template-columns: 1fr;
   }
 
   .modal {
-    ++++padding: 1.5rem 1.25rem;
+    padding: 1.5rem 1.25rem;
   }
 }
