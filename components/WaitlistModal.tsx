@@ -12,29 +12,34 @@ interface WaitlistModalProps {
 
 const AVAILABLE_SERVICES = [
   {
-    id: "monitoring",
-    label: "Property & Building Project Monitoring / Errand Requests",
-    desc: "Get real-time photo/video site updates and errand verification on demand.",
+    id: "quick_errands",
+    label: "Quick Errands",
+    desc: "Remote ad-hoc task execution on demand, including physical verifications, document pickups, queuing, and utility payments.",
   },
   {
-    id: "vendor_verification",
-    label: "Vendor & Contractor Verification",
-    desc: "Background checks and on-ground audits of suppliers and contractors.",
+    id: "proversite",
+    label: "Property Oversite (Proversite)",
+    desc: "Remote property surveillance, geo-tagged progress reports, adjoining development monitoring, and title/ownership verification.",
   },
   {
-    id: "security_law",
-    label: "Law Enforcement / Security & Escort Assistance",
-    desc: "Verified security escorts and police log report assistance.",
+    id: "prowatch",
+    label: "Project Watch (ProWatch)",
+    desc: "Onsite supervision for active construction and renovation projects, contractor progress audits, and milestone tracking.",
   },
   {
-    id: "analytics_valuation",
-    label: "Property Valuation & Estate Data Analytics",
-    desc: "Valuer-backed projections, policy changes, and landmark value impacts.",
+    id: "duedil",
+    label: "Due Diligence (DueDil)",
+    desc: "Comprehensive background checks on individuals, vendors, CAC registrations, physical addresses, and pre-transaction audits.",
   },
   {
-    id: "emergency_inspection",
-    label: "Emergency Contact & On-Ground Inspection",
-    desc: "Rapid deployment inspector assigned for urgent property incidents.",
+    id: "legal_advisory",
+    label: "Request Legal Advisory",
+    desc: "On-demand access to verified NBA lawyers for title advisory, land disputes, contract reviews, and legal documentation.",
+  },
+  {
+    id: "law_enforcement",
+    label: "Law Enforcement Agency Engagement",
+    desc: "Proxy representation and formal filing assistance with Lagos agencies (NPF, Lagos Task Force, EFCC, LASBCA, FCCPC).",
   },
 ];
 
@@ -123,7 +128,7 @@ export default function WaitlistModal({ isOpen, onClose, defaultPlan = "Basic Ti
               </div>
 
               {/* Payment Notice for Premium Plan */}
-              {selectedPlan.includes("Premium") && (
+              {/* {selectedPlan.includes("Premium") && (
                 <div className={styles.paymentNoticeBox}>
                   <div className={styles.paymentNoticeHeader}>
                     <span className={styles.paymentBadge}>Priority Onboarding &bull; ₦50,000 Deposit</span>
@@ -132,10 +137,10 @@ export default function WaitlistModal({ isOpen, onClose, defaultPlan = "Basic Ti
                     Premium Priority Waitlist reserves an instant dedicated manager, zero queue delay, and ₦50,000 initial platform credit upon launch.
                   </p>
                 </div>
-              )}
+              )} */}
 
               {/* Personal Info */}
-              <div className={styles.formGroup} >
+              <div className={styles.formGroup}>
                 <label htmlFor="fullName" > Full Name</label >
                 <input
                   id="fullName"

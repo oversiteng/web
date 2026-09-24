@@ -398,7 +398,7 @@ export default function Home() {
           <div className={s.heroInner} >
             <div className={s.heroTitleWrap} >
               <h1 className={s.heroTitle} >
-                Get Realtime info about your Properties & amp; Building Projects Wherever you are.
+                Get Realtime info about your Properties &amp; Building Projects Wherever you are.
               </h1 >
               <div className={s.titleDecoration} >
                 <svg width="608" height="66" viewBox="0 0 608 66" fill="currentColor" >
@@ -683,7 +683,7 @@ export default function Home() {
             {/* Proof CTA */}
             <div className={s.proofCta} >
               <h2>
-                More than 2, 653 diaspora clients use Oversite.ng for remote monitoring of their building projects & amp; properties.
+                More than 2, 653 diaspora clients use Oversite.ng for remote monitoring of their building projects &amp; properties.
               </h2 >
               < ul className={s.checkList} >
                 <li>

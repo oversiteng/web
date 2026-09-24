@@ -21,6 +21,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    develop:
+      watch:
+        - action: rebuild
+          path: .
+          ignore:
+            - node_modules/
+            - .next/
+            - .git/
+        - action: restart
+          path: .env.local
 
   # Local PostgreSQL Database Service
   postgres:
