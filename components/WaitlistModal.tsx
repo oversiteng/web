@@ -120,9 +120,10 @@ export default function WaitlistModal({ isOpen, onClose, defaultPlan = "Basic Ti
                     type="button"
                     className={`${styles.planChip} ${selectedPlan.includes("Premium") ? styles.planChipActive : ""
                       } `}
-                    onClick={() => setSelectedPlan("Premium Tier (₦50,000 Priority Access)")}
+                    onClick={() => setSelectedPlan("Premium Tier")}
                   >
-                    Premium (Priority Waitlist &bull; ₦50,000)
+                    Premium (Priority Waitlist)
+                    {/* Premium (Priority Waitlist &bull; ₦50,000) */}
                   </button>
                 </div>
               </div>
