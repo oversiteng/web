@@ -28,6 +28,9 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy the rest of the application source code
 COPY . .
 
+# Ensure any existing build cache directory is wiped before compiling fresh bundle
+RUN rm -rf .next
+
 # Run the Next.js build step (generates .next/standalone and .next/static)
 RUN npm run build
 

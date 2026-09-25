@@ -64,6 +64,25 @@ services:
       timeout: 5s
       retries: 5
 
+  # Payment Microservice
+  payment:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+    container_name: oversite_payment_service
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/payment-service
+          ignore:
+            - node_modules/
+            - dist/
+
 volumes:
   postgres_data:
   redis_data:
