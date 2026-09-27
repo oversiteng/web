@@ -32,7 +32,7 @@ export interface Task {
   propertyId?: string | null;
   moduleType: TaskModule;
   status: TaskStatus;
-  priority?: string;
+  priority?: string | null;
   title: string;
   description?: string | null;
   locationAddress?: string | null;

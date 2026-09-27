@@ -22,11 +22,15 @@ export const GET = withAuth<{ id: string }>(
       ...t,
       moduleType: t.moduleType as TaskModule,
       status: t.status as TaskStatus,
+      priority: t.priority ?? "normal",
+      formData: (t.formData as Record<string, unknown>) ?? null,
       locationLat: t.locationLat ? parseFloat(t.locationLat) : undefined,
       locationLng: t.locationLng ? parseFloat(t.locationLng) : undefined,
       priceNgn: t.priceNgn ? parseFloat(t.priceNgn) : undefined,
+      scheduledAt: t.scheduledAt ? t.scheduledAt.toISOString() : null,
+      completedAt: t.completedAt ? t.completedAt.toISOString() : null,
       createdAt: t.createdAt.toISOString(),
-      updatedAt: t.updatedAt.toISOString(),
+      updatedAt: t.updatedAt ? t.updatedAt.toISOString() : undefined,
     };
 
     return NextResponse.json<ApiResponse<Task>>({
