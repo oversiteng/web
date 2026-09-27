@@ -29,11 +29,15 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
     ...t,
     moduleType: t.moduleType as TaskModule,
     status: t.status as TaskStatus,
+    priority: t.priority ?? "normal",
+    formData: (t.formData as Record<string, unknown>) ?? null,
     locationLat: t.locationLat ? parseFloat(t.locationLat) : undefined,
     locationLng: t.locationLng ? parseFloat(t.locationLng) : undefined,
     priceNgn: t.priceNgn ? parseFloat(t.priceNgn) : undefined,
+    scheduledAt: t.scheduledAt ? t.scheduledAt.toISOString() : null,
+    completedAt: t.completedAt ? t.completedAt.toISOString() : null,
     createdAt: t.createdAt.toISOString(),
-    updatedAt: t.updatedAt.toISOString(),
+    updatedAt: t.updatedAt ? t.updatedAt.toISOString() : undefined,
   }));
 
   return NextResponse.json<PaginatedResponse<Task>>({
@@ -82,11 +86,15 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       ...newTask,
       moduleType: newTask.moduleType as TaskModule,
       status: newTask.status as TaskStatus,
+      priority: newTask.priority ?? "normal",
+      formData: (newTask.formData as Record<string, unknown>) ?? null,
       locationLat: newTask.locationLat ? parseFloat(newTask.locationLat) : undefined,
       locationLng: newTask.locationLng ? parseFloat(newTask.locationLng) : undefined,
       priceNgn: newTask.priceNgn ? parseFloat(newTask.priceNgn) : undefined,
+      scheduledAt: newTask.scheduledAt ? newTask.scheduledAt.toISOString() : null,
+      completedAt: newTask.completedAt ? newTask.completedAt.toISOString() : null,
       createdAt: newTask.createdAt.toISOString(),
-      updatedAt: newTask.updatedAt.toISOString(),
+      updatedAt: newTask.updatedAt ? newTask.updatedAt.toISOString() : undefined,
     };
 
     return NextResponse.json<ApiResponse<Task>>(
