@@ -13,7 +13,7 @@ export function getDb() {
 
   const client = postgres(connectionString, {
     max: 10,
-    ssl: process.env.NODE_ENV === "production" ? "require" : undefined,
+    ssl: "require",
   });
 
   dbInstance = drizzle(client);

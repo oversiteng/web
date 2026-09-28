@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import styles from "./WaitlistModal.module.css";
+import { submitToWaitlist } from "@/app/actions/waitlist";
 import { IconCheck } from "@/components/ui/Icons";
 
 interface WaitlistModalProps {
@@ -71,13 +72,29 @@ export default function WaitlistModal({ isOpen, onClose, defaultPlan = "Basic Ti
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    setTimeout(() => {
+    
+    try {
+      const res = await submitToWaitlist({
+        fullName,
+        email,
+        phone,
+        services: selectedServices,
+        plan: selectedPlan,
+      });
+
+      if (res.success) {
+        setStep("submitted");
+      } else {
+        alert("Something went wrong. Please try again.");
+      }
+    } catch (err) {
+      alert("Network error.");
+    } finally {
       setSubmitting(false);
-      setStep("submitted");
-    }, 600);
+    }
   };
 
   const handleResetAndClose = () => {
