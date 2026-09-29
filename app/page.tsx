@@ -324,33 +324,30 @@ export default function Home() {
             </Link >
 
             {/* Navigation Links */}
-            <nav className={s.navLinks} >
-              < a href="#how-it-works" > How It Works</a >
-              < a href="#features" > Features</a >
-              < a href="#pricing" > Pricing</a >
-            </nav >
+            <nav className={s.navLinks}>
+              <Link href="#how-it-works">How It Works</Link>
+              <Link href="#features">Features</Link>
+              <Link href="#pricing">Pricing</Link>
+            </nav>
 
             {/* Right Side: Theme Switcher & Login Button */}
-            <div className={s.navRight} >
+            <div className={s.navRight}>
               <button
                 className={s.themeToggle}
                 onClick={toggleTheme}
                 aria-label="Toggle theme"
                 title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
               >
-                {theme === "light" ? <IconMoon /> : <IconSun />
-                }
-              </button >
+                {theme === "light" ? <IconMoon /> : <IconSun />}
+              </button>
 
-              < a
+              <Link
                 className={s.btnPrimarySm}
-                href="http://oversite.ng/login"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/login"
               >
                 <IconLogin className={s.btnIcon} />
                 Sign in
-              </a >
+              </Link>
 
               {/* Hamburger Button (Mobile Only) */}
               <button
@@ -361,34 +358,31 @@ export default function Home() {
                 <span />
                 <span />
                 <span />
-              </button >
-            </div >
-          </div >
+              </button>
+            </div>
+          </div>
 
           {/* Mobile Menu Overlay */}
-          {
-            mobileMenuOpen && (
-              <div className={s.mobileMenu} >
-                < a href="#how-it-works" onClick={() => setMobileMenuOpen(false)}>
-                  How It Works
-                </a >
-                < a href="#features" onClick={() => setMobileMenuOpen(false)}>
-                  Features
-                </a >
-                < a href="#pricing" onClick={() => setMobileMenuOpen(false)}>
-                  Pricing
-                </a >
-                < a
-                  className={s.mobileSignInBtn}
-                  href="http://oversite.ng/login"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <IconLogin /> Sign in
-                </a >
-              </div >
-            )
-          }
+          {mobileMenuOpen && (
+            <div className={s.mobileMenu}>
+              <Link href="#how-it-works" onClick={() => setMobileMenuOpen(false)}>
+                How It Works
+              </Link>
+              <Link href="#features" onClick={() => setMobileMenuOpen(false)}>
+                Features
+              </Link>
+              <Link href="#pricing" onClick={() => setMobileMenuOpen(false)}>
+                Pricing
+              </Link>
+              <Link
+                className={s.mobileSignInBtn}
+                href="/login"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <IconLogin /> Sign in
+              </Link>
+            </div>
+          )}
         </div >
       </header >
 
@@ -475,38 +469,38 @@ export default function Home() {
 
                         {
                           f.hasLink && (
-                            < a href="#" className={s.linkPrimary} >
+                            <Link href="#how-it-works" className={s.linkPrimary}>
                               Learn more <IconArrowRight className={s.linkIcon} />
-                            </a >
+                            </Link>
                           )
                         }
-                      </div >
-                    </div >
-                  </div >
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
-          </div >
-        </div >
-      </section >
+          </div>
+        </div>
+      </section>
 
       {/* ===== HOW IT WORKS (STEPS) ===== */}
-      < section id="how-it-works" className={s.howItWorks} >
-        <div className="container" >
-          <h2 className={s.sectionTitle} > How does it work ?</h2 >
+      <section id="how-it-works" className={s.howItWorks}>
+        <div className="container">
+          <h2 className={s.sectionTitle}>How does it work ?</h2>
 
           {/* Step 01: Content Left, Image Right */}
-          <div className={s.stepRow} >
-            <div className={s.stepContent} >
-              <span className={s.badge} > Step 01</span >
-              <h3 > Register on the Platform</h3 >
+          <div className={s.stepRow}>
+            <div className={s.stepContent}>
+              <span className={s.badge}>Step 01</span>
+              <h3>Register on the Platform</h3>
               <p>
                 Quick and easy registration process using desired name, valid email and contact phone number, we validate and approve your profile account.
-              </p >
-              < a className={s.btnOutlinePill} href="#" >
+              </p>
+              <Link className={s.btnOutlinePill} href="/register">
                 Get Verified
-              </a >
-            </div >
-            <div className={s.stepVisual} >
+              </Link>
+            </div>
+            <div className={s.stepVisual}>
               <Image
                 src={theme === "dark" ? "/assets/img/landing/saas-2/steps/01-dark.png" : "/assets/img/landing/saas-2/steps/01-light.png"}
                 alt="Step 01"
@@ -514,29 +508,29 @@ export default function Home() {
                 height={400}
                 className={s.stepImg}
               />
-            </div >
-          </div >
+            </div>
+          </div>
 
           {/* Curved Arrow 1 */}
-          <div className={s.stepArrowWrap} >
-            <svg className={s.stepArrowSvg} width="339" height="365" viewBox="0 0 339 365" fill="none" >
-              < path
+          <div className={s.stepArrowWrap}>
+            <svg className={s.stepArrowSvg} width="339" height="365" viewBox="0 0 339 365" fill="none">
+              <path
                 d="M324 291.371C120.111 291.37 240.756 58.7225 1.00032 73.2606"
                 stroke="currentColor"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeDasharray="6 6"
               />
-              < path
+              <path
                 d="M337.375 290.62C338.074 290.998 338.074 292.001 337.375 292.379L328.476 297.196C327.81 297.557 327 296.317 327 296.317L327 286.683C327 285.925 327.81 285.443 328.476 285.803L337.375 290.62Z"
                 fill="currentColor"
               />
-            </svg >
-          </div >
+            </svg>
+          </div>
 
           {/* Step 02: Image Left, Content Right */}
           <div className={`${s.stepRow} ${s.stepRowReverse}`}>
-            <div className={s.stepVisual} >
+            <div className={s.stepVisual}>
               <Image
                 src={theme === "dark" ? "/assets/img/landing/saas-2/steps/02-dark.png" : "/assets/img/landing/saas-2/steps/02-light.png"}
                 alt="Step 02"
@@ -544,55 +538,55 @@ export default function Home() {
                 height={380}
                 className={s.stepImg}
               />
-            </div >
-            <div className={s.stepContent} >
-              <span className={s.badge} > Step 02</span >
-              <h3 > Complete Your Property Listings</h3 >
-              < ul className={s.checkList} >
+            </div>
+            <div className={s.stepContent}>
+              <span className={s.badge}>Step 02</span>
+              <h3>Complete Your Property Listings</h3>
+              <ul className={s.checkList}>
                 <li>
                   <IconCheck className={s.checkIcon} />
                   Enlist your project or property details
-                </li >
+                </li>
                 <li>
                   <IconCheck className={s.checkIcon} />
                   Provide emergency contact person
-                </li >
+                </li>
                 <li>
                   <IconCheck className={s.checkIcon} />
                   Get Assigned Accredited Manager
-                </li >
-              </ul >
-            </div >
-          </div >
+                </li>
+              </ul>
+            </div>
+          </div>
 
           {/* Curved Arrow 2 */}
-          <div className={s.stepArrowWrap} >
-            <svg className={s.stepArrowSvg} width="263" height="275" viewBox="0 0 263 275" fill="none" >
-              < path
+          <div className={s.stepArrowWrap}>
+            <svg className={s.stepArrowSvg} width="263" height="275" viewBox="0 0 263 275" fill="none">
+              <path
                 d="M8.13678 249.647C7.47108 250.081 6.59001 249.602 6.59106 248.808L6.60444 238.689C6.60544 237.931 7.4158 237.45 8.08162 237.811L16.5478 242.408C17.2136 242.77 17.2512 243.712 16.6163 244.125L8.13678 249.647Z"
                 fill="currentColor"
               />
-              < path
+              <path
                 d="M261.961 37.8891C216.908 65.6243 128.226 135.486 133.916 193.05C141.029 265.005 265.134 173.468 173.666 148.634C89.2542 125.715 30.9125 210.547 13.9796 236.702"
                 stroke="currentColor"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeDasharray="6 6"
               />
-            </svg >
-          </div >
+            </svg>
+          </div>
 
           {/* Step 03: Content Left, Image Right */}
-          <div className={s.stepRow} >
-            <div className={s.stepContent} >
-              <span className={s.badge} > Step 03</span >
-              <h3 > Receive Dashboard Updates and Download Expert Review Data</h3 >
+          <div className={s.stepRow}>
+            <div className={s.stepContent}>
+              <span className={s.badge}>Step 03</span>
+              <h3>Receive Dashboard Updates and Download Expert Review Data</h3>
               <p>
                 Once a verification of your listing is successful, an expert review is documented on intervals, with highlights on your dashboard, summary on Newsletters and Details on Downloadable Reports.
-              </p >
-              < a className={s.btnOutlinePill} href="#" >
+              </p>
+              <Link className={s.btnOutlinePill} href="/register">
                 Get Started
-              </a >
+              </Link>
             </div >
             <div className={s.stepVisual} >
               <Image
@@ -749,18 +743,18 @@ export default function Home() {
       {/* ===== RESOURCES SECTION ===== */}
       < section className={s.resourcesSection} >
         <div className="container" >
-          <div className={s.resourcesHeader} >
-            <h2 > Resources for you</h2 >
-            < a className={s.btnOutlinePill} href="#" >
+          <div className={s.resourcesHeader}>
+            <h2>Resources for you</h2>
+            <Link className={s.btnOutlinePill} href="#resources">
               Read all
-            </a >
-          </div >
+            </Link>
+          </div>
 
-          <div className={s.resourcesGrid} >
+          <div className={s.resourcesGrid}>
             {
               resourcesData.map((r, i) => (
-                < article key={i} className={s.resourceCard} >
-                  <div className={s.resourceImageWrap} >
+                <article key={i} className={s.resourceCard}>
+                  <div className={s.resourceImageWrap}>
                     <Image
                       src={r.image}
                       alt={r.title}
@@ -768,10 +762,10 @@ export default function Home() {
                       height={240}
                       className={s.resourceImg}
                     />
-                  </div >
-                  <h3 className={s.resourceTitle} >
-                    < a href="#" > {r.title}</a >
-                  </h3 >
+                  </div>
+                  <h3 className={s.resourceTitle}>
+                    <Link href="#resources">{r.title}</Link>
+                  </h3>
                   < p > {r.text}</p >
 
                   <div className={s.resourceMeta} >
@@ -848,73 +842,73 @@ export default function Home() {
               <p>
                 A service application helping with property oversight and building project monitoring.
               </p >
-              <div className={s.socialRow} >
-                < a className={s.socialIconBtn} href="#" aria-label="Facebook" >
+              <div className={s.socialRow}>
+                <Link className={s.socialIconBtn} href="#" aria-label="Facebook">
                   <IconFacebook />
-                </a >
-                < a className={s.socialIconBtn} href="#" aria-label="Instagram" >
+                </Link>
+                <Link className={s.socialIconBtn} href="#" aria-label="Instagram">
                   <IconInstagram />
-                </a >
-                < a className={s.socialIconBtn} href="#" aria-label="LinkedIn" >
+                </Link>
+                <Link className={s.socialIconBtn} href="#" aria-label="LinkedIn">
                   <IconLinkedIn />
-                </a >
-              </div >
-            </div >
+                </Link>
+              </div>
+            </div>
 
-            <div className={s.footerCol} >
-              <h4 > Company</h4 >
+            <div className={s.footerCol}>
+              <h4>Company</h4>
               <ul>
-                <li > <a href="#features">Features</a></li >
-                <li > <a href="#how-it-works">How it works</a></li >
-                <li > <a href="#pricing">Pricing</a></li >
-              </ul >
-            </div >
+                <li><Link href="#features">Features</Link></li>
+                <li><Link href="#how-it-works">How it works</Link></li>
+                <li><Link href="#pricing">Pricing</Link></li>
+              </ul>
+            </div>
 
-            <div className={s.footerCol} >
-              <h4 > Support</h4 >
+            <div className={s.footerCol}>
+              <h4>Support</h4>
               <ul>
-                <li > <a href="#">Help Center</a></li >
-                <li > <a href="#">Terms of service</a></li >
-                <li > <a href="#">Privacy policy</a></li >
-              </ul >
-            </div >
+                <li><Link href="#">Help Center</Link></li>
+                <li><Link href="#">Terms of service</Link></li>
+                <li><Link href="#">Privacy policy</Link></li>
+              </ul>
+            </div>
 
-            <div className={s.footerCol} >
-              <h4 > Mobile App(Soon)</h4 >
-              <div className={s.appStoreButtons} >
-                < a className={s.appStoreBadgeLink} href="#" >
+            <div className={s.footerCol}>
+              <h4>Mobile App (Soon)</h4>
+              <div className={s.appStoreButtons}>
+                <Link className={s.appStoreBadgeLink} href="#">
                   <Image
                     src={theme === "dark" ? "/assets/img/market/appstore-light.svg" : "/assets/img/market/appstore-dark.svg"}
                     alt="App Store"
                     width={120}
                     height={40}
                   />
-                </a >
-                < a className={s.appStoreBadgeLink} href="#" >
+                </Link>
+                <Link className={s.appStoreBadgeLink} href="#">
                   <Image
                     src={theme === "dark" ? "/assets/img/market/googleplay-light.svg" : "/assets/img/market/googleplay-dark.svg"}
                     alt="Google Play"
                     width={119}
                     height={40}
                   />
-                </a >
-              </div >
-            </div >
-          </div >
+                </Link>
+              </div>
+            </div>
+          </div>
 
-          <div className={s.footerBottom} >
+          <div className={s.footerBottom}>
             <p>
-              & copy; All rights reserved.Powered by{" "}
-              < a href="https://playsourceunltd.com/" target="_blank" rel="noopener noreferrer" >
+              &copy; All rights reserved. Powered by{" "}
+              <Link href="https://playsourceunltd.com/" target="_blank" rel="noopener noreferrer">
                 Playsource Unlimited Technologies
-              </a >
-            </p >
-          </div >
+              </Link>
+            </p>
+          </div>
         </div >
       </footer >
 
       {/* Back to top button */}
-      < a
+      <a
         href="#"
         className={s.scrollTopBtn}
         onClick={

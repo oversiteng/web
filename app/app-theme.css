@@ -1,0 +1,331 @@
+/* ============================================================
+   APP THEME TOKENS
+   Generated from Figma Primitives, Light Mode, and Dark Mode tokens.
+   These variables power the main application (auth, dashboard, etc.).
+   ============================================================ */
+
+/* ----- PRIMITIVES (Base Palette) ----- */
+:root {
+  /* Base */
+  --primitive-white: #FFFFFF;
+  --primitive-off-white: #F2F3F1;
+  --primitive-black: #000000;
+
+  /* Grey Scale */
+  --primitive-grey-00: #F2F2F2;
+  --primitive-grey-10: #E3E3E3;
+  --primitive-grey-15: #D4D5D5;
+  --primitive-grey-20: #C5C6C6;
+  --primitive-grey-25: #B6B8B7;
+  --primitive-grey-50: #989A9A;
+  --primitive-grey-55: #7A7D7C;
+  --primitive-grey-60: #5C605F;
+  --primitive-grey-65: #4A4D4C;
+  --primitive-grey-70: #373A39;
+  --primitive-grey-75: #252626;
+  --primitive-grey-80: #1C1D1D;
+  --primitive-grey-85: #121313;
+  --primitive-grey-90: #090A0A;
+
+  /* Green Scale (Brand) */
+  --primitive-green-00: #EAF7ED;
+  --primitive-green-10: #D5F0DB;
+  --primitive-green-15: #BFE8C9;
+  --primitive-green-20: #AAE1B7;
+  --primitive-green-25: #80D292;
+  --primitive-green-50: #55C36E;
+  --primitive-green-55: #2BB44A; /* Brand Primary */
+  --primitive-green-60: #1A6C2C;
+  --primitive-green-65: #053720;
+  --primitive-green-70: #0D3616;
+
+  /* Red Scale (Danger) */
+  --primitive-red-00: #FFEBEB;
+  --primitive-red-10: #FED8D8;
+  --primitive-red-15: #FED8D8;
+  --primitive-red-20: #FEC4C4;
+  --primitive-red-25: #FEB1B1;
+  --primitive-red-50: #FD6262;
+  --primitive-red-55: #FC3B3B;
+  --primitive-red-60: #CD2F2F;
+  --primitive-red-65: #9D2323;
+  --primitive-red-70: #561212;
+
+  /* Orange Scale (Warning) */
+  --primitive-orange-00: #FFF6E5;
+  --primitive-orange-10: #FFEDCC;
+  --primitive-orange-15: #FFE4B2;
+  --primitive-orange-20: #FFE4B2;
+  --primitive-orange-25: #FFDB99;
+  --primitive-orange-50: #FFB733;
+  --primitive-orange-55: #FFA500;
+  --primitive-orange-60: #CC8400;
+  --primitive-orange-65: #996300;
+  --primitive-orange-70: #664200;
+
+  /* Blue Scale (Info) */
+  --primitive-blue-00: #E5F1FF;
+  --primitive-blue-50: #CCE3FF;
+  --primitive-blue-100: #B2D4FF;
+  --primitive-blue-200: #99C6FF;
+  --primitive-blue-400: #338DFF;
+  --primitive-blue-500: #0071FF;
+  --primitive-blue-800: #002D66;
+  --primitive-blue-950: #000B1A;
+}
+
+/* ----- SEMANTIC TOKENS (Light Mode Default) ----- */
+:root {
+  /* Surface */
+  --surface-base: var(--primitive-off-white);
+  --surface-base-00: rgba(255, 255, 255, 0.5); /* primitive-white @ 50% */
+  --surface-base-01: var(--primitive-grey-10);
+  --surface-base-02: var(--primitive-grey-15);
+  --surface-base-alt-01: var(--primitive-white);
+  --surface-base-alt-02: var(--primitive-white);
+  --surface-base-alt-03: var(--primitive-grey-00);
+  --surface-base-alt-04: var(--primitive-grey-15);
+  --surface-base-alt-05: var(--primitive-grey-20);
+
+  /* Button */
+  --btn-primary: var(--primitive-green-55);
+  --btn-primary-hover: var(--primitive-green-60);
+  --btn-primary-disable: var(--primitive-grey-10);
+  --btn-primary-text: var(--primitive-green-00);
+  --btn-primary-text-disable: var(--primitive-grey-55);
+  
+  --btn-secondary: var(--primitive-white);
+  --btn-secondary-hover: var(--primitive-grey-00);
+  --btn-secondary-text: var(--primitive-grey-75);
+  --btn-secondary-text-disable: var(--primitive-grey-15);
+  --btn-secondary-disable: var(--primitive-grey-15);
+  
+  --btn-tertiary: var(--primitive-green-10);
+  --btn-tertiary-hover: var(--primitive-green-15);
+  --btn-tertiary-text: var(--primitive-green-70);
+  --btn-tertiary-disable: var(--primitive-green-10);
+  --btn-tertiary-text-disable: var(--primitive-green-50);
+  
+  --btn-danger: var(--primitive-red-10);
+  --btn-danger-text: var(--primitive-red-55);
+
+  /* Border */
+  --border-01: var(--primitive-grey-00);
+  --border-02: var(--primitive-grey-10);
+  --border-03: var(--primitive-grey-15);
+  --border-04: var(--primitive-grey-55);
+  --border-05: var(--primitive-grey-75);
+
+  /* Icon */
+  --icon-primary-active: var(--primitive-green-00);
+  --icon-primary-hover: var(--primitive-green-00);
+  --icon-primary-disable: var(--primitive-grey-25);
+  --icon-secondary-active: var(--primitive-grey-75);
+  --icon-secondary-hover: var(--primitive-grey-75);
+  --icon-secondary-disable: var(--primitive-grey-25);
+  --icon-tertiary-active: var(--primitive-green-50);
+  --icon-tertiary-hover: var(--primitive-green-50);
+  --icon-tertiary-disable: var(--primitive-green-20);
+  --icon-input-01: var(--primitive-grey-70);
+
+  /* Display (Typography) */
+  --display-01: var(--primitive-grey-80);
+  --display-02: var(--primitive-grey-75);
+  --display-03: var(--primitive-grey-65);
+  --display-subtle-01: var(--primitive-grey-55);
+  --display-subtle-02: var(--primitive-grey-25);
+  --display-alt: var(--primitive-grey-55);
+  --display-alt-02: var(--primitive-grey-75);
+
+  /* Highlight (Status Colors) */
+  --highlight-green-01: var(--primitive-green-00);
+  --highlight-green-02: var(--primitive-green-15);
+  --highlight-green-03: var(--primitive-green-55);
+  
+  --highlight-orange-01: var(--primitive-orange-00);
+  --highlight-orange-02: var(--primitive-orange-15);
+  --highlight-orange-03: var(--primitive-orange-55);
+  
+  --highlight-blue-01: var(--primitive-blue-50);
+  --highlight-blue-02: var(--primitive-blue-100);
+  --highlight-blue-03: var(--primitive-blue-500);
+  
+  --highlight-red-01: var(--primitive-red-00);
+  --highlight-red-02: var(--primitive-red-15);
+  --highlight-red-03: var(--primitive-red-55);
+
+  /* Nav */
+  --nav-icon-disable: var(--primitive-grey-50);
+  --nav-icon-active: var(--primitive-green-55);
+
+  /* Overlay */
+  --overlay-01: rgba(74, 77, 76, 0.5); /* primitive-grey-65 @ 50% */
+
+  /* Brand */
+  --brand-green-01: var(--primitive-green-55);
+  --brand-green-01-2: var(--primitive-grey-75);
+
+  /* Gradient */
+  --grad-green: rgba(170, 225, 183, 0.3); /* primitive-green-20 @ 30% */
+  --grad-orange: rgba(255, 228, 178, 0.2); /* primitive-orange-15 @ 20% */
+  --grad-surface: rgba(255, 255, 255, 0.5); /* primitive-white @ 50% */
+}
+
+/* ----- SEMANTIC TOKENS (Dark Mode) ----- */
+.dark, [data-theme="dark"] {
+  /* Surface */
+  --surface-base: var(--primitive-grey-90);
+  --surface-base-00: rgba(255, 255, 255, 0.1); /* primitive-white @ 10% */
+  --surface-base-01: var(--primitive-grey-85);
+  --surface-base-02: var(--primitive-grey-80);
+  --surface-base-alt-01: var(--primitive-grey-90);
+  --surface-base-alt-02: var(--primitive-grey-70);
+  --surface-base-alt-03: var(--primitive-grey-55);
+  --surface-base-alt-04: var(--primitive-grey-70);
+  --surface-base-alt-05: var(--primitive-grey-25);
+
+  /* Button */
+  --btn-primary: var(--primitive-green-50);
+  --btn-primary-hover: var(--primitive-green-25);
+  --btn-primary-disable: var(--primitive-grey-85);
+  --btn-primary-text: var(--primitive-white);
+  --btn-primary-text-disable: var(--primitive-grey-50);
+  
+  --btn-secondary: var(--primitive-grey-85);
+  --btn-secondary-hover: var(--primitive-grey-80);
+  --btn-secondary-text: var(--primitive-grey-00);
+  --btn-secondary-text-disable: var(--primitive-grey-50);
+  --btn-secondary-disable: var(--primitive-grey-70);
+  
+  --btn-tertiary: var(--primitive-green-60);
+  --btn-tertiary-hover: var(--primitive-green-20);
+  --btn-tertiary-text: var(--primitive-green-60);
+  --btn-tertiary-disable: var(--primitive-green-55);
+  --btn-tertiary-text-disable: var(--primitive-green-60);
+  
+  --btn-danger: var(--primitive-red-50);
+  --btn-danger-text: var(--primitive-red-55);
+
+  /* Border */
+  --border-01: var(--primitive-grey-85);
+  --border-02: var(--primitive-grey-75);
+  --border-03: var(--primitive-grey-70);
+  --border-04: var(--primitive-grey-50);
+  --border-05: var(--primitive-grey-15);
+
+  /* Icon */
+  --icon-primary-active: var(--primitive-green-00);
+  --icon-primary-hover: var(--primitive-green-00);
+  --icon-primary-disable: var(--primitive-grey-50);
+  --icon-secondary-active: var(--primitive-white);
+  --icon-secondary-hover: var(--primitive-grey-00);
+  --icon-secondary-disable: var(--primitive-grey-25);
+  --icon-tertiary-active: var(--primitive-green-00);
+  --icon-tertiary-hover: var(--primitive-green-55);
+  --icon-tertiary-disable: var(--primitive-green-70);
+  --icon-input-01: var(--primitive-grey-00);
+
+  /* Display (Typography) */
+  --display-01: var(--primitive-grey-10);
+  --display-02: var(--primitive-grey-15);
+  --display-03: var(--primitive-grey-20);
+  --display-subtle-01: var(--primitive-grey-25);
+  --display-subtle-02: var(--primitive-grey-50);
+  --display-alt: var(--primitive-grey-20);
+  --display-alt-02: var(--primitive-grey-70);
+
+  /* Highlight (Status Colors) */
+  --highlight-green-01: var(--primitive-green-70);
+  --highlight-green-02: var(--primitive-green-55);
+  --highlight-green-03: var(--primitive-green-25);
+  
+  --highlight-orange-01: var(--primitive-orange-70);
+  --highlight-orange-02: var(--primitive-orange-55);
+  --highlight-orange-03: var(--primitive-orange-25);
+  
+  --highlight-blue-01: var(--primitive-blue-800);
+  --highlight-blue-02: var(--primitive-blue-400);
+  --highlight-blue-03: var(--primitive-blue-200);
+  
+  --highlight-red-01: var(--primitive-red-70);
+  --highlight-red-02: var(--primitive-red-60);
+  --highlight-red-03: var(--primitive-red-50);
+
+  /* Nav */
+  --nav-icon-disable: var(--primitive-grey-50);
+  --nav-icon-active: var(--primitive-green-50);
+
+  /* Overlay */
+  --overlay-01: rgba(18, 19, 19, 0.5); /* primitive-grey-85 @ 50% */
+
+  /* Brand */
+  --brand-green-01: var(--primitive-green-55);
+  --brand-green-01-2: var(--primitive-grey-25);
+
+  /* Gradient */
+  --grad-green: rgba(170, 225, 183, 0.12); /* primitive-green-20 @ 12% */
+  --grad-orange: rgba(255, 228, 178, 0.15); /* primitive-orange-15 @ 15% */
+  --grad-surface: rgba(255, 255, 255, 0.2); /* primitive-white @ 20% */
+}
+
+/* ----- MAP TO TAILWIND V4 ----- */
+@theme {
+  /* Surfaces */
+  --color-surface-base: var(--surface-base);
+  --color-surface-base-00: var(--surface-base-00);
+  --color-surface-base-01: var(--surface-base-01);
+  --color-surface-base-02: var(--surface-base-02);
+  --color-surface-base-alt-01: var(--surface-base-alt-01);
+  --color-surface-base-alt-02: var(--surface-base-alt-02);
+  --color-surface-base-alt-03: var(--surface-base-alt-03);
+  --color-surface-base-alt-04: var(--surface-base-alt-04);
+  --color-surface-base-alt-05: var(--surface-base-alt-05);
+
+  /* Buttons */
+  --color-btn-primary: var(--btn-primary);
+  --color-btn-primary-hover: var(--btn-primary-hover);
+  --color-btn-primary-disable: var(--btn-primary-disable);
+  --color-btn-primary-text: var(--btn-primary-text);
+  --color-btn-primary-text-disable: var(--btn-primary-text-disable);
+  
+  --color-btn-secondary: var(--btn-secondary);
+  --color-btn-secondary-hover: var(--btn-secondary-hover);
+  --color-btn-secondary-text: var(--btn-secondary-text);
+  --color-btn-secondary-text-disable: var(--btn-secondary-text-disable);
+  --color-btn-secondary-disable: var(--btn-secondary-disable);
+  
+  --color-btn-tertiary: var(--btn-tertiary);
+  --color-btn-tertiary-hover: var(--btn-tertiary-hover);
+  --color-btn-tertiary-text: var(--btn-tertiary-text);
+  --color-btn-tertiary-disable: var(--btn-tertiary-disable);
+  --color-btn-tertiary-text-disable: var(--btn-tertiary-text-disable);
+  
+  --color-btn-danger: var(--btn-danger);
+  --color-btn-danger-text: var(--btn-danger-text);
+
+  /* Borders */
+  --color-border-01: var(--border-01);
+  --color-border-02: var(--border-02);
+  --color-border-03: var(--border-03);
+  --color-border-04: var(--border-04);
+  --color-border-05: var(--border-05);
+
+  /* Text/Display */
+  --color-display-01: var(--display-01);
+  --color-display-02: var(--display-02);
+  --color-display-03: var(--display-03);
+  --color-display-subtle-01: var(--display-subtle-01);
+  --color-display-subtle-02: var(--display-subtle-02);
+  --color-display-alt: var(--display-alt);
+  --color-display-alt-02: var(--display-alt-02);
+  
+  /* Brand */
+  --color-brand-green-01: var(--brand-green-01);
+  
+  /* Utilities */
+  --color-overlay-01: var(--overlay-01);
+
+  /* Fonts */
+  --font-inter: var(--font-inter), sans-serif;
+  --font-satoshi: 'Satoshi', var(--font-inter), sans-serif;
+}

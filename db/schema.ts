@@ -125,6 +125,12 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "ALERT",
 ]);
 
+export const waitlistStatusEnum = pgEnum("waitlist_status", [
+  "PENDING",
+  "CONTACTED",
+  "CONVERTED",
+]);
+
 // ─── Tables ──────────────────────────────────────────────────────────────────
 
 // Users — extended with role, phone, auth fields
@@ -537,4 +543,27 @@ export const outboundEmails = pgTable(
       .notNull(),
   },
   (table) => [index("outbound_emails_to_address_idx").on(table.toAddress)],
+);
+
+// Waitlist — captures early interest from the landing page
+export const waitlist = pgTable(
+  "waitlist",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    email: varchar("email", { length: 320 }).notNull(),
+    name: varchar("name", { length: 120 }),
+    interest: varchar("interest", { length: 120 }), // E.g., which service they want most
+    status: waitlistStatusEnum("status").notNull().default("PENDING"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("waitlist_email_unique").on(table.email),
+    index("waitlist_status_idx").on(table.status),
+    index("waitlist_interest_idx").on(table.interest),
+  ],
 );

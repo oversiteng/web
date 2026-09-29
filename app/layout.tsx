@@ -4,7 +4,7 @@ import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-inter",
   display: "swap",
 });
 
@@ -34,8 +34,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning >
-      <body className={inter.className} > {children}</body >
-    </html >
+    <html lang="en" data-theme="light" suppressHydrationWarning className={`${inter.variable}`}>
+      <head>
+        <link rel="preconnect" href="https://api.fontshare.com" />
+        <link
+          href="https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,300,400&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>{children}</body>
+    </html>
   );
 }
