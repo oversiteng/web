@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   BellBoldDuotoneIcon as Bell,
@@ -23,7 +24,22 @@ const SERVICES = [
   { label: "Vulnerability Test", icon: ObjectScanIcon, color: "text-red-500", bg: "bg-red-500/10" },
 ];
 
+const CAROUSEL_IMAGES = [
+  "/assets/images/onboarding/onboard1.jpg",
+  "/assets/images/onboarding/onboard2.jpg",
+  "/assets/images/onboarding/onboard3.jpg"
+];
+
 export default function UserDashboard() {
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <div className="space-y-6 relative pb-8">
       {/* Top Bar */}
@@ -38,34 +54,34 @@ export default function UserDashboard() {
       </div>
 
       {/* Stats Row */}
-      <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-4 scrollbar-hide">
-        <div className="min-w-26.25 flex-1 p-3.5 rounded-[20px] bg-[#161616] dark:bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-2.5">
-          <div className="flex items-center justify-between">
-            <Checklist className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-400" />
-            <span className="text-[17px] font-bold text-white">3</span>
+      <div className="grid grid-cols-4 gap-2 sm:gap-3 pb-2">
+        <div className="p-2 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col items-center sm:items-start gap-1 sm:gap-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full">
+            <Checklist className="w-5 h-5 sm:w-8 sm:h-8 text-[var(--primary)] mx-auto sm:mx-0" />
+            <span className="text-[14px] sm:text-[17px] font-bold text-[var(--text-heading)] mt-1 sm:mt-0">3</span>
           </div>
-          <span className="text-[11px] sm:text-[13px] text-gray-400 font-medium">Task</span>
+          <span className="text-[9px] sm:text-[13px] text-[var(--text-muted)] font-medium text-center sm:text-left w-full truncate">Task</span>
         </div>
-        <div className="min-w-26.25 flex-1 p-3.5 rounded-[20px] bg-[#161616] dark:bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-2.5">
-          <div className="flex items-center justify-between">
-            <History className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" />
-            <span className="text-[17px] font-bold text-white">3</span>
+        <div className="p-2 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col items-center sm:items-start gap-1 sm:gap-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full">
+            <History className="w-5 h-5 sm:w-8 sm:h-8 text-blue-500 mx-auto sm:mx-0" />
+            <span className="text-[14px] sm:text-[17px] font-bold text-[var(--text-heading)] mt-1 sm:mt-0">3</span>
           </div>
-          <span className="text-[11px] sm:text-[13px] text-gray-400 font-medium">Pending</span>
+          <span className="text-[9px] sm:text-[13px] text-[var(--text-muted)] font-medium text-center sm:text-left w-full truncate">Pending</span>
         </div>
-        <div className="min-w-26.25 flex-1 p-3.5 rounded-[20px] bg-[#161616] dark:bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-2.5">
-          <div className="flex items-center justify-between">
-            <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
-            <span className="text-[17px] font-bold text-white">3</span>
+        <div className="p-2 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col items-center sm:items-start gap-1 sm:gap-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full">
+            <Calendar className="w-5 h-5 sm:w-8 sm:h-8 text-slate-500 mx-auto sm:mx-0" />
+            <span className="text-[14px] sm:text-[17px] font-bold text-[var(--text-heading)] mt-1 sm:mt-0">3</span>
           </div>
-          <span className="text-[11px] sm:text-[13px] text-gray-400 font-medium">This month</span>
+          <span className="text-[9px] sm:text-[13px] text-[var(--text-muted)] font-medium text-center sm:text-left w-full truncate">This month</span>
         </div>
-        <div className="min-w-26.25 flex-1 p-3.5 rounded-[20px] bg-[#161616] dark:bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-2.5">
-          <div className="flex items-center justify-between">
-            <Flag className="w-6 h-6 sm:w-8 sm:h-8 text-red-400" />
-            <span className="text-[17px] font-bold text-white">3</span>
+        <div className="p-2 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col items-center sm:items-start gap-1 sm:gap-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full">
+            <Flag className="w-5 h-5 sm:w-8 sm:h-8 text-red-500 mx-auto sm:mx-0" />
+            <span className="text-[14px] sm:text-[17px] font-bold text-[var(--text-heading)] mt-1 sm:mt-0">3</span>
           </div>
-          <span className="text-[11px] sm:text-[13px] text-gray-400 font-medium">Flag</span>
+          <span className="text-[9px] sm:text-[13px] text-[var(--text-muted)] font-medium text-center sm:text-left w-full truncate">Flag</span>
         </div>
       </div>
 
@@ -82,19 +98,36 @@ export default function UserDashboard() {
       </div>
 
       {/* Hero Image Carousel */}
-      <div className="relative w-full h-[160px] sm:h-[220px] rounded-[24px] overflow-hidden">
-        <div className="absolute inset-0 bg-slate-800" /> {/* Placeholder for image */}
-        <Image
-          src="/assets/app-icons/app-logo.png"
-          alt="Construction site"
-          width={600}
-          height={300}
-          className="object-cover w-full h-full opacity-40 mix-blend-overlay"
-        />
-        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
-          <div className="w-4 h-1.5 rounded-full bg-[var(--primary)]" />
-          <div className="w-4 h-1.5 rounded-full bg-white/60" />
-          <div className="w-4 h-1.5 rounded-full bg-white/60" />
+      <div className="relative w-full h-[160px] sm:h-[220px] rounded-[24px] overflow-hidden bg-slate-900 group">
+        {CAROUSEL_IMAGES.map((img, idx) => (
+          <Image
+            key={img}
+            src={img}
+            alt={`Ad slide ${idx + 1}`}
+            fill
+            className={`object-cover w-full h-full transition-opacity duration-1000 ${
+              idx === currentSlide ? "opacity-60" : "opacity-0"
+            }`}
+          />
+        ))}
+        
+        {/* Ad Content */}
+        <div className="absolute inset-0 p-4 sm:p-6 flex flex-col justify-center">
+          <span className="px-2.5 py-1 bg-[var(--primary)] text-white text-[10px] font-bold uppercase tracking-wider rounded-full w-fit mb-2">Featured</span>
+          <h3 className="text-white text-lg sm:text-2xl font-bold max-w-[200px] sm:max-w-[300px] leading-tight">Simplify your real estate projects</h3>
+          <p className="text-white/80 text-[11px] sm:text-sm mt-1 max-w-[200px] sm:max-w-[300px]">Get accurate updates in real time.</p>
+        </div>
+
+        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-10">
+          {CAROUSEL_IMAGES.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentSlide(idx)}
+              className={`h-1.5 rounded-full transition-all ${
+                idx === currentSlide ? "w-4 bg-[var(--primary)]" : "w-1.5 bg-white/60 hover:bg-white/80"
+              }`}
+            />
+          ))}
         </div>
       </div>
 
