@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import "@/Miscelleaneous/assets/icons/around-icons.min.css";
+import "@/app/assets/icons/around-icons.min.css";
 
 export const metadata: Metadata = {
   title: "Oversite.ng | Monitoring Properties and Building Projects",
