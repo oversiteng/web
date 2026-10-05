@@ -1,234 +1,174 @@
 "use client";
-
 import Link from "next/link";
 import {
-  Zap,
-  Building2,
-  HardHat,
-  SearchCheck,
-  Scale,
-  ShieldAlert,
-  ArrowUpRight,
-  Clock,
-  CheckCircle2,
-  MapPin,
-  TrendingUp,
-} from "lucide-react";
+  BellBoldDuotoneIcon as Bell,
+  ChecklistLinearIcon as Checklist,
+  HistoryLinearIcon as History,
+  CalendarLinearIcon as Calendar,
+  FlagLinearIcon as Flag,
+  AddCircleBoldDuotoneIcon as AddCircle,
+} from "@solar-icons/react";
 
-const MODULES = [
-  {
-    title: "Quick Errands",
-    desc: "Remote ad-hoc task execution on demand",
-    href: "/errands/new",
-    icon: Zap,
-    color: "from-amber-500/20 to-amber-500/5 text-amber-400 border-amber-500/30",
-  },
-  {
-    title: "Property Oversite",
-    desc: "Remote surveillance & geo-tagged inspection",
-    href: "/properties",
-    icon: Building2,
-    color: "from-emerald-500/20 to-emerald-500/5 text-emerald-400 border-emerald-500/30",
-  },
-  {
-    title: "Project Watch",
-    desc: "Onsite supervision & milestone tracking",
-    href: "/projects",
-    icon: HardHat,
-    color: "from-blue-500/20 to-blue-500/5 text-blue-400 border-blue-500/30",
-  },
-  {
-    title: "Due Diligence",
-    desc: "CAC, title, and pre-transaction audits",
-    href: "/diligence",
-    icon: SearchCheck,
-    color: "from-purple-500/20 to-purple-500/5 text-purple-400 border-purple-500/30",
-  },
-  {
-    title: "Legal Advisory",
-    desc: "Retain verified NBA legal counsel",
-    href: "/legal",
-    icon: Scale,
-    color: "from-cyan-500/20 to-cyan-500/5 text-cyan-400 border-cyan-500/30",
-  },
-  {
-    title: "Law Enforcement",
-    desc: "Secure liaison & emergency field escalation",
-    href: "/enforcement",
-    icon: ShieldAlert,
-    color: "from-rose-500/20 to-rose-500/5 text-rose-400 border-rose-500/30",
-  },
+import { PieChartIcon, BoltIcon, ChandelierIcon, DocumentsMinimalisticIcon, BellIcon, BookIcon, DocumentIcon, ShieldCheckIcon, ObjectScanIcon, MapPointSearchIcon } from '@solar-icons/react/outline'
+import Image from "next/image";
+
+const SERVICES = [
+  { label: "Quick Errands", icon: BoltIcon, color: "text-amber-500", bg: "bg-amber-500/10" },
+  { label: "Legal Advisory", icon: ChandelierIcon, color: "text-blue-500", bg: "bg-blue-500/10" },
+  { label: "Project Review", icon: DocumentIcon, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+  { label: "Due Diligence", icon: PieChartIcon, color: "text-yellow-500", bg: "bg-amber-500/10" },
+  { label: "Property Oversite", icon: MapPointSearchIcon, color: "text-red-500", bg: "bg-red-500/10" },
+  { label: "Document Processing", icon: DocumentsMinimalisticIcon, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+  { label: "Law Enforcement", icon: ShieldCheckIcon, color: "text-blue-500", bg: "bg-blue-500/10" },
+  { label: "Vulnerability Test", icon: ObjectScanIcon, color: "text-red-500", bg: "bg-red-500/10" },
 ];
 
 export default function UserDashboard() {
   return (
-    <div className="space-y-8">
-      {/* Welcome & Overview Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Operations Dashboard</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Real-time status of your field agents, registered properties, and ongoing audits.
-          </p>
-        </div>
-        <Link
-          href="/errands/new"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-sm transition-all shadow-lg shadow-emerald-500/10"
-        >
-          <Zap className="w-4 h-4" />
-          <span>New Field Request</span>
+    <div className="space-y-6 relative pb-8">
+      {/* Top Bar */}
+      <div className="flex items-center justify-between pt-2">
+        <h1 className="text-[16px] sm:text-2xl font-bold text-[var(--text-heading)]">Good afternoon! Adaeze</h1>
+        <Link href="/notifications" className="relative w-10 h-10 rounded-full bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex items-center justify-center hover:bg-(--bg-secondary) transition-colors">
+          <BellIcon className="w-8 h-8 text-[var(--text-heading)]" />
+          <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-[var(--primary)] text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-[var(--bg-body)]">
+            2
+          </span>
         </Link>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium">Active Ground Tasks</span>
-            <Clock className="w-4 h-4 text-emerald-400" />
+      {/* Stats Row */}
+      <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-4 scrollbar-hide">
+        <div className="min-w-26.25 flex-1 p-3.5 rounded-[20px] bg-[#161616] dark:bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <Checklist className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-400" />
+            <span className="text-[17px] font-bold text-white">3</span>
           </div>
-          <div className="text-2xl font-bold text-white">4</div>
-          <p className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" /> 2 agents en route now
-          </p>
+          <span className="text-[11px] sm:text-[13px] text-gray-400 font-medium">Task</span>
         </div>
-
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium">Monitored Assets</span>
-            <Building2 className="w-4 h-4 text-blue-400" />
+        <div className="min-w-26.25 flex-1 p-3.5 rounded-[20px] bg-[#161616] dark:bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <History className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" />
+            <span className="text-[17px] font-bold text-white">3</span>
           </div>
-          <div className="text-2xl font-bold text-white">7</div>
-          <p className="text-[11px] text-slate-400 mt-1">Lagos, Abuja & Port Harcourt</p>
+          <span className="text-[11px] sm:text-[13px] text-gray-400 font-medium">Pending</span>
         </div>
-
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium">Escrow Protected</span>
-            <CheckCircle2 className="w-4 h-4 text-amber-400" />
+        <div className="min-w-26.25 flex-1 p-3.5 rounded-[20px] bg-[#161616] dark:bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
+            <span className="text-[17px] font-bold text-white">3</span>
           </div>
-          <div className="text-2xl font-bold text-white">₦175,000</div>
-          <p className="text-[11px] text-slate-400 mt-1">Auto-release upon QA audit approval</p>
+          <span className="text-[11px] sm:text-[13px] text-gray-400 font-medium">This month</span>
         </div>
-
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium">Completed Audits</span>
-            <CheckCircle2 className="w-4 h-4 text-purple-400" />
+        <div className="min-w-26.25 flex-1 p-3.5 rounded-[20px] bg-[#161616] dark:bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <Flag className="w-6 h-6 sm:w-8 sm:h-8 text-red-400" />
+            <span className="text-[17px] font-bold text-white">3</span>
           </div>
-          <div className="text-2xl font-bold text-white">19</div>
-          <p className="text-[11px] text-purple-400 mt-1">100% verified with geo-tags</p>
+          <span className="text-[11px] sm:text-[13px] text-gray-400 font-medium">Flag</span>
         </div>
       </div>
 
-      {/* Service Dispatch Modules Grid */}
+      {/* Live Status Card */}
+      <div className="p-4 rounded-[24px] bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex items-start justify-between">
+        <div>
+          <h2 className="text-[14px] font-bold text-[var(--text-heading)]">Tunde C. is in the field</h2>
+          <p className="text-[12px] text-var(--text-muted) mt-1">Ikoyi · submitting geo-tagged photos</p>
+        </div>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 rounded-full">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+          <span className="text-[10px] font-bold text-amber-500">Live</span>
+        </div>
+      </div>
+
+      {/* Hero Image Carousel */}
+      <div className="relative w-full h-[160px] sm:h-[220px] rounded-[24px] overflow-hidden">
+        <div className="absolute inset-0 bg-slate-800" /> {/* Placeholder for image */}
+        <Image
+          src="/assets/app-icons/app-logo.png"
+          alt="Construction site"
+          width={600}
+          height={300}
+          className="object-cover w-full h-full opacity-40 mix-blend-overlay"
+        />
+        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+          <div className="w-4 h-1.5 rounded-full bg-[var(--primary)]" />
+          <div className="w-4 h-1.5 rounded-full bg-white/60" />
+          <div className="w-4 h-1.5 rounded-full bg-white/60" />
+        </div>
+      </div>
+
+      {/* Oversite Service Grid */}
       <div>
-        <h2 className="text-base font-semibold text-slate-200 mb-4">Deploy Service Modules</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {MODULES.map((mod) => {
-            const Icon = mod.icon;
-            return (
-              <Link
-                key={mod.title}
-                href={mod.href}
-                className="group p-5 rounded-2xl bg-slate-900/50 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between"
-              >
-                <div>
-                  <div
-                    className={`w-10 h-10 rounded-xl bg-gradient-to-br border flex items-center justify-center mb-4 ${mod.color}`}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <h3 className="font-semibold text-white group-hover:text-emerald-400 transition-colors flex items-center gap-1.5">
-                    {mod.title}
-                    <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">{mod.desc}</p>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Recent Field Assignments */}
-      <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-base font-semibold text-slate-200">Recent Field Activities</h2>
-          <Link href="/errands" className="text-xs text-emerald-400 hover:underline">
-            View all
-          </Link>
-        </div>
-
-        <div className="space-y-3">
-          {[
-            {
-              title: "Land Title Document Pick-up & Courier",
-              module: "Quick Errands",
-              location: "Alausa Secretariat, Ikeja",
-              agent: "Emeka O.",
-              status: "IN_PROGRESS",
-              statusText: "In Progress",
-              price: "₦18,000",
-            },
-            {
-              title: "Bi-Weekly Perimeter & Drone Surveillance",
-              module: "Property Oversite",
-              location: "Plot 14, Epe Expressway, Lagos",
-              agent: "Tunde B.",
-              status: "REPORT_SUBMITTED",
-              statusText: "Report Ready",
-              price: "₦35,000",
-            },
-            {
-              title: "Commercial Building Decking Audit",
-              module: "Project Watch",
-              location: "Guzape District, Abuja",
-              agent: "Engr. Musa S.",
-              status: "COMPLETED",
-              statusText: "Completed",
-              price: "₦65,000",
-            },
-          ].map((item, idx) => (
-            <div
-              key={idx}
-              className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 gap-3"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-medium">
-                    {item.module}
-                  </span>
-                  <h4 className="text-sm font-medium text-white">{item.title}</h4>
-                </div>
-                <div className="flex items-center gap-3 text-xs text-slate-400">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-slate-500" />
-                    {item.location}
-                  </span>
-                  <span>•</span>
-                  <span>Agent: {item.agent}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between sm:justify-end gap-4">
-                <span className="text-sm font-semibold text-white">{item.price}</span>
-                <span
-                  className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                    item.status === "COMPLETED"
-                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                      : item.status === "REPORT_SUBMITTED"
-                      ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                      : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                  }`}
-                >
-                  {item.statusText}
-                </span>
-              </div>
-            </div>
+        <h2 className="text-[14px] font-bold text-[var(--text-heading)] mb-4">Oversite service</h2>
+        <div className="grid grid-cols-4 gap-2 sm:gap-4">
+          {SERVICES.map((service, idx) => (
+            <button key={idx} className="flex flex-col items-center justify-center p-2 sm:p-4 rounded-2xl bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] gap-2 hover:bg-(--bg-secondary) transition-colors">
+              <service.icon className={`w-6 h-6 sm:w-8 sm:h-8 ${service.color}`}/>
+              <span className="text-[11px] sm:text-[13px] font-semibold text-var(--text-heading) text-center leading-tight">
+                {service.label}
+              </span>
+            </button>
           ))}
         </div>
       </div>
+
+      {/* Recent Activity */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-[14px] font-bold text-[var(--text-heading)]">Recent activity</h2>
+          <Link href="/dashboard/tasks" className="text-[13px] font-bold text-[var(--primary)] hover:underline">
+            See all
+          </Link>
+        </div>
+
+        <div className="bg-(--bg-card) rounded-[24px] p-2 space-y-1 shadow-[0_0_10px_rgba(0,0,0,0.03)]">
+          {/* Task 1 */}
+          <div className="flex items-center justify-between p-3 rounded-2xl hover:bg-(--bg-secondary) transition-colors">
+            <div>
+              <h3 className="text-[13px] font-bold text-[var(--text-heading)]">CAC certified copy</h3>
+              <p className="text-[11px] text-var(--text-muted) mt-0.5">Property Oversite · Tunde C. · 2h ago</p>
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-[var(--primary)]/10 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />
+              <span className="text-[10px] font-bold text-[var(--primary)]">Ready</span>
+            </div>
+          </div>
+
+          <hr className="border-t border-(--border-color) mx-3" />
+
+          {/* Task 2 */}
+          <div className="flex items-center justify-between p-3 rounded-2xl hover:bg-(--bg-secondary) transition-colors">
+            <div>
+              <h3 className="text-[13px] font-bold text-[var(--text-heading)]">CAC certified copy</h3>
+              <p className="text-[11px] text-var(--text-muted) mt-0.5">Document Processing · Folake A. · today</p>
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-500/10 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <span className="text-[10px] font-bold text-amber-500">In progress</span>
+            </div>
+          </div>
+
+          <hr className="border-t border-(--border-color) mx-3" />
+
+          {/* Task 3 */}
+          <div className="flex items-center justify-between p-3 rounded-2xl hover:bg-(--bg-secondary) transition-colors">
+            <div>
+              <h3 className="text-[13px] font-bold text-[var(--text-heading)]">Vendor background check</h3>
+              <p className="text-[11px] text-var(--text-muted) mt-0.5">Due Diligence · Tier 2 · yesterday</p>
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-500/10 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">Completed</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating Action Button (FAB) */}
+      <button className="fixed bottom-20 sm:bottom-8 right-4 sm:right-8 w-14 h-14 bg-[var(--primary)] text-white rounded-full flex items-center justify-center shadow-lg shadow-[var(--primary)]/40 hover:scale-105 active:scale-95 transition-all z-40">
+        <AddCircle className="w-6 h-6" />
+      </button>
     </div>
   );
 }

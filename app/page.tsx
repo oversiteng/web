@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import s from "./page.module.css";
 import { BenefitDataIcon, BenefitPrivacyIcon, BenefitSupportIcon, IconArrowLeft, IconArrowRight, IconArrowUp, IconCheck, IconComment, IconFacebook, IconInstagram, IconLinkedIn, IconLogin, IconMoon, IconShare, IconSun } from "@/components/ui/Icons";
 import WaitlistModal from "@/components/WaitlistModal";
@@ -264,32 +265,26 @@ const resourcesData = [
    ================================================================ */
 
 export default function Home() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [flipped, setFlipped] = useState<Record<number, boolean>>({});
   const [waitlistModalOpen, setWaitlistModalOpen] = useState(false);
   const [selectedWaitlistPlan, setSelectedWaitlistPlan] = useState("Basic Tier (Free)");
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const openWaitlist = useCallback((plan: string = "Basic Tier (Free)") => {
     setSelectedWaitlistPlan(plan);
     setWaitlistModalOpen(true);
   }, []);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("oversite-theme") as "light" | "dark" | null;
-    if (saved) {
-      setTheme(saved);
-      document.documentElement.setAttribute("data-theme", saved);
-    }
-  }, []);
-
   const toggleTheme = useCallback(() => {
-    const next = theme === "light" ? "dark" : "light";
-    setTheme(next);
-    localStorage.setItem("oversite-theme", next);
-    document.documentElement.setAttribute("data-theme", next);
-  }, [theme]);
+    setTheme(resolvedTheme === "light" ? "dark" : "light");
+  }, [resolvedTheme, setTheme]);
 
   const toggleFlip = useCallback((index: number) => {
     setFlipped((prev) => ({ ...prev, [index]: !prev[index] }));
@@ -312,14 +307,18 @@ export default function Home() {
             {/* Logo */}
             < Link href="/" className={s.brandLink} >
               <div className={s.brandLogoWrap} >
-                <Image
-                  src={theme === "dark" ? "/assets/app-icons/oversite_logo_dark.png" : "/assets/app-icons/oversite_logo.png"}
-                  alt="Oversite.ng Logo"
-                  width={140}
-                  height={36}
-                  priority
-                  className={s.brandLogoImg}
-                />
+                {mounted ? (
+                  <Image
+                    src={resolvedTheme === "dark" ? "/assets/app-icons/oversite_logo_dark.png" : "/assets/app-icons/oversite_logo.png"}
+                    alt="Oversite.ng Logo"
+                    width={140}
+                    height={36}
+                    priority
+                    className={s.brandLogoImg}
+                  />
+                ) : (
+                  <div style={{ width: 140, height: 36 }} />
+                )}
               </div >
             </Link >
 
@@ -336,9 +335,9 @@ export default function Home() {
                 className={s.themeToggle}
                 onClick={toggleTheme}
                 aria-label="Toggle theme"
-                title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+                title={mounted ? `Switch to ${resolvedTheme === "light" ? "dark" : "light"} mode` : "Toggle theme"}
               >
-                {theme === "light" ? <IconMoon /> : <IconSun />}
+                {mounted ? (resolvedTheme === "light" ? <IconMoon /> : <IconSun />) : <IconMoon />}
               </button>
 
               <Link
@@ -418,7 +417,7 @@ export default function Home() {
 
             {/* 4-Layer Hero Parallax Component with Floating & Mouse Animation */}
             <div className={s.heroImageContainer} >
-              <HeroParallax theme={theme} />
+              <HeroParallax theme={(resolvedTheme as "light" | "dark") || "light"} />
             </div >
           </div >
         </div >
