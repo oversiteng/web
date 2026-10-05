@@ -70,7 +70,8 @@ export default function ForgotPasswordPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full py-3 px-6 bg-transparent text-[var(--text-heading)] placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium"
+                  placeholder="Enter your email address"
+                  className="w-full py-3 px-6 bg-transparent text-(--text-heading) placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium"
                   required
                 />
               </div>
@@ -79,7 +80,7 @@ export default function ForgotPasswordPage() {
             <div className="flex flex-col space-y-6">
               <button
                 type="submit"
-                className="w-full py-2 rounded-[24px] bg-[var(--primary)] text-white font-semibold text-[13px] active:scale-[0.98] transition-transform hover:bg-[var(--primary-hover)] flex justify-center items-center"
+                className="w-full py-2 rounded-3xl bg-(--primary) text-white font-semibold text-[13px] active:scale-[0.98] transition-transform hover:bg-[var(--primary-hover)] flex justify-center items-center"
               >
                 Send Reset Link
               </button>
@@ -97,9 +98,9 @@ export default function ForgotPasswordPage() {
         </div>
       ) : (
         <div className="w-full flex flex-col">
-          <h1 className="text-[27px] font-bold text-[var(--text-heading)] mb-2">Forgot password</h1>
+          <h1 className="text-[27px] font-bold text-(--text-heading) mb-2">Forgot password</h1>
           <p className="text-[13px] font-medium text-var(--text-muted) leading-relaxed mb-8">
-            You'll receive a WhatsApp codes associated with your number +234********02.
+            Please enter the 5 digit code sent to your email address.
           </p>
 
           <div className="flex flex-col space-y-8">
@@ -115,10 +116,11 @@ export default function ForgotPasswordPage() {
                   value={digit}
                   onChange={(e) => handleOtpChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
-                  className={`w-14 h-14 sm:w-16 sm:h-16 text-center text-2xl font-medium rounded-full outline-none transition-all ${error
+                  placeholder="0"
+                  className={`placeholder:text-gray-600 w-14 h-14 sm:w-16 sm:h-16 text-center text-2xl font-medium rounded-full outline-none transition-all ${error
                     ? "border-2 border-red-400 text-red-300 focus:border-red-500 bg-transparent"
                     : digit || document.activeElement === inputRefs.current[index]
-                      ? "border-[1.5px] border-[var(--primary)] text-[var(--text-heading)] bg-transparent"
+                      ? "border-[1.5px] border-[var(--primary)] text-(--text-heading) bg-transparent"
                       : "border border-transparent bg-gray-200 dark:bg-gray-800 text-[var(--text-heading)] focus:border-[var(--primary)] focus:bg-transparent"
                     }`}
                 />

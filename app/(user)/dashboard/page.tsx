@@ -45,9 +45,9 @@ export default function UserDashboard() {
       {/* Top Bar */}
       <div className="flex items-center justify-between pt-2">
         <h1 className="text-[16px] sm:text-2xl font-bold text-[var(--text-heading)]">Good afternoon! Adaeze</h1>
-        <Link href="/notifications" className="relative w-10 h-10 rounded-full bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex items-center justify-center hover:bg-(--bg-secondary) transition-colors">
-          <BellIcon className="w-8 h-8 text-[var(--text-heading)]" />
-          <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-[var(--primary)] text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-[var(--bg-body)]">
+        <Link href="/notifications" className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex items-center justify-center hover:bg-(--bg-secondary) transition-colors">
+          <BellIcon className="w-6 h-6 sm:w-8 sm:h-8 text-[var(--text-heading)]" />
+          <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-[var(--primary)] text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-[var(--bg-body)]">
             2
           </span>
         </Link>
@@ -55,33 +55,33 @@ export default function UserDashboard() {
 
       {/* Stats Row */}
       <div className="grid grid-cols-4 gap-2 sm:gap-3 pb-2">
-        <div className="p-2 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col items-center sm:items-start gap-1 sm:gap-2.5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full">
-            <Checklist className="w-5 h-5 sm:w-8 sm:h-8 text-[var(--primary)] mx-auto sm:mx-0" />
-            <span className="text-[14px] sm:text-[17px] font-bold text-[var(--text-heading)] mt-1 sm:mt-0">3</span>
+        <div className="p-2 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5">
+          <div className="flex items-center justify-between w-full gap-1">
+            <Checklist className="w-5 h-5 sm:w-8 sm:h-8 text-[var(--primary)] shrink-0" />
+            <span className="text-[14px] sm:text-[17px] font-bold text-[var(--text-heading)]">3</span>
           </div>
-          <span className="text-[9px] sm:text-[13px] text-[var(--text-muted)] font-medium text-center sm:text-left w-full truncate">Task</span>
+          <span className="text-[10px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">Task</span>
         </div>
-        <div className="p-2 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col items-center sm:items-start gap-1 sm:gap-2.5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full">
-            <History className="w-5 h-5 sm:w-8 sm:h-8 text-blue-500 mx-auto sm:mx-0" />
-            <span className="text-[14px] sm:text-[17px] font-bold text-[var(--text-heading)] mt-1 sm:mt-0">3</span>
+        <div className="p-2 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5">
+          <div className="flex items-center justify-between w-full gap-1">
+            <History className="w-5 h-5 sm:w-8 sm:h-8 text-blue-500 shrink-0" />
+            <span className="text-[14px] sm:text-[17px] font-bold text-[var(--text-heading)]">3</span>
           </div>
-          <span className="text-[9px] sm:text-[13px] text-[var(--text-muted)] font-medium text-center sm:text-left w-full truncate">Pending</span>
+          <span className="text-[10px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">Pending</span>
         </div>
-        <div className="p-2 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col items-center sm:items-start gap-1 sm:gap-2.5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full">
-            <Calendar className="w-5 h-5 sm:w-8 sm:h-8 text-slate-500 mx-auto sm:mx-0" />
-            <span className="text-[14px] sm:text-[17px] font-bold text-[var(--text-heading)] mt-1 sm:mt-0">3</span>
+        <div className="p-2 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5">
+          <div className="flex items-center justify-between w-full gap-1">
+            <Calendar className="w-5 h-5 sm:w-8 sm:h-8 text-slate-500 shrink-0" />
+            <span className="text-[14px] sm:text-[17px] font-bold text-[var(--text-heading)]">3</span>
           </div>
-          <span className="text-[9px] sm:text-[13px] text-[var(--text-muted)] font-medium text-center sm:text-left w-full truncate">This month</span>
+          <span className="text-[10px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">This month</span>
         </div>
-        <div className="p-2 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col items-center sm:items-start gap-1 sm:gap-2.5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full">
-            <Flag className="w-5 h-5 sm:w-8 sm:h-8 text-red-500 mx-auto sm:mx-0" />
-            <span className="text-[14px] sm:text-[17px] font-bold text-[var(--text-heading)] mt-1 sm:mt-0">3</span>
+        <div className="p-2 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5">
+          <div className="flex items-center justify-between w-full gap-1">
+            <Flag className="w-5 h-5 sm:w-8 sm:h-8 text-red-500 shrink-0" />
+            <span className="text-[14px] sm:text-[17px] font-bold text-[var(--text-heading)]">3</span>
           </div>
-          <span className="text-[9px] sm:text-[13px] text-[var(--text-muted)] font-medium text-center sm:text-left w-full truncate">Flag</span>
+          <span className="text-[10px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">Flag</span>
         </div>
       </div>
 
