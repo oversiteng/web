@@ -1,0 +1,20 @@
+info:
+  name: 3. Verify NIN (KYC)
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/kyc/verify/nin"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-user-id
+      value: "0e477711-b37c-498e-9072-0bca7d8d250d"
+  body:
+    type: json
+    data: |-
+      {
+        "ninNumber": "12345678901"
+      }
+  auth: inherit

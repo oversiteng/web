@@ -1,0 +1,12 @@
+info:
+  name: 2. Suspend User
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/admin/users/0e477711-b37c-498e-9072-0bca7d8d250d/suspend"
+  headers:
+    - name: x-user-role
+      value: "ADMIN"
+  auth: inherit

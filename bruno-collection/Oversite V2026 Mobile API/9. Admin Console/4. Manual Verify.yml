@@ -1,0 +1,12 @@
+info:
+  name: 4. Manual Verify
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/admin/users/0e477711-b37c-498e-9072-0bca7d8d250d/verify"
+  headers:
+    - name: x-user-role
+      value: "ADMIN"
+  auth: inherit

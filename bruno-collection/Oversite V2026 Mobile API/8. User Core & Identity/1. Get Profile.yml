@@ -1,0 +1,12 @@
+info:
+  name: 1. Get Profile
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/profile"
+  headers:
+    - name: x-user-id
+      value: "0e477711-b37c-498e-9072-0bca7d8d250d"
+  auth: inherit

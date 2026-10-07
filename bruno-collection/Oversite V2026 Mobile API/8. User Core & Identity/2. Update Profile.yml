@@ -1,0 +1,21 @@
+info:
+  name: 2. Update Profile
+  type: http
+  seq: 2
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/profile"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-user-id
+      value: "0e477711-b37c-498e-9072-0bca7d8d250d"
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Testing from Bruno",
+        "phone": "08099999999"
+      }
+  auth: inherit

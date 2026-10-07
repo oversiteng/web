@@ -1,0 +1,12 @@
+info:
+  name: 5. Deactivate Account
+  type: http
+  seq: 5
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/profile"
+  headers:
+    - name: x-user-id
+      value: "0e477711-b37c-498e-9072-0bca7d8d250d"
+  auth: inherit

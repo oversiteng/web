@@ -1,0 +1,20 @@
+info:
+  name: 4. Verify NBA (Legal Agent)
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/kyc/verify/nba"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-user-id
+      value: "0e477711-b37c-498e-9072-0bca7d8d250d"
+  body:
+    type: json
+    data: |-
+      {
+        "nbaNumber": "NBA1234567"
+      }
+  auth: inherit
