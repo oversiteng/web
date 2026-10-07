@@ -1,0 +1,28 @@
+info:
+  name: Initialize Payment
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/payments/initialize"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "taskId": "{{taskId}}",
+        "amountNgn": 15000.00,
+        "gateway": "PAYSTACK"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

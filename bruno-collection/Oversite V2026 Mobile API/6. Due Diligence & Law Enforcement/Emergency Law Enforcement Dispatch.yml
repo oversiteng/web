@@ -1,0 +1,29 @@
+info:
+  name: Emergency Law Enforcement Dispatch
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/enforcement/dispatch"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "agency": "LSSOES",
+        "incidentType": "Environmental Violation / Encroachment",
+        "locationAddress": "Lekki Phase 1",
+        "urgency": "EMERGENCY"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

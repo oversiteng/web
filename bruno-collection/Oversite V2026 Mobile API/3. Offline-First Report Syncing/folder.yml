@@ -1,0 +1,7 @@
+info:
+  name: 3. Offline-First Report Syncing
+  type: folder
+  seq: 3
+
+request:
+  auth: inherit

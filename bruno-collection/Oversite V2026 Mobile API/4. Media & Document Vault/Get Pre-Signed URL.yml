@@ -1,0 +1,28 @@
+info:
+  name: Get Pre-Signed URL
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/media/presigned-url"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "filename": "site_photo_1.jpg",
+        "contentType": "image/jpeg",
+        "bucketType": "property-image"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

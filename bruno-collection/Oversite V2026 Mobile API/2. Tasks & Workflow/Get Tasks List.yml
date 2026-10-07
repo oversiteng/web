@@ -1,0 +1,25 @@
+info:
+  name: Get Tasks List
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{baseUrl}}/tasks?status=IN_PROGRESS&module=QUICK_ERRANDS"
+  headers:
+    - name: Authorization
+      value: Bearer {{token}}
+  params:
+    - name: status
+      value: IN_PROGRESS
+      type: query
+    - name: module
+      value: QUICK_ERRANDS
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,32 @@
+info:
+  name: Create Task
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/tasks"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "moduleType": "QUICK_ERRANDS",
+        "title": "CAC certified copy",
+        "description": "Need a certified true copy from CAC office",
+        "locationAddress": "Ikoyi, Lagos",
+        "locationLat": 6.4531,
+        "locationLng": 3.4357,
+        "priceNgn": 15000.00
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

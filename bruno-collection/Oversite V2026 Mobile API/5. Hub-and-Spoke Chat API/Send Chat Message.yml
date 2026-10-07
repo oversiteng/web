@@ -1,0 +1,28 @@
+info:
+  name: Send Chat Message
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/chat/{{taskId}}/message"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "message": "Can you check the back gate?",
+        "receiverId": "uuid-of-admin-or-target",
+        "fileUrl": "optional_s3_key"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

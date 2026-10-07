@@ -1,0 +1,34 @@
+opencollection: 1.0.0
+
+info:
+  name: Oversite V2026 Mobile API
+config:
+  proxy:
+    inherit: true
+    config:
+      protocol: http
+      hostname: ""
+      port: ""
+      auth:
+        username: ""
+        password: ""
+      bypassProxy: ""
+
+request:
+  variables:
+    - name: baseUrl
+      value: http://localhost:3000/api/v1
+    - name: token
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwZTQ3NzcxMS1iMzdjLTQ5OGUtOTA3Mi0wYmNhN2Q4ZDI1MGQiLCJlbWFpbCI6InVzZXJAZXhhbXBsZS5jb20iLCJyb2xlIjoiVVNFUiIsIm5hbWUiOiJUdW5kZSBDLiIsImlhdCI6MTc5MTM4MjU4MSwiZXhwIjoxNzkxOTg3MzgxfQ.BV7cXQH3yzzfINgQ6tmFoZO7I3HoNMspX64Ev92bJTc
+    - name: taskId
+      value: de9cb8a7-5c36-49f8-a2d0-9d5174e09124
+
+docs:
+  content: Complete collection of REST API endpoints for the Oversite Flutter mobile application and web frontend.
+  type: text/markdown
+bundled: false
+extensions:
+  bruno:
+    ignore:
+      - node_modules
+      - .git
