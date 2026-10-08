@@ -1,0 +1,35 @@
+name: oversite-prod
+services:
+  web:
+    container_name: oversite_prod_web
+    ports:
+      - "3003:3000"
+    environment:
+      - NODE_ENV=production
+    restart: always
+
+  postgres:
+    container_name: oversite_prod_postgres
+    environment:
+      POSTGRES_DB: oversitedb_prod
+    volumes:
+      - prod_postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    container_name: oversite_prod_redis
+    volumes:
+      - prod_redis_data:/data
+    restart: always
+
+  payment:
+    container_name: oversite_prod_payment
+    ports:
+      - "4003:4000"
+    environment:
+      - NODE_ENV=production
+    restart: always
+
+volumes:
+  prod_postgres_data:
+  prod_redis_data:
