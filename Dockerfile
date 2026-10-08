@@ -31,6 +31,12 @@ COPY . .
 # Ensure any existing build cache directory is wiped before compiling fresh bundle
 RUN rm -rf .next
 
+# Provide dummy environment variables to satisfy top-level static evaluation checks 
+# (like Drizzle's DATABASE_URL check) during the Next.js build phase. 
+# Real variables are injected at runtime via Docker Compose.
+ENV DATABASE_URL="postgres://dummy:dummy@localhost:5432/dummy"
+ENV JWT_SECRET="dummy_secret_for_build"
+
 # Run the Next.js build step (generates .next/standalone and .next/static)
 RUN npm run build
 
