@@ -1,0 +1,37 @@
+name: oversite-staging
+services:
+  web:
+    container_name: oversite_staging_web
+    ports:
+      - "3002:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://postgres:abraham2003.com@postgres:5432/oversitedb_staging
+      - REDIS_URL=redis://redis:6379
+    restart: always
+
+  postgres:
+    container_name: oversite_staging_postgres
+    environment:
+      POSTGRES_DB: oversitedb_staging
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    container_name: oversite_staging_redis
+    volumes:
+      - staging_redis_data:/data
+    restart: always
+
+  payment:
+    container_name: oversite_staging_payment
+    ports:
+      - "4002:4000"
+    environment:
+      - NODE_ENV=production
+    restart: always
+
+volumes:
+  staging_postgres_data:
+  staging_redis_data:
