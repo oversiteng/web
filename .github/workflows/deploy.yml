@@ -76,7 +76,7 @@ jobs:
             cd ${{ steps.env.outputs.deploy_dir }}
 
             # Start/Restart the containers in detached mode
-            COMPOSE_FILE="docker-compose.yml -f ${{ steps.env.outputs.compose_override }}"
+            COMPOSE_FILE="${{ steps.env.outputs.compose_override }}"
             if command -v docker-compose >/dev/null 2>&1; then
               sudo docker-compose -f $COMPOSE_FILE up -d --build
             else

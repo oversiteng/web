@@ -1,35 +1,64 @@
 name: oversite-dev
+
 services:
   web:
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: oversite_dev_web
     ports:
       - "3001:3000"
+    env_file:
+      - .env.local
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgres://postgres:abraham2003.com@postgres:5432/oversitedb_dev
+      - DATABASE_URL=postgres://oversite_user:oversite_password@postgres:5432/oversitedb_dev
       - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: always
 
   postgres:
+    image: postgres:16-alpine
     container_name: oversite_dev_postgres
     environment:
+      POSTGRES_USER: oversite_user
+      POSTGRES_PASSWORD: oversite_password
       POSTGRES_DB: oversitedb_dev
     volumes:
       - dev_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U oversite_user -d oversitedb_dev" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: always
 
   redis:
+    image: redis:7-alpine
     container_name: oversite_dev_redis
     volumes:
       - dev_redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: always
 
   payment:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
     container_name: oversite_dev_payment
     ports:
       - "4001:4000"
     environment:
       - NODE_ENV=development
+      - PORT=4000
     restart: always
 
 volumes:
