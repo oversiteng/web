@@ -21,16 +21,22 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
 
   const dbUser = foundUsers[0];
 
-  return NextResponse.json<ApiResponse<Partial<User>>>({
+  return NextResponse.json<ApiResponse<Partial<User> & Record<string, unknown>>>({
     success: true,
     data: {
       id: dbUser.id,
       email: dbUser.email,
       name: dbUser.name || "User",
+      fullName: dbUser.name || "User",
       phone: dbUser.phone,
       role: dbUser.role,
       kycStatus: dbUser.kycStatus,
+      ninVerificationStatus: dbUser.kycStatus.toLowerCase(),
+      avatarUrl: dbUser.avatarUrl || null,
       isActive: dbUser.isActive,
+      isDiasporaUser: false,
+      preferredCurrency: "NGN",
+      joinedDate: dbUser.createdAt.toISOString(),
     },
   });
 });

@@ -3,8 +3,10 @@ import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse, PaginatedResponse } from "@/lib/types/api";
 import { Task, TaskModule, TaskStatus } from "@/lib/types/task";
 import { getDb } from "@/lib/db/client";
-import { tasks } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { tasks, properties } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
+
+import { calculateTaskPricing } from "@/lib/services/pricing";
 
 const db = getDb();
 
@@ -15,15 +17,36 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "20", 10);
 
-  let conditions = undefined;
+  const conditions = [];
+
   if (user.role === "USER") {
-    conditions = eq(tasks.userId, user.sub);
+    conditions.push(eq(tasks.userId, user.sub));
   } else if (user.role === "AGENT") {
-    conditions = eq(tasks.agentId, user.sub);
+    if (status === "open" || status === "PENDING") {
+      // Unassigned open tasks available for agents to claim
+      conditions.push(sql`${tasks.agentId} IS NULL AND ${tasks.status} IN ('PENDING', 'MATCHED')`);
+    } else {
+      // Default: tasks assigned to this agent
+      conditions.push(eq(tasks.agentId, user.sub));
+    }
   }
 
-  // Handle module and status filters if provided (for simplicity, only adding role filter here, can extend later)
-  const dbTasks = await db.select().from(tasks).where(conditions).limit(limit).offset((page - 1) * limit);
+  const propertyId = searchParams.get("propertyId");
+
+  if (moduleType) {
+    conditions.push(eq(tasks.moduleType, moduleType));
+  }
+
+  if (propertyId) {
+    conditions.push(eq(tasks.propertyId, propertyId));
+  }
+
+  if (status && status !== "open") {
+    conditions.push(eq(tasks.status, status as TaskStatus));
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const dbTasks = await db.select().from(tasks).where(whereClause).limit(limit).offset((page - 1) * limit);
 
   const mappedTasks: Task[] = dbTasks.map((t) => ({
     ...t,
@@ -55,7 +78,22 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
 export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
     const body = await req.json();
-    const { moduleType, title, description, locationAddress, locationLat, locationLng, propertyId, priceNgn, formData } = body;
+    const {
+      moduleType,
+      title,
+      description,
+      locationAddress,
+      locationLat,
+      locationLng,
+      propertyId,
+      waypoints = [],
+      purchaseItems = [],
+      requiresOfficialDocs = false,
+      isExpress = false,
+      perimeterScale = "standard",
+      requestedHours,
+      formData,
+    } = body;
 
     if (!moduleType || !title) {
       return NextResponse.json(
@@ -67,19 +105,56 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       );
     }
 
+    let finalAddress = locationAddress;
+    let finalLat = locationLat;
+    let finalLng = locationLng;
+
+    // Automatically inherit location from property if not provided
+    if (propertyId && !finalAddress) {
+      const linkedProps = await db.select().from(properties).where(eq(properties.id, propertyId)).limit(1);
+      if (linkedProps.length > 0) {
+        finalAddress = linkedProps[0].address;
+        finalLat = linkedProps[0].latitude;
+        finalLng = linkedProps[0].longitude;
+      }
+    }
+
+    // Automatically compute pricing and SLA parameters
+    const quote = calculateTaskPricing({
+      moduleType,
+      waypoints,
+      purchaseItems,
+      requiresOfficialDocs,
+      isExpress,
+      perimeterScale,
+      requestedHours,
+    });
+
+    const now = new Date();
+    const promisedDeliveryDate = new Date(now.getTime() + quote.clientPromisedHours * 60 * 60 * 1000);
+
     const [newTask] = await db.insert(tasks).values({
       userId: user.sub,
       moduleType,
       status: "PENDING",
-      priority: "normal",
+      priority: isExpress ? "urgent" : "normal",
       title,
       description,
-      locationAddress,
-      locationLat,
-      locationLng,
+      locationAddress: finalAddress,
+      locationLat: finalLat ? String(finalLat) : null,
+      locationLng: finalLng ? String(finalLng) : null,
       propertyId,
+      pricingMode: quote.pricingMode,
+      quoteStatus: quote.requiresAdminQuote ? "PENDING_ADMIN_PRICE" : "ESTIMATED",
+      agentTargetHours: quote.agentTargetHours,
+      clientPromisedHours: quote.clientPromisedHours,
+      clientPromisedDeliveryDate: promisedDeliveryDate,
+      waypoints: waypoints.length > 0 ? waypoints : null,
+      purchaseItems: purchaseItems.length > 0 ? purchaseItems : null,
+      requiresOfficialDocs,
+      pricingBreakdown: quote,
       formData,
-      priceNgn: priceNgn || 15000,
+      priceNgn: String(quote.totalNgn),
     }).returning();
 
     const createdTask: Task = {

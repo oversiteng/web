@@ -61,7 +61,11 @@ export function withAuth<TParams = Record<string, string>>(
     }
 
     if (options.roles && options.roles.length > 0) {
-      if (!options.roles.includes(user.role)) {
+      const hasRole =
+        options.roles.includes(user.role) ||
+        (user.role === "SUPER_ADMIN" && options.roles.includes("ADMIN"));
+
+      if (!hasRole) {
         return NextResponse.json(
           {
             success: false,

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useState } from "react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV_ITEMS = [
   { label: "Home", href: "/dashboard", icon: "home" },
@@ -59,6 +60,48 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                 </Link>
               );
             })}
+
+            {/* Quick Actions Section */}
+            <div className="pt-4 pb-2">
+              <p className="px-3 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
+                Quick Actions
+              </p>
+              <div className="space-y-0.5">
+                <Link
+                  href="/errands"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-[13px] font-medium transition-colors ${
+                    pathname === "/errands"
+                      ? "bg-amber-500/10 text-amber-500 font-semibold"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)]"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span>Quick Errands</span>
+                </Link>
+                <Link
+                  href="/legal"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-[13px] font-medium transition-colors ${
+                    pathname === "/legal"
+                      ? "bg-blue-500/10 text-blue-500 font-semibold"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)]"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span>Legal Advisory</span>
+                </Link>
+                <Link
+                  href="/enforcement"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-[13px] font-medium transition-colors ${
+                    pathname === "/enforcement"
+                      ? "bg-rose-500/10 text-rose-500 font-semibold"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)]"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  <span>Law Enforcement</span>
+                </Link>
+              </div>
+            </div>
           </nav>
 
           {/* User Card & Logout */}
@@ -72,13 +115,16 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                 <p className="text-[10px] text-[var(--primary)] truncate">Client Account</p>
               </div>
             </div>
-            <Link
-              href="/login"
-              className="flex items-center gap-2 px-3 py-1.5 text-[12px] text-[var(--text-muted)] hover:text-red-500 transition-colors"
-            >
-              <i className="ai-logout text-[16px]" />
-              <span>Sign Out</span>
-            </Link>
+            <div className="flex items-center justify-between px-1">
+              <Link
+                href="/login"
+                className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-[var(--text-muted)] hover:text-red-500 transition-colors"
+              >
+                <i className="ai-logout text-[16px]" />
+                <span>Sign Out</span>
+              </Link>
+              <ThemeToggle className="w-8 h-8 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-heading)] hover:bg-[var(--bg-card)] flex items-center justify-center transition-colors shadow-xs" />
+            </div>
           </div>
         </aside>
 

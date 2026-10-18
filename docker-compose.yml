@@ -6,6 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: development
     container_name: oversite_web_app
     ports:
       - "3000:3000"
@@ -13,8 +14,8 @@ services:
       - .env.local
     environment:
       - NODE_ENV=development
-      # Overrides localhost to point to container service names when running in docker compose
-      - DATABASE_URL=postgres://postgres:abraham2003.com@postgres:5432/oversitedb
+      - WATCHPACK_POLLING=true # Ensures Next.js picks up file events in Docker
+      - DATABASE_URL=postgres://oversite_user:oversite_password@postgres:5432/oversitedb
       - REDIS_URL=redis://redis:6379
     depends_on:
       postgres:
@@ -23,12 +24,15 @@ services:
         condition: service_healthy
     develop:
       watch:
-        - action: rebuild
+        - action: sync
           path: .
+          target: /app
           ignore:
             - node_modules/
             - .next/
             - .git/
+        - action: rebuild
+          path: package.json
         - action: restart
           path: .env.local
 

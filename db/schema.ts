@@ -19,6 +19,7 @@ export const userRoleEnum = pgEnum("user_role", [
   "USER",
   "AGENT",
   "ADMIN",
+  "SUPER_ADMIN",
 ]);
 
 export const kycStatusEnum = pgEnum("kyc_status", [
@@ -240,6 +241,15 @@ export const tasks = pgTable(
     locationLng: numeric("location_lng", { precision: 10, scale: 7 }),
     formData: jsonb("form_data"),
     priceNgn: numeric("price_ngn", { precision: 12, scale: 2 }),
+    pricingMode: varchar("pricing_mode", { length: 30 }).default("AUTOMATED"),
+    quoteStatus: varchar("quote_status", { length: 30 }).default("ESTIMATED"),
+    agentTargetHours: integer("agent_target_hours"),
+    clientPromisedHours: integer("client_promised_hours"),
+    clientPromisedDeliveryDate: timestamp("client_promised_delivery_date", { withTimezone: true }),
+    waypoints: jsonb("waypoints"),
+    purchaseItems: jsonb("purchase_items"),
+    requiresOfficialDocs: boolean("requires_official_docs").default(false),
+    pricingBreakdown: jsonb("pricing_breakdown"),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })

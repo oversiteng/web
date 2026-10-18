@@ -1,6 +1,6 @@
 // ─── User & Agent Type Definitions ──────────────────────────────────────────
 
-export type UserRole = "USER" | "AGENT" | "ADMIN";
+export type UserRole = "USER" | "AGENT" | "ADMIN" | "SUPER_ADMIN";
 export type KycStatus = "PENDING" | "SUBMITTED" | "VERIFIED" | "REJECTED";
 export type AgentTier =
   | "GENERAL"

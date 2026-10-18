@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ApiResponse } from "@/lib/types/api";
 import { User } from "@/lib/types/user";
-import { signToken } from "@/lib/auth/jwt";
+import { signToken, signRefreshToken } from "@/lib/auth/jwt";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { getDb } from "@/lib/db/client";
@@ -57,21 +57,37 @@ export async function POST(
       name: user.name || undefined,
     });
 
-    return NextResponse.json({
+    const refreshToken = signRefreshToken(user.id);
+
+    const response = NextResponse.json({
       success: true,
       data: {
         user: {
           id: user.id,
           email: user.email,
           name: user.name,
+          fullName: user.name,
           phone: user.phone,
           role: user.role,
           kycStatus: user.kycStatus,
+          ninVerificationStatus: user.kycStatus.toLowerCase(),
           isActive: user.isActive,
         },
         token,
+        accessToken: token,
+        refreshToken,
       },
     });
+
+    response.cookies.set("token", token, {
+      path: "/",
+      httpOnly: false, // allow client-side reading if needed
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7,
+      sameSite: "lax",
+    });
+
+    return response;
   } catch (error) {
     return NextResponse.json(
       {

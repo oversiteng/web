@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: development
     container_name: oversite_dev_web
     ports:
       - "3001:3000"
@@ -12,6 +13,7 @@ services:
       - .env.local
     environment:
       - NODE_ENV=development
+      - WATCHPACK_POLLING=true # Ensures Next.js picks up file events in Docker
       - DATABASE_URL=postgres://oversite_user:oversite_password@postgres:5432/oversitedb_dev
       - REDIS_URL=redis://redis:6379
     depends_on:
@@ -20,6 +22,22 @@ services:
       redis:
         condition: service_healthy
     restart: always
+    develop:
+      watch:
+        # Syncs code changes instantly without rebuilding the image
+        - action: sync
+          path: .
+          target: /app # <-- Ensure this matches the WORKDIR in your Dockerfile!
+          ignore:
+            - node_modules/
+            - .next/
+            - .git/
+        # Only rebuild if package dependencies change
+        - action: rebuild
+          path: package.json
+        # Restart the container if env changes
+        - action: restart
+          path: .env.local
 
   postgres:
     image: postgres:16-alpine

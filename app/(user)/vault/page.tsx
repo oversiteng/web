@@ -1,88 +1,293 @@
 "use client";
 
-import { FolderLock, Upload, FileText, Download, ShieldCheck, Lock } from "lucide-react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Search, Download, Check, X } from "lucide-react";
+
+type DocCategory = "all" | "property" | "documents" | "diligence";
+
+interface VaultDocument {
+  id: string;
+  name: string;
+  category: "property" | "documents" | "diligence";
+  type: "PDF" | "ZIP";
+  subtitle: string;
+  status?: "pending";
+}
+
+const DOCUMENTS: VaultDocument[] = [
+  {
+    id: "doc-1",
+    name: "Vendor Background Check...",
+    category: "diligence",
+    type: "PDF",
+    subtitle: "Spreadsheets · yesterday · 450 KB",
+    status: "pending",
+  },
+  {
+    id: "doc-2",
+    name: "Ikoyi Site Visit Report.pdf",
+    category: "property",
+    type: "PDF",
+    subtitle: "Property Oversite · today · 2.4 MB",
+  },
+  {
+    id: "doc-3",
+    name: "CAC Certified True Copy.pdf",
+    category: "documents",
+    type: "PDF",
+    subtitle: "Documents · today · 1.1 MB",
+  },
+  {
+    id: "doc-4",
+    name: "Lekki Boundary Evidence.zip",
+    category: "property",
+    type: "ZIP",
+    subtitle: "Evidence · 4 photos · 9.8 MB",
+  },
+  {
+    id: "doc-5",
+    name: "Title Deed Verification.pdf",
+    category: "diligence",
+    type: "PDF",
+    subtitle: "Due Diligence · 3 days ago · 1.8 MB",
+  },
+  {
+    id: "doc-6",
+    name: "Survey Plan & Coordinate Chart.pdf",
+    category: "property",
+    type: "PDF",
+    subtitle: "Survey · 5 days ago · 3.5 MB",
+  },
+];
+
+const CATEGORIES: { id: DocCategory; label: string }[] = [
+  { id: "all", label: "All file" },
+  { id: "property", label: "Property" },
+  { id: "documents", label: "Documents" },
+  { id: "diligence", label: "Due Diligence" },
+];
+
+function DocFileIcon({ type }: { type: "PDF" | "ZIP" }) {
+  return (
+    <div className="relative w-7 h-9 flex items-center justify-center shrink-0">
+      {/* Document outline with folded top-right corner */}
+      <svg
+        className="w-7 h-9 text-[var(--text-heading)]"
+        viewBox="0 0 28 36"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M5 3h11l7 7v21a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+        <path d="M16 3v7h7" />
+      </svg>
+      {/* File type badge at bottom left */}
+      <span className="absolute -bottom-1 -left-1 bg-black text-white text-[7.5px] font-bold px-1 py-0.2 rounded-xs tracking-tight border border-zinc-700/60 leading-tight">
+        {type}
+      </span>
+    </div>
+  );
+}
 
 export default function DocumentVaultPage() {
-  const documents = [
-    {
-      name: "Certificate of Occupancy (C of O) - Lekki Plot 8B.pdf",
-      size: "4.2 MB",
-      uploadedAt: "August 10, 2026",
-      classification: "LAND TITLE",
-      encrypted: true,
-    },
-    {
-      name: "Survey Plan & Beacon Coordinate Chart.pdf",
-      size: "2.8 MB",
-      uploadedAt: "August 10, 2026",
-      classification: "SURVEY",
-      encrypted: true,
-    },
-    {
-      name: "Contractor Agreement & Architectural Blueprints.pdf",
-      size: "18.4 MB",
-      uploadedAt: "August 25, 2026",
-      classification: "BUILDING PERMIT",
-      encrypted: true,
-    },
-  ];
+  const router = useRouter();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const [activeCategory, setActiveCategory] = useState<DocCategory>("all");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isSearching) {
+      searchInputRef.current?.focus();
+    }
+  }, [isSearching]);
+
+  const filteredDocs = useMemo(() => {
+    return DOCUMENTS.filter((doc) => {
+      // Category filter
+      if (activeCategory !== "all" && doc.category !== activeCategory) {
+        return false;
+      }
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return (
+          doc.name.toLowerCase().includes(q) ||
+          doc.subtitle.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [activeCategory, searchQuery]);
+
+  const handleDownload = (doc: VaultDocument) => {
+    setToastMessage(`Downloading ${doc.name}...`);
+    setTimeout(() => {
+      setToastMessage(`Downloaded ${doc.name}`);
+      setTimeout(() => setToastMessage(null), 2500);
+    }, 1200);
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <FolderLock className="w-6 h-6 text-emerald-400" />
-            Encrypted Document Vault
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            AES-256 encrypted cloud repository for land titles, C of O documents, registered survey plans, and architectural blueprints.
-          </p>
+    <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-16 select-none">
+      {/* ── Toast Notification Banner ── */}
+      {toastMessage && (
+        <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
+          <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
+            <div className="w-5 h-5 rounded-full bg-[#2BB44A]/20 flex items-center justify-center shrink-0">
+              <Check className="w-3.5 h-3.5 text-[#2BB44A] stroke-[3]" />
+            </div>
+            <span className="text-[13px] font-medium tracking-wide truncate">
+              {toastMessage}
+            </span>
+          </div>
         </div>
-        <button
-          onClick={() => alert("Upload document modal")}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-sm transition-all"
-        >
-          <Upload className="w-4 h-4" />
-          <span>Upload Document</span>
-        </button>
+      )}
+
+      {/* ── Top Header ── */}
+      {isSearching ? (
+        /* Search Active Header (Screenshot 2) */
+        <div className="flex items-center gap-3 py-2.5 mb-6">
+          <button
+            type="button"
+            onClick={() => {
+              setIsSearching(false);
+              setSearchQuery("");
+            }}
+            aria-label="Close search"
+            className="w-9 h-9 flex items-center justify-center text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer shrink-0 -ml-1"
+          >
+            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+
+          <div className="flex-1 flex items-center gap-2.5 rounded-full border-2 border-[#2BB44A] bg-[var(--bg-card)] px-4 py-2 transition-all">
+            <Search className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search documents..."
+              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Default Header (Screenshot 1) */
+        <div className="relative flex items-center justify-between py-3 mb-6">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                router.back();
+              } else {
+                router.push("/more");
+              }
+            }}
+            aria-label="Go back"
+            className="w-9 h-9 flex items-center justify-center text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer -ml-1"
+          >
+            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+
+          <h1 className="text-[17px] sm:text-[18px] font-semibold text-[var(--text-heading)]">
+            Document vault
+          </h1>
+
+          <button
+            type="button"
+            onClick={() => setIsSearching(true)}
+            aria-label="Search documents"
+            className="w-9 h-9 flex items-center justify-center text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer -mr-1"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
+      {/* ── Category Filter Tabs ── */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-6 pt-1">
+        {CATEGORIES.map((cat) => {
+          const isActive = activeCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setActiveCategory(cat.id)}
+              className={`px-4 py-1.5 rounded-full text-[13px] whitespace-nowrap transition-all cursor-pointer font-medium ${
+                isActive
+                  ? "bg-[#85e19e] text-zinc-950 font-semibold shadow-xs"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+              }`}
+            >
+              {cat.label}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="space-y-3">
-        {documents.map((doc, idx) => (
-          <div
-            key={idx}
-            className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:border-slate-700 transition-all"
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-300 shrink-0">
-                <FileText className="w-5 h-5 text-emerald-400" />
+      {/* ── Document List ── */}
+      <div className="space-y-4">
+        {filteredDocs.length === 0 ? (
+          <div className="py-16 text-center">
+            <p className="text-[14px] text-[var(--text-muted)]">
+              No documents found
+            </p>
+          </div>
+        ) : (
+          filteredDocs.map((doc) => (
+            <div
+              key={doc.id}
+              className="flex items-center justify-between gap-4 py-2 hover:bg-[var(--bg-secondary)]/50 rounded-xl px-2 transition-colors"
+            >
+              {/* Left File Icon & Details */}
+              <div className="flex items-center gap-4 min-w-0">
+                <DocFileIcon type={doc.type} />
+                <div className="min-w-0">
+                  <h2 className="text-[14px] sm:text-[15px] font-medium text-[var(--text-heading)] truncate">
+                    {doc.name}
+                  </h2>
+                  <p className="text-[12px] text-[var(--text-muted)] mt-0.5 truncate">
+                    {doc.subtitle}
+                  </p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-medium text-white text-sm">{doc.name}</h4>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-semibold">
-                    {doc.classification}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-xs text-slate-400">
-                  <span>{doc.size}</span>
-                  <span>•</span>
-                  <span>Uploaded {doc.uploadedAt}</span>
-                  <span>•</span>
-                  <span className="text-emerald-400 flex items-center gap-1">
-                    <Lock className="w-3 h-3" /> Encrypted
-                  </span>
-                </div>
+
+              {/* Right Action / Status Badge */}
+              <div className="shrink-0 flex items-center">
+                {doc.status === "pending" ? (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-[#432b0c] border border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-400 text-[11px] font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    <span>Pending</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(doc)}
+                    aria-label={`Download ${doc.name}`}
+                    className="w-9 h-9 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-heading)] transition-colors cursor-pointer"
+                  >
+                    <Download className="w-5 h-5 stroke-[1.8]" />
+                  </button>
+                )}
               </div>
             </div>
-
-            <button className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 inline-flex items-center gap-1.5 transition-colors self-start sm:self-auto">
-              <Download className="w-3.5 h-3.5" />
-              <span>Download Securely</span>
-            </button>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );

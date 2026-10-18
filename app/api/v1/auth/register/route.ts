@@ -5,14 +5,20 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { users, agentProfiles } from "@/db/schema";
-import { signToken } from "@/lib/auth/jwt";
+import { signToken, signRefreshToken } from "@/lib/auth/jwt";
 
 const db = getDb();
-export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{ user: Partial<User>; token: string }>>> {
+export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{ user: Partial<User> & { fullName?: string | null; ninVerificationStatus?: string }; token: string; accessToken: string; refreshToken: string }>>> {
   try {
     const body = await req.json();
-    const { email, password, name, phone, role } = body;
-
+    const { email, password } = body;
+    const name = body.name || body.fullName;
+    const phone = body.phone || body.phoneNumber;
+    // Mobile spec uses CLIENT, DB uses USER
+    let normalizedRole = body.role || "USER";
+    if (normalizedRole === "CLIENT") {
+      normalizedRole = "USER";
+    }
     if (!email || !password) {
       return NextResponse.json(
         {
@@ -22,13 +28,12 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
         { status: 400 }
       );
     }
-
     // Hash password with bcryptjs
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-
     // Check if user already exists
     const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
+
     if (existingUser.length > 0) {
       return NextResponse.json(
         { success: false, error: { code: "CONFLICT", message: "Email is already registered" } },
@@ -42,7 +47,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
       passwordHash: hashedPassword,
       name: name || null,
       phone: phone || null,
-      role: role || "USER",
+      role: normalizedRole,
       kycStatus: "PENDING",
       isActive: true,
     }).returning();
@@ -63,7 +68,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
       name: newUser.name || undefined,
     });
 
-    return NextResponse.json(
+    const refreshToken = signRefreshToken(newUser.id);
+
+    const response = NextResponse.json(
       {
         success: true,
         data: {
@@ -71,16 +78,30 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
             id: newUser.id,
             email: newUser.email,
             name: newUser.name,
+            fullName: newUser.name,
             phone: newUser.phone,
             role: newUser.role,
             kycStatus: newUser.kycStatus,
+            ninVerificationStatus: newUser.kycStatus.toLowerCase(),
             isActive: newUser.isActive,
           },
           token,
+          accessToken: token,
+          refreshToken,
         },
       },
       { status: 201 }
     );
+
+    response.cookies.set("token", token, {
+      path: "/",
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7,
+      sameSite: "lax",
+    });
+
+    return response;
   } catch (error) {
     return NextResponse.json(
       {

@@ -1,9 +1,10 @@
 node_modules
+npm-debug.log
 .next
 .git
-.github
-npm-debug.log*
-Dockerfile
-README.md
-.env*
-
+.env
+.env.local
+.DS_Store
+dist
+.turbo
+coverage

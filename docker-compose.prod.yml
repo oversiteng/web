@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runner
     container_name: oversite_prod_web
     ports:
       - "3003:3000"

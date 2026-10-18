@@ -56,34 +56,21 @@ const MENU_ITEMS = [
 export default function MorePage() {
   return (
     <div className="relative min-h-screen pb-24 overflow-hidden">
-      {/* Background Watermark */}
-      <div
-        className="absolute top-[5%] sm:top-[10%] right-14 w-[300px] h-[300px] sm:w-[600px] sm:h-[600px] opacity-[0.20] dark:opacity-[0.15] pointer-events-none transform translate-x-[40%]"
-        style={{
-          backgroundColor: 'var(--primary)',
-          maskImage: 'url(/assets/nav-icons/logo.svg)',
-          maskSize: 'contain',
-          maskRepeat: 'no-repeat',
-          maskPosition: 'center',
-          WebkitMaskImage: 'url(/assets/nav-icons/logo.svg)',
-          WebkitMaskSize: 'contain',
-          WebkitMaskRepeat: 'no-repeat',
-          WebkitMaskPosition: 'center'
-        }}
-      />
-
       {/* Header */}
       <div className="flex items-center justify-center pt-4 pb-8 relative z-10">
         <h1 className="text-[18px] font-bold text-[var(--text-heading)]">More</h1>
       </div>
 
       {/* Profile Section */}
-      <div className="flex items-center gap-4 px-4 mb-10 relative z-10">
+      <Link
+        href="/settings/profile"
+        className="flex items-center gap-4 px-4 mb-10 relative z-10 cursor-pointer hover:opacity-90 transition-opacity"
+      >
         <div className="relative w-16 h-16 rounded-full bg-[#1A2F4C] flex items-center justify-center text-[22px] font-bold text-blue-400 shrink-0 shadow-[0_4px_10px_rgba(0,0,0,0.1)]">
           Al
-          <button className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[var(--primary)] text-white border-2 border-[var(--bg-body)] flex items-center justify-center">
+          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[var(--primary)] text-white border-2 border-[var(--bg-body)] flex items-center justify-center">
             <i className="ai-edit-alt text-[12px]" />
-          </button>
+          </div>
         </div>
         <div>
           <h2 className="text-[16px] font-bold text-[var(--text-heading)]">Aisha Lawal</h2>
@@ -92,7 +79,7 @@ export default function MorePage() {
         <div className="ml-auto">
           <i className="ai-chevron-right text-var(--text-muted) text-[20px]" />
         </div>
-      </div>
+      </Link>
 
       {/* Menu List */}
       <div className="space-y-1 relative z-10">

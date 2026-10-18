@@ -12,14 +12,37 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // TODO: Implement actual login logic with phone number
-    setTimeout(() => {
-      setLoading(false);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: phoneNumber, password }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setErrorMessage(data.error?.message || "Invalid credentials. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Store in localStorage for mobile/client components
+      if (data.data?.token) {
+        localStorage.setItem("oversite_token", data.data.token);
+      }
+
       router.push("/dashboard");
-    }, 1000);
+    } catch (err) {
+      setErrorMessage("Network error. Please try again.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -32,6 +55,12 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+      {errorMessage && (
+        <div className="w-full mb-4 p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium text-center">
+          {errorMessage}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="w-full space-y-3">
         {/* Email / Phone Number Input */}

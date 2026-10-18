@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runner
     container_name: oversite_staging_web
     ports:
       - "3002:3000"
@@ -20,6 +21,17 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    develop:
+      watch:
+        # For production runner, rebuild the standalone image on source changes
+        - action: rebuild
+          path: .
+          ignore:
+            - node_modules/
+            - .next/
+            - .git/
+        - action: restart
+          path: .env.local
 
   postgres:
     image: postgres:16-alpine
