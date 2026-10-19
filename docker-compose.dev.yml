@@ -5,14 +5,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: development
+      target: runner
     container_name: oversite_dev_web
     ports:
       - "3001:3000"
     env_file:
       - .env.local
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - WATCHPACK_POLLING=true # Ensures Next.js picks up file events in Docker
       - DATABASE_URL=postgres://oversite_user:oversite_password@postgres:5432/oversitedb_dev
       - REDIS_URL=redis://redis:6379
