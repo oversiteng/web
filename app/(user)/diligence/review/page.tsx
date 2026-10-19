@@ -129,7 +129,7 @@ export default function DueDiligenceOrderReviewPage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto min-h-[calc(100vh-120px)] flex flex-col justify-between relative px-2 sm:px-4 animate-in fade-in duration-200">
+    <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between relative px-2 sm:px-4 animate-in fade-in duration-200">
       <div>
         {/* ── Top Header ── */}
         <div className="relative flex items-center justify-center py-4 mb-4">
@@ -220,7 +220,7 @@ export default function DueDiligenceOrderReviewPage() {
       </div>
 
       {/* ── Bottom Sticky Action Button: Pay ₦26,100 (Matches Figma Screenshot) ── */}
-      <div className="pt-6 pb-4 sticky bottom-0 bg-[var(--bg-body)]/95 backdrop-blur-md z-30 mt-6 border-t border-[var(--border-color)] -mx-2 sm:-mx-4 px-2 sm:px-4">
+      <div className="pt-6 pb-4 sticky bottom-[68px] md:bottom-0 bg-[var(--bg-body)]/95 backdrop-blur-md z-40 mt-6 border-t border-[var(--border-color)] -mx-2 sm:-mx-4 px-2 sm:px-4">
         <button
           type="button"
           disabled={isSubmitting}

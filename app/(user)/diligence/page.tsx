@@ -123,8 +123,8 @@ export default function DueDiligenceFormPage() {
   };
 
   return (
-    <div className="bg-[#F2F4F2] dark:bg-[#111412] min-h-screen text-[var(--text-heading)] transition-colors duration-150">
-      <div className="max-w-xl mx-auto min-h-screen flex flex-col justify-between px-4 sm:px-6 py-4">
+    <div className="bg-[#F2F4F2] dark:bg-[#111412] min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150">
+      <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between px-4 sm:px-6 py-4">
         <div>
           {/* ── Top Header ── */}
           <div className="relative flex items-center justify-center py-3 mb-4">
@@ -355,7 +355,7 @@ export default function DueDiligenceFormPage() {
         </div>
 
         {/* ── Bottom Sticky Bar ── */}
-        <div className="sticky bottom-0 bg-[#F2F4F2]/95 dark:bg-[#111412]/95 backdrop-blur-md pt-4 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 mt-6 border-t border-zinc-200/60 dark:border-zinc-800/60">
+        <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[#F2F4F2]/95 dark:bg-[#111412]/95 backdrop-blur-md pt-4 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 mt-6 border-t border-zinc-200/60 dark:border-zinc-800/60">
           <div className="flex items-center justify-between mb-3 px-1">
             <span className="text-[14px] font-medium text-zinc-500 dark:text-zinc-400">
               Service fee

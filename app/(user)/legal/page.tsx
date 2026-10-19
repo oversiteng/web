@@ -13,15 +13,9 @@ import {
   FileText,
   Calendar,
   Building2,
-  PlusCircle,
   Check,
 } from "lucide-react";
-
-interface PropertyOption {
-  id: string;
-  title: string;
-  address: string;
-}
+import { PropertySelectDrawer, PropertyOption } from "@/components/PropertySelectDrawer";
 
 const LEGAL_DOMAINS = [
   "Property & Land Law",
@@ -153,7 +147,7 @@ export default function LegalAdvisoryPage() {
       consultationDate,
       consultationDateRaw,
       propertyId: selectedPropertyId || undefined,
-      propertyTitle: selectedProp ? selectedProp.title : undefined,
+      propertyTitle: selectedProp ? (selectedProp.title || selectedProp.address) : undefined,
       fileName: attachedFile?.name || null,
     };
     try {
@@ -166,13 +160,13 @@ export default function LegalAdvisoryPage() {
     if (legalDomain) query.set("domain", legalDomain);
     if (consultationDateRaw) query.set("date", consultationDateRaw);
     if (selectedPropertyId) query.set("propertyId", selectedPropertyId);
-    if (selectedProp) query.set("propTitle", selectedProp.title);
+    if (selectedProp) query.set("propTitle", selectedProp.title || selectedProp.address);
 
     router.push(`/legal/review?${query.toString()}`);
   };
 
   return (
-    <div className="max-w-xl mx-auto min-h-[calc(100vh-120px)] flex flex-col justify-between relative px-2 sm:px-4">
+    <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between relative px-2 sm:px-4">
       {/* ── Top Header ── */}
       <div>
         <div className="relative flex items-center justify-center py-4 mb-3 border-b border-[var(--border-color)]">
@@ -195,45 +189,17 @@ export default function LegalAdvisoryPage() {
         </div>
 
         {/* ── Optional Property Link Selector ── */}
-        <div className="mb-5 p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-[12.5px] font-semibold text-[var(--text-heading)] flex items-center gap-1.5">
-              <Building2 className="w-4 h-4 text-[var(--primary)]" />
-              Link to Registered Property <span className="text-[var(--primary)]"> (Optional)</span>
-            </label>
-          </div>
-
-          {loadingProps ? (
-            <p className="text-[11.5px] text-[var(--text-muted)] py-2">Loading properties...</p>
-          ) : properties.length === 0 ? (
-            <div className="flex flex-row items-start sm:items-center justify-between gap-2.5 py-3 bg-[var(--bg-secondary)]">
-              <div>
-                <p className="text-[13px] font-medium text-[var(--text-heading)]">No registered properties found</p>
-              </div>
-              <Link
-                href={`/properties/new?returnUrl=${encodeURIComponent("/legal")}`}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[var(--primary)] text-[11px] md:text-[13px] font-bold hover:bg-[var(--primary)]/20 transition-colors shrink-0 self-end"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>Add Property</span>
-              </Link>
-            </div>
-          ) : (
-            <div className="relative">
-              <select
-                value={selectedPropertyId}
-                onChange={(e) => setSelectedPropertyId(e.target.value)}
-                className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2.5 text-[13px] text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)] transition-colors cursor-pointer"
-              >
-                <option value="">None (General legal inquiry without property link)</option>
-                {properties.map((prop) => (
-                  <option key={prop.id} value={prop.id}>
-                    {prop.title} — {prop.address}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+        <div className="mb-5">
+          <PropertySelectDrawer
+            label="Property"
+            properties={properties}
+            selectedPropertyId={selectedPropertyId}
+            onSelect={(prop) => setSelectedPropertyId(prop?.id || "")}
+            allowNone={true}
+            noneLabel="None (General legal inquiry without property link)"
+            returnUrl="/legal"
+            loading={loadingProps}
+          />
         </div>
 
         {/* ── Form Fields ── */}
@@ -406,7 +372,7 @@ export default function LegalAdvisoryPage() {
       </div>
 
       {/* ── Bottom Sticky Bar ── */}
-      <div className="pt-6 pb-4 sticky bottom-0 bg-[var(--bg-body)]/95 backdrop-blur-md z-30 mt-6 border-t border-[var(--border-color)] -mx-2 sm:-mx-4 px-2 sm:px-4">
+      <div className="pt-6 pb-4 sticky bottom-[68px] md:bottom-0 bg-[var(--bg-body)]/95 backdrop-blur-md z-40 mt-6 border-t border-[var(--border-color)] -mx-2 sm:-mx-4 px-2 sm:px-4">
         <div className="flex items-center justify-between mb-3 px-1">
           <span className="text-[14px] font-medium text-[var(--text-muted)]">
             Service fee

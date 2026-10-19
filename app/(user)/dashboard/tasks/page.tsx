@@ -450,7 +450,7 @@ export default function TasksPage() {
               </Link>
 
               <Link
-                href="/properties"
+                href="/property-oversite"
                 onClick={() => setCreateActionOpen(false)}
                 className="flex items-center gap-3.5 p-3 rounded-2xl bg-[var(--bg-secondary)] hover:border-[var(--primary)]/40 border border-transparent transition-all group"
               >

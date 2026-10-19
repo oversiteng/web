@@ -11,16 +11,9 @@ import {
   Camera,
   Receipt,
   MapPin,
-  Building2,
-  PlusCircle,
 } from "lucide-react";
 import { ERRAND_OPTIONS } from "../errands-data";
-
-interface PropertyOption {
-  id: string;
-  title: string;
-  address: string;
-}
+import { PropertySelectDrawer, PropertyOption } from "@/components/PropertySelectDrawer";
 
 export default function ErrandDetailsPage() {
   const router = useRouter();
@@ -145,7 +138,7 @@ export default function ErrandDetailsPage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto min-h-[calc(100vh-120px)] flex flex-col justify-between relative px-2 sm:px-4 animate-in fade-in duration-200">
+    <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between relative px-2 sm:px-4 animate-in fade-in duration-200">
       <div>
         {/* ── Top Header ── */}
         <div className="relative flex items-center justify-center py-4 mb-4">
@@ -183,45 +176,20 @@ export default function ErrandDetailsPage() {
         </div>
 
         {/* ── Optional Property Link Selector ── */}
-        <div className="mb-5 p-3 rounded-md bg-[#F4F6F4] dark:bg-[var(--bg-card)] border border-[var(--border-color)]/60 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-[12.5px] font-semibold text-[var(--text-heading)] flex items-center gap-1.5">
-              <Building2 className="w-4 h-4 text-[var(--primary)]" />
-              <span>Link to Registered Property (Optional)</span>
-            </label>
-          </div>
-
-          {loadingProps ? (
-            <p className="text-[11px] text-[var(--text-muted)] py-2">Loading properties...</p>
-          ) : properties.length === 0 ? (
-            <div className="flex flex-row items-start sm:items-center justify-between gap-2.5 py-2">
-              <p className="text-[13px] font-medium text-[var(--text-heading)]">No registered properties found</p>
-              <Link
-                href={`/properties/new?returnUrl=${encodeURIComponent(`/errands/details?type=${selectedOption.id}`)}`}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[var(--primary)] text-[11px] md:text-[13px] font-bold hover:bg-[var(--primary)]/10 transition-colors shrink-0 self-end"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>Add Property</span>
-              </Link>
-            </div>
-          ) : (
-            <select
-              value={selectedPropertyId}
-              onChange={(e) => {
-                setSelectedPropertyId(e.target.value);
-                const prop = properties.find((p) => p.id === e.target.value);
-                if (prop) setLocation(prop.address);
-              }}
-              className="w-full bg-[var(--bg-card)] dark:bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-[13px] text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)] transition-colors cursor-pointer"
-            >
-              <option value="">None (Standalone errand without property link)</option>
-              {properties.map((prop) => (
-                <option key={prop.id} value={prop.id}>
-                  {prop.title} — {prop.address}
-                </option>
-              ))}
-            </select>
-          )}
+        <div className="mb-5">
+          <PropertySelectDrawer
+            label="Property"
+            properties={properties}
+            selectedPropertyId={selectedPropertyId}
+            onSelect={(prop) => {
+              setSelectedPropertyId(prop?.id || "");
+              if (prop) setLocation(prop.address);
+            }}
+            allowNone={true}
+            noneLabel="None (Standalone errand without property link)"
+            returnUrl={`/errands/details?type=${selectedOption.id}`}
+            loading={loadingProps}
+          />
         </div>
 
 
@@ -360,7 +328,7 @@ export default function ErrandDetailsPage() {
       </div>
 
       {/* ── Bottom Sticky Bar: Send Request ── */}
-      <div className="pt-6 pb-4 sticky bottom-0 bg-[var(--bg-body)]/95 backdrop-blur-md z-30 mt-6 border-t border-[var(--border-color)] -mx-2 sm:-mx-4 px-2 sm:px-4">
+      <div className="pt-6 pb-4 sticky bottom-[68px] md:bottom-0 bg-[var(--bg-body)]/95 backdrop-blur-md z-40 mt-6 border-t border-[var(--border-color)] -mx-2 sm:-mx-4 px-2 sm:px-4">
         <div className="flex items-center justify-between mb-3 px-1">
           <span className="text-[14px] font-medium text-[var(--text-muted)]">
             Service fee
