@@ -29,10 +29,26 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
     async function loadUser() {
       try {
         const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+        const cookieToken = typeof document !== "undefined" && document.cookie.includes("token=");
+
+        if (!token && !cookieToken) {
+          router.replace(`/login?returnUrl=${encodeURIComponent(pathname)}`);
+          return;
+        }
+
         const headers: Record<string, string> = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
         const res = await fetch("/api/v1/auth/me", { headers });
+        if (res.status === 401) {
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("oversite_token");
+            document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+          }
+          router.replace(`/login?returnUrl=${encodeURIComponent(pathname)}`);
+          return;
+        }
+
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data) {
@@ -45,7 +61,7 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
     }
 
     loadUser();
-  }, []);
+  }, [pathname, router]);
 
   const handleSignOut = () => {
     if (typeof window !== "undefined") {

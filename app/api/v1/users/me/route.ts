@@ -63,3 +63,15 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
     },
   });
 });
+
+export const DELETE = withAuth(async (req: NextRequest, { user }) => {
+  await db
+    .update(users)
+    .set({ isActive: false })
+    .where(eq(users.id, user.sub));
+
+  return NextResponse.json<ApiResponse<{ message: string }>>({
+    success: true,
+    data: { message: "Account deleted successfully" },
+  });
+});
