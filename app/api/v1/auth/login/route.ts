@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ApiResponse } from "@/lib/types/api";
 import { User } from "@/lib/types/user";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { getDb } from "@/lib/db/client";
 import { users } from "@/db/schema";
@@ -14,22 +14,28 @@ export async function POST(
 ): Promise<NextResponse<ApiResponse<{ user: Partial<User>; token: string }>>> {
   try {
     const body = await req.json();
-    const { email, password } = body;
+    const identifier = (body.email || body.phone || body.phoneNumber || "").trim();
+    const password = body.password;
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       return NextResponse.json(
         {
           success: false,
-          error: { code: "VALIDATION_ERROR", message: "Email and password are required" },
+          error: { code: "VALIDATION_ERROR", message: "Email or phone number and password are required" },
         },
         { status: 400 }
       );
     }
 
-    const foundUsers = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const foundUsers = await db
+      .select()
+      .from(users)
+      .where(or(eq(users.email, identifier), eq(users.phone, identifier)))
+      .limit(1);
+
     if (foundUsers.length === 0) {
       return NextResponse.json(
-        { success: false, error: { code: "UNAUTHORIZED", message: "Invalid email or password" } },
+        { success: false, error: { code: "UNAUTHORIZED", message: "Invalid email/phone or password" } },
         { status: 401 }
       );
     }

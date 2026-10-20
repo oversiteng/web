@@ -111,30 +111,78 @@ export default function TaskDetailPage({
   const [proposalAccepted, setProposalAccepted] = useState(false);
 
   useEffect(() => {
-    // If it's task-6, it's a price proposal awaiting agreement
-    if (taskId === "task-6") {
-      setTask({
-        ...DEFAULT_TASK,
-        id: "task-6",
-        title: "Vendor background check",
-        projectName: "Vendor Background Check - Plot 12 Lekki",
-        subtitle: "Due Diligence · Price Proposal from Oversite Admin · 1h ago",
-        status: "review",
-        proposedPrice: 50000,
-        proposalDetails: {
-          scope:
-            "Tier 2 Corporate and Vendor Investigation: CAC registry status, principal director litigation verification, asset liens, and police clearance confirmation.",
-          baseFee: 35000,
-          filingCost: 15000,
-          total: 50000,
-        },
-      });
-      setViewMode("proposal");
-    } else if (taskId === "task-4" || taskId === "task-5") {
-      setViewMode("awaiting");
-    } else {
+    async function fetchTaskData() {
+      // If it's a mock identifier, load predefined mock flows
+      if (taskId === "task-6") {
+        setTask({
+          ...DEFAULT_TASK,
+          id: "task-6",
+          title: "Vendor background check",
+          projectName: "Vendor Background Check - Plot 12 Lekki",
+          subtitle: "Due Diligence · Price Proposal from Oversite Admin · 1h ago",
+          status: "review",
+          proposedPrice: 50000,
+          proposalDetails: {
+            scope:
+              "Tier 2 Corporate and Vendor Investigation: CAC registry status, principal director litigation verification, asset liens, and police clearance confirmation.",
+            baseFee: 35000,
+            filingCost: 15000,
+            total: 50000,
+          },
+        });
+        setViewMode("proposal");
+        return;
+      }
+      if (taskId === "task-4" || taskId === "task-5") {
+        setViewMode("awaiting");
+        return;
+      }
+
+      // Fetch live task from backend API
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch(`/api/v1/tasks/${taskId}`, { headers });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            const t = json.data;
+            let mappedStatus: "in_progress" | "ready" | "review" | "completed" = "in_progress";
+            if (t.status === "COMPLETED") mappedStatus = "completed";
+            else if (t.status === "READY" || t.status === "REPORT_SUBMITTED") mappedStatus = "ready";
+            else if (t.status === "UNDER_REVIEW" || t.status === "DRAFT") mappedStatus = "review";
+
+            setTask({
+              ...DEFAULT_TASK,
+              id: t.id,
+              title: t.title || "Task Overview",
+              projectName: t.locationAddress || "Registered Property Site",
+              subtitle: `${t.moduleType?.replace(/_/g, " ") || "Task"} · ${mappedStatus === "completed" ? "Completed" : "In Progress"}`,
+              status: mappedStatus,
+              totalCharged: t.priceNgn ? `₦${Number(t.priceNgn).toLocaleString()}` : "₦15,000",
+              managerNote: t.description || DEFAULT_TASK.managerNote,
+            });
+
+            if (mappedStatus === "completed" || mappedStatus === "ready") {
+              setViewMode("completed");
+            } else if (mappedStatus === "review") {
+              setViewMode("proposal");
+            } else {
+              setViewMode("awaiting");
+            }
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load task from API, falling back to default view:", err);
+      }
+
       setViewMode("completed");
     }
+
+    fetchTaskData();
   }, [taskId]);
 
   const toggleViewMode = () => {
