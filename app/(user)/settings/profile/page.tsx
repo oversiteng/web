@@ -34,6 +34,7 @@ export default function EditProfilePage() {
         const res = await fetch("/api/v1/profile");
         if (res.ok) {
           const data = await res.json();
+          console.log(data)
           if (data?.profile) {
             if (data.profile.name) setName(data.profile.name);
             if (data.profile.email) setEmail(data.profile.email);

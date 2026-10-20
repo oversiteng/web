@@ -47,7 +47,7 @@ function isTokenValid(token: string): boolean {
   }
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isProtected = PROTECTED_PREFIXES.some(
@@ -66,9 +66,8 @@ export function middleware(request: NextRequest) {
     if (!token || !isTokenValid(token)) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("returnUrl", pathname);
-      
+
       const response = NextResponse.redirect(loginUrl);
-      // Clean invalid token cookie if present
       if (tokenCookie) {
         response.cookies.delete("token");
       }
@@ -86,6 +85,8 @@ export function middleware(request: NextRequest) {
 
   return NextResponse.next();
 }
+
+export default proxy;
 
 export const config = {
   matcher: [
