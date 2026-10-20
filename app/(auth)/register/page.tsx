@@ -20,11 +20,29 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // TODO: Implement actual registration logic
-    setTimeout(() => {
+
+    try {
+      const response = await fetch("/api/v1/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          phoneNumber,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setLoading(false);
+        router.push("/dashboard");
+      }
+    } catch (error) {
+      console.error(error);
       setLoading(false);
-      router.push("/dashboard");
-    }, 1000);
+    }
   };
 
   return (

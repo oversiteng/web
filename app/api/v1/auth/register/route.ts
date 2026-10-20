@@ -19,6 +19,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
     if (normalizedRole === "CLIENT") {
       normalizedRole = "USER";
     }
+    console.log({email, password})
+    
     if (!email || !password) {
       return NextResponse.json(
         {
