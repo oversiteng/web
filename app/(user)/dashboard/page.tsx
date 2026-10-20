@@ -21,7 +21,7 @@ const SERVICES = [
   { label: "Property Oversite", icon: MapPointSearchIcon, color: "text-red-500", bg: "bg-red-500/10", module: "PROPERTY_OVERSITE", href: "/property-oversite" },
   { label: "Document Processing", icon: DocumentsMinimalisticIcon, color: "text-emerald-500", bg: "bg-emerald-500/10", module: "DOCUMENT_PROCESSING", href: "/vault" },
   { label: "Law Enforcement", icon: ShieldCheckIcon, color: "text-blue-500", bg: "bg-blue-500/10", module: "LAW_ENFORCEMENT", href: "/enforcement" },
-  { label: "Vulnerability Test", icon: ObjectScanIcon, color: "text-red-500", bg: "bg-red-500/10", module: "VULNERABILITY_TEST", href: "/properties" },
+  { label: "Vulnerability Test", icon: ObjectScanIcon, color: "text-red-500", bg: "bg-red-500/10", module: "VULNERABILITY_TEST", href: "/vulnerability" },
 ];
 
 const CAROUSEL_IMAGES = [
@@ -289,6 +289,24 @@ export default function UserDashboard() {
                   </p>
                   <p className="text-[11.5px] text-[var(--text-muted)] mt-0.5 truncate">
                     Emergency on-site escalation & police/taskforce liaison
+                  </p>
+                </div>
+              </Link>
+
+              <Link
+                href="/vulnerability"
+                onClick={() => setQuickActionsOpen(false)}
+                className="flex items-center gap-3.5 p-3 rounded-2xl bg-[var(--bg-secondary)] hover:border-[var(--primary)]/40 border border-transparent transition-all group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
+                  <ObjectScanIcon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14px] font-semibold text-[var(--text-heading)] group-hover:text-[var(--primary)] transition-colors">
+                    Vulnerability Test
+                  </p>
+                  <p className="text-[11.5px] text-[var(--text-muted)] mt-0.5 truncate">
+                    Buy, sell & lease simulation for property risk detection
                   </p>
                 </div>
               </Link>

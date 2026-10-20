@@ -11,6 +11,7 @@ export const SERVICE_MINIMUM_HOURS: Record<TaskModule, number> = {
   DUE_DILIGENCE: 72, // 3 days
   LEGAL_ADVISORY: 168, // 1 week (7 days)
   LAW_ENFORCEMENT: 8, // Emergency Liaison SLA
+  VULNERABILITY_TEST: 24,
 };
 
 /**
@@ -90,6 +91,7 @@ const BASE_FEES: Record<TaskModule, number> = {
   DUE_DILIGENCE: 50000,
   LEGAL_ADVISORY: 50000,
   LAW_ENFORCEMENT: 75000,
+  VULNERABILITY_TEST: 65000,
 };
 
 const EXTRA_STOP_FEE = 7500; // Flat transport stipend per extra waypoint

@@ -50,6 +50,7 @@ export const taskModuleEnum = pgEnum("task_module", [
   "DUE_DILIGENCE",
   "LEGAL_ADVISORY",
   "LAW_ENFORCEMENT",
+  "VULNERABILITY_TEST",
 ]);
 
 export const paymentStatusEnum = pgEnum("payment_status", [

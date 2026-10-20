@@ -100,6 +100,17 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                   <span className="w-2 h-2 rounded-full bg-rose-500" />
                   <span>Law Enforcement</span>
                 </Link>
+                <Link
+                  href="/vulnerability"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-[13px] font-medium transition-colors ${
+                    pathname === "/vulnerability"
+                      ? "bg-red-500/10 text-red-500 font-semibold"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)]"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                  <span>Vulnerability Test</span>
+                </Link>
               </div>
             </div>
           </nav>

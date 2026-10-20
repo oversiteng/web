@@ -6,7 +6,8 @@ export type TaskModule =
   | "PROJECT_WATCH"
   | "DUE_DILIGENCE"
   | "LEGAL_ADVISORY"
-  | "LAW_ENFORCEMENT";
+  | "LAW_ENFORCEMENT"
+  | "VULNERABILITY_TEST";
 
 export type TaskStatus =
   | "DRAFT"
