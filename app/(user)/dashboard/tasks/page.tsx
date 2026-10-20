@@ -107,9 +107,9 @@ const STATUS_CONFIG: Record<
 > = {
   in_progress: {
     label: "In progress",
-    dot: "bg-[#F59E0B]",
-    text: "text-[#D97706] dark:text-[#FBBF24]",
-    bg: "bg-[#FEF3EB] dark:bg-amber-950/50",
+    dot: "bg-[#ED8C01]",
+    text: "text-[#ED8C01] dark:text-[#FBBF24]",
+    bg: "bg-[#FEF3EB] dark:bg-[#281B0A]",
   },
   ready: {
     label: "Ready",
@@ -221,7 +221,7 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="bg-[#F2F4F2] dark:bg-[#111412] min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150 -m-4 sm:-m-6 md:-m-8">
+    <div className="min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150 -m-4 sm:-m-6 md:-m-8">
       <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between px-4 sm:px-6 py-4 relative">
         <div>
           {/* ── Top Header (Matches Screenshot 1 Exactly) ── */}
@@ -295,11 +295,10 @@ export default function TasksPage() {
                   key={chip}
                   type="button"
                   onClick={() => setActiveChip(chip)}
-                  className={`px-5 py-2 rounded-full text-[13.5px] sm:text-[14px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                    isSelected
-                      ? "bg-[#2BB44A] text-white shadow-xs"
+                  className={`px-5 py-2 rounded-full text-[13.5px] sm:text-[14px] font-semibold whitespace-nowrap transition-all cursor-pointer ${isSelected
+                      ? "bg-emerald-500/10 text-white shadow-xs"
                       : "bg-white dark:bg-[#1E2220] text-zinc-800 dark:text-zinc-200 border border-zinc-100 dark:border-zinc-800/80 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 shadow-xs"
-                  }`}
+                    }`}
                 >
                   {chip}
                 </button>
@@ -325,7 +324,7 @@ export default function TasksPage() {
                   >
                     {/* Left: Title & Subtitle */}
                     <div className="min-w-0 pr-3 flex-1">
-                      <h3 className="text-[15.5px] sm:text-[16px] font-bold text-zinc-900 dark:text-white truncate group-hover:text-[#2BB44A] transition-colors">
+                      <h3 className="text-[13px] sm:text-[16px]  text-zinc-900 dark:text-white truncate group-hover:text-[#2BB44A] transition-colors">
                         {task.title}
                       </h3>
                       <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate leading-snug">
@@ -338,7 +337,7 @@ export default function TasksPage() {
                       className={`flex items-center gap-1.5 px-3 py-1 rounded-full shrink-0 ${st.bg} shadow-2xs`}
                     >
                       <span className={`w-2 h-2 rounded-full ${st.dot}`} />
-                      <span className={`text-[12px] font-bold ${st.text}`}>
+                      <span className={`text-[11px] ${st.text}`}>
                         {st.label}
                       </span>
                     </div>
@@ -393,11 +392,10 @@ export default function TasksPage() {
                     setSelectedStatusFilter(opt.id);
                     setFilterDrawerOpen(false);
                   }}
-                  className={`w-full py-3.5 px-4 rounded-2xl text-left font-semibold text-[14.5px] cursor-pointer transition-all ${
-                    selectedStatusFilter === opt.id
+                  className={`w-full py-3.5 px-4 rounded-2xl text-left font-semibold text-[14.5px] cursor-pointer transition-all ${selectedStatusFilter === opt.id
                       ? "bg-[#2BB44A]/10 text-[#2BB44A]"
                       : "text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  }`}
+                    }`}
                 >
                   {opt.label}
                 </button>

@@ -31,10 +31,16 @@ export default function EditProfilePage() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        const res = await fetch("/api/v1/profile");
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("oversite_token")
+            : null;
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch("/api/v1/profile", { credentials: "include", headers });
         if (res.ok) {
           const data = await res.json();
-          console.log(data)
           if (data?.profile) {
             if (data.profile.name) setName(data.profile.name);
             if (data.profile.email) setEmail(data.profile.email);
@@ -62,14 +68,26 @@ export default function EditProfilePage() {
     setToastMessage(null);
 
     try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("oversite_token")
+          : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const res = await fetch("/api/v1/profile", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        headers,
         body: JSON.stringify({
           name,
           avatarUrl: avatarPreview || undefined,
         }),
       });
+
+      if (!res.ok) {
+        throw new Error("Failed to update profile");
+      }
 
       // Show success feedback
       setSavedSuccess(true);
@@ -79,7 +97,7 @@ export default function EditProfilePage() {
         setToastMessage(null);
       }, 3000);
     } catch (err) {
-      setToastMessage("Profile updated locally.");
+      setToastMessage("Failed to save changes.");
       setTimeout(() => setToastMessage(null), 2500);
     } finally {
       setIsSaving(false);

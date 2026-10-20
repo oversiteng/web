@@ -16,7 +16,7 @@ import Image from "next/image";
 const SERVICES = [
   { label: "Quick Errands", icon: BoltIcon, color: "text-amber-500", bg: "bg-amber-500/10", module: "QUICK_ERRANDS", href: "/errands" },
   { label: "Legal Advisory", icon: ChandelierIcon, color: "text-blue-500", bg: "bg-blue-500/10", module: "LEGAL_ADVISORY", href: "/legal" },
-  { label: "Project Review", icon: DocumentIcon, color: "text-emerald-500", bg: "bg-emerald-500/10", module: "PROPERTY_OVERSITE", href: "/projects" },
+  { label: "Project Review", icon: DocumentIcon, color: "text-emerald-500", bg: "bg-emerald-500", module: "PROPERTY_OVERSITE", href: "/projects" },
   { label: "Due Diligence", icon: PieChartIcon, color: "text-yellow-500", bg: "bg-amber-500/10", module: "DUE_DILIGENCE", href: "/diligence" },
   { label: "Property Oversite", icon: MapPointSearchIcon, color: "text-red-500", bg: "bg-red-500/10", module: "PROPERTY_OVERSITE", href: "/property-oversite" },
   { label: "Document Processing", icon: DocumentsMinimalisticIcon, color: "text-emerald-500", bg: "bg-emerald-500/10", module: "DOCUMENT_PROCESSING", href: "/vault" },
