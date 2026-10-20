@@ -33,6 +33,16 @@ const CAROUSEL_IMAGES = [
 export default function UserDashboard() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [userName, setUserName] = useState<string>("Adaeze");
+  const [summary, setSummary] = useState<{
+    activeRequests: number;
+    pendingReports: number;
+    monitoredProperties: number;
+  }>({
+    activeRequests: 3,
+    pendingReports: 1,
+    monitoredProperties: 3,
+  });
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -41,11 +51,55 @@ export default function UserDashboard() {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    async function loadDashboardData() {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("oversite_token")
+            : null;
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        // Load profile
+        const userRes = await fetch("/api/v1/auth/me", { headers });
+        const userJson = await userRes.json();
+        if (userJson.success && userJson.data?.fullName) {
+          const firstName = userJson.data.fullName.split(" ")[0];
+          setUserName(firstName);
+        }
+
+        // Load dashboard stats
+        const summaryRes = await fetch("/api/v1/dashboard/summary", { credentials: "include", headers });
+        const summaryJson = await summaryRes.json();
+        if (summaryJson.success && summaryJson.data) {
+          if (summaryJson.data.role === "CLIENT") {
+            setSummary({
+              activeRequests: summaryJson.data.activeRequests ?? 0,
+              pendingReports: summaryJson.data.pendingReports ?? 0,
+              monitoredProperties: summaryJson.data.monitoredProperties ?? 0,
+            });
+          } else {
+            setSummary({
+              activeRequests: summaryJson.data.activeTasks ?? 0,
+              pendingReports: summaryJson.data.pendingAssignments ?? 0,
+              monitoredProperties: summaryJson.data.completedTasks ?? 0,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load dashboard live stats:", err);
+      }
+    }
+
+    loadDashboardData();
+  }, []);
+
   return (
     <div className="space-y-6 relative pb-8">
       {/* Top Bar */}
       <div className="flex items-center justify-between pt-2">
-        <h1 className="text-[18px] sm:text-2xl font-bold text-[var(--text-heading)]">Good afternoon! Adaeze</h1>
+        <h1 className="text-[18px] sm:text-2xl font-bold text-[var(--text-heading)]">Good day! {userName}</h1>
         <Link href="/notifications" className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex items-center justify-center hover:bg-(--bg-secondary) transition-colors">
           <BellIcon className="w-6 h-6 sm:w-8 sm:h-8 text-[var(--text-heading)]" />
           <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-[var(--primary)] text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-[var(--bg-body)]">
@@ -59,28 +113,28 @@ export default function UserDashboard() {
         <div className="p-3 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5">
           <div className="flex items-center justify-between w-full gap-1">
             <Checklist className="w-6 h-6 sm:w-8 sm:h-8 text-[var(--primary)] shrink-0" />
-            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">3</span>
+            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">{summary.activeRequests}</span>
           </div>
           <span className="text-[11px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">Task</span>
         </div>
         <div className="p-3 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5">
           <div className="flex items-center justify-between w-full gap-1">
             <History className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500 shrink-0" />
-            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">3</span>
+            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">{summary.pendingReports}</span>
           </div>
           <span className="text-[11px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">Pending</span>
         </div>
         <div className="p-3 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5">
           <div className="flex items-center justify-between w-full gap-1">
             <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-slate-500 shrink-0" />
-            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">3</span>
+            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">{summary.monitoredProperties}</span>
           </div>
-          <span className="text-[11px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">This month</span>
+          <span className="text-[11px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">Properties</span>
         </div>
         <div className="p-3 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5">
           <div className="flex items-center justify-between w-full gap-1">
             <Flag className="w-6 h-6 sm:w-8 sm:h-8 text-red-500 shrink-0" />
-            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">3</span>
+            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">0</span>
           </div>
           <span className="text-[13px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">Flag</span>
         </div>
@@ -89,8 +143,8 @@ export default function UserDashboard() {
       {/* Live Status Card */}
       <div className="p-4 rounded-[24px] bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex items-start justify-between">
         <div>
-          <h2 className="text-[14px] font-bold text-[var(--text-heading)]">Tunde C. is in the field</h2>
-          <p className="text-[12px] text-var(--text-muted) mt-1">Ikoyi · submitting geo-tagged photos</p>
+          <h2 className="text-[14px] font-bold text-[var(--text-heading)]">Field Agent Network Active</h2>
+          <p className="text-[12px] text-var(--text-muted) mt-1">Lagos, Abuja & nationwide monitoring</p>
         </div>
         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
