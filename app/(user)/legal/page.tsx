@@ -386,7 +386,7 @@ export default function LegalAdvisoryPage() {
           id="review-trigger"
           type="button"
           onClick={handleReviewClick}
-          className="w-full py-3.5 sm:py-4 rounded-full bg-[#28A745] hover:bg-[#218838] text-white font-bold text-[15px] sm:text-[16px] transition-all duration-200 shadow-md shadow-[#28A745]/20 cursor-pointer active:scale-[0.98]"
+          className="w-full py-3.5 sm:py-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-[15px] sm:text-[16px] transition-all duration-200 shadow-md cursor-pointer active:scale-[0.98]"
         >
           Review
         </button>

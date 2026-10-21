@@ -135,7 +135,7 @@ export const waitlistStatusEnum = pgEnum("waitlist_status", [
 
 // ─── Tables ──────────────────────────────────────────────────────────────────
 
-// Users — extended with role, phone, auth fields
+// Users — extended with role, phone, auth, and profile fields
 export const users = pgTable(
   "users",
   {
@@ -143,6 +143,13 @@ export const users = pgTable(
     email: varchar("email", { length: 320 }).notNull(),
     phone: varchar("phone", { length: 20 }),
     name: varchar("name", { length: 120 }),
+    title: varchar("title", { length: 50 }),
+    address: text("address"),
+    location: varchar("location", { length: 150 }),
+    occupation: varchar("occupation", { length: 120 }),
+    state: varchar("state", { length: 80 }),
+    country: varchar("country", { length: 80 }),
+    residence: varchar("residence", { length: 150 }),
     passwordHash: text("password_hash"),
     role: userRoleEnum("role").notNull().default("USER"),
     kycStatus: kycStatusEnum("kyc_status").notNull().default("PENDING"),

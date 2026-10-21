@@ -101,17 +101,17 @@ export default function ReceiptPage() {
       </div>
 
       {/* ── Receipt Card Container ── */}
-      <div className="w-full bg-white dark:bg-[#1a1b1e] border border-zinc-200 dark:border-zinc-800 rounded-[32px] p-6 sm:p-8 shadow-xl text-zinc-900 dark:text-white mb-8 transition-colors">
+      <div className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-[32px] p-6 sm:p-8 shadow-xl text-[var(--text-heading)] mb-8 transition-colors">
         {/* Scalloped Green Check Badge */}
         <div className="flex justify-center pt-2">
-          <div className="w-16 h-16 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center">
-            <BadgeCheck className="w-12 h-12 text-emerald-500 fill-emerald-500 text-white stroke-[1.5]" />
+          <div className="w-16 h-16 rounded-full bg-[var(--primary-light)] flex items-center justify-center">
+            <BadgeCheck className="w-12 h-12 text-[var(--primary)] fill-[var(--primary)] text-white stroke-[1.5]" />
           </div>
         </div>
 
         {/* Amount */}
         <div className="text-center mt-5 mb-1">
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-heading)]">
             {amount}
           </h1>
         </div>
@@ -180,7 +180,7 @@ export default function ReceiptPage() {
         <button
           type="button"
           onClick={handleShare}
-          className="flex-1 py-3.5 px-4 rounded-full border-2 border-[#2BB44A] text-[#2BB44A] font-semibold text-[14px] flex items-center justify-center gap-2 hover:bg-[#2BB44A]/10 active:scale-[0.99] transition-all cursor-pointer"
+          className="flex-1 py-3.5 px-4 rounded-full border-2 border-[var(--primary)] text-[var(--primary)] font-semibold text-[14px] flex items-center justify-center gap-2 hover:bg-[var(--primary-light)] active:scale-[0.99] transition-all cursor-pointer"
         >
           <Share2 className="w-4 h-4 stroke-[2.2]" />
           <span>Share</span>
@@ -190,7 +190,7 @@ export default function ReceiptPage() {
         <button
           type="button"
           onClick={handleDownload}
-          className="flex-1 py-3.5 px-4 rounded-full bg-[#2BB44A] hover:bg-[#249e41] text-white font-semibold text-[14px] flex items-center justify-center gap-2 active:scale-[0.99] transition-all cursor-pointer shadow-md"
+          className="flex-1 py-3.5 px-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold text-[14px] flex items-center justify-center gap-2 active:scale-[0.99] transition-all cursor-pointer shadow-md"
         >
           <Download className="w-4 h-4 stroke-[2.2]" />
           <span>Download Receipt</span>

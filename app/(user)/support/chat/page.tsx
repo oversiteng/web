@@ -127,16 +127,16 @@ export default function SupportChatPage() {
               <div
                 className={`max-w-[85%] sm:max-w-[80%] p-4 leading-relaxed text-[14px] shadow-xs ${
                   isAgent
-                    ? "rounded-[24px] rounded-tl-xs bg-[#f4f4f5] dark:bg-[#1f2024] text-[var(--text-heading)]"
-                    : "rounded-[24px] rounded-tr-xs bg-[#2BB44A] text-white"
+                    ? "rounded-[24px] rounded-tl-xs bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-heading)]"
+                    : "rounded-[24px] rounded-tr-xs bg-[var(--primary)] text-white"
                 }`}
               >
                 <p>{msg.text}</p>
                 <span
                   className={`block text-[10.5px] mt-1.5 ${
                     isAgent
-                      ? "text-zinc-400 dark:text-zinc-500"
-                      : "text-emerald-100 text-right"
+                      ? "text-[var(--text-muted)]"
+                      : "text-white/80 text-right"
                   }`}
                 >
                   {msg.time}
@@ -151,20 +151,20 @@ export default function SupportChatPage() {
       {/* ── Bottom Input Bar matching Screenshot 1 ── */}
       <form
         onSubmit={handleSendMessage}
-        className="flex items-center gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 shrink-0 bg-[var(--bg-body)]"
+        className="flex items-center gap-2 pt-2 border-t border-[var(--border-color)] shrink-0 bg-[var(--bg-body)]"
       >
-        <div className="flex-1 flex items-center bg-[#f4f4f5] dark:bg-[#1a1b1e] border border-zinc-200 dark:border-zinc-800 rounded-full px-5 py-3 transition-colors">
+        <div className="flex-1 flex items-center bg-[var(--bg-card)] border border-[var(--border-color)] rounded-full px-5 py-3 transition-colors">
           <input
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             placeholder="Message"
-            className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-zinc-400 outline-none"
+            className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
           />
           <button
             type="button"
             aria-label="Attach file"
-            className="text-zinc-400 hover:text-[var(--text-heading)] transition-colors ml-2 cursor-pointer"
+            className="text-[var(--text-muted)] hover:text-[var(--text-heading)] transition-colors ml-2 cursor-pointer"
           >
             <Paperclip className="w-5 h-5 stroke-[1.8]" />
           </button>
@@ -177,8 +177,8 @@ export default function SupportChatPage() {
           aria-label="Send message"
           className={`w-11 h-11 rounded-full flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-xs ${
             inputMessage.trim()
-              ? "bg-[#2BB44A] text-white shadow-md active:scale-95"
-              : "bg-[#f4f4f5] dark:bg-[#1f2024] text-zinc-400 cursor-not-allowed"
+              ? "bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white shadow-md active:scale-95"
+              : "bg-[var(--bg-secondary)] text-[var(--text-muted)] cursor-not-allowed"
           }`}
         >
           <Send className="w-4 h-4 ml-0.5" />

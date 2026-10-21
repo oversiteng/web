@@ -139,8 +139,8 @@ export default function DocumentVaultPage() {
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
           <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
-            <div className="w-5 h-5 rounded-full bg-[#2BB44A]/20 flex items-center justify-center shrink-0">
-              <Check className="w-3.5 h-3.5 text-[#2BB44A] stroke-[3]" />
+            <div className="w-5 h-5 rounded-full bg-[var(--primary-light)] flex items-center justify-center shrink-0">
+              <Check className="w-3.5 h-3.5 text-[var(--primary)] stroke-[3]" />
             </div>
             <span className="text-[13px] font-medium tracking-wide truncate">
               {toastMessage}
@@ -165,7 +165,7 @@ export default function DocumentVaultPage() {
             <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
-          <div className="flex-1 flex items-center gap-2.5 rounded-full border-2 border-[#2BB44A] bg-[var(--bg-card)] px-4 py-2 transition-all">
+          <div className="flex-1 flex items-center gap-2.5 rounded-full border-2 border-[var(--primary)] bg-[var(--bg-card)] px-4 py-2 transition-all">
             <Search className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
             <input
               ref={searchInputRef}

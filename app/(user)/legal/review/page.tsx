@@ -205,7 +205,7 @@ export default function LegalOrderReviewPage() {
           type="button"
           disabled={isSubmitting}
           onClick={handlePay}
-          className="w-full py-4 rounded-full bg-[#6EE7B7] hover:bg-[#5CD88C] text-[#052E16] font-bold text-[16px] tracking-wide transition-all duration-200 shadow-md shadow-[#6EE7B7]/20 active:scale-[0.98] cursor-pointer disabled:opacity-50"
+          className="w-full py-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-[16px] tracking-wide transition-all duration-200 shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-50"
         >
           {isSubmitting ? "Processing payment..." : "Pay ₦26,100"}
         </button>
@@ -219,7 +219,7 @@ export default function LegalOrderReviewPage() {
             onClick={() => setIsSuccessModalOpen(false)}
           />
           <div className="relative w-full max-w-sm bg-[var(--bg-card)] border border-[var(--border-color)] rounded-3xl p-6 shadow-2xl text-center animate-in zoom-in-95 duration-200 z-10">
-            <div className="w-14 h-14 rounded-full bg-[var(--primary)]/15 text-[var(--primary)] flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-full bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-8 h-8" />
             </div>
 
@@ -233,7 +233,7 @@ export default function LegalOrderReviewPage() {
             <div className="mt-6 space-y-2">
               <Link
                 href="/dashboard/tasks"
-                className="w-full py-3.5 rounded-full bg-[#28A745] hover:bg-[#218838] text-white font-bold text-[14px] flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#28A745]/20 cursor-pointer active:scale-95"
+                className="w-full py-3.5 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-[14px] flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer active:scale-95"
               >
                 <span>View Consultation Task</span>
                 <ChevronRight className="w-4 h-4" />

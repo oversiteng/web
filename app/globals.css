@@ -12,20 +12,23 @@
 
 /* ----- CSS Custom Properties (Light — default) ----- */
 :root {
-  /* Brand */
-  --primary: #448c74;
-  --primary-rgb: 68, 140, 116;
-  --primary-hover: #35705d;
-  --primary-light: rgba(68, 140, 116, 0.12);
-  --primary-border: rgba(68, 140, 116, 0.25);
+  /* Brand — Unified Emerald Green (#10b981 / #059669) */
+  --primary: #10b981;
+  --primary-rgb: 16, 185, 129;
+  --primary-hover: #059669;
+  --primary-light: rgba(16, 185, 129, 0.12);
+  --primary-border: rgba(16, 185, 129, 0.28);
 
   /* Semantic */
-  --warning: #ffc107;
-  --warning-rgb: 255, 193, 7;
+  --warning: #f59e0b;
+  --warning-rgb: 245, 158, 11;
+  --warning-light: rgba(245, 158, 11, 0.12);
   --danger: #ef4444;
   --danger-rgb: 239, 68, 68;
+  --danger-light: rgba(239, 68, 68, 0.12);
   --info: #0ea5e9;
   --info-rgb: 14, 165, 233;
+  --info-light: rgba(14, 165, 233, 0.12);
   --success: #10b981;
   --success-rgb: 16, 185, 129;
 

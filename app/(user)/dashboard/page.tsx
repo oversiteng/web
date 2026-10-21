@@ -195,7 +195,7 @@ export default function UserDashboard() {
               className="min-h-[80px] flex flex-col items-center justify-center p-2 sm:p-4 rounded-2xl bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] gap-2 hover:bg-[var(--bg-secondary)] transition-colors"
             >
               <service.icon className={`w-6 h-6 sm:w-8 sm:h-8 ${service.color}`} />
-              <span className="text-[11px] sm:text-[13px] font-semibold text-[var(--text-heading)] text-center leading-tight">
+              <span className="text-[11px] sm:text-[13px] font-normal text-[var(--text-heading)] text-center leading-tight">
                 {service.label}
               </span>
             </Link>

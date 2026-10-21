@@ -132,81 +132,81 @@ export default function LawEnforcementReviewPage() {
   };
 
   return (
-    <div className="bg-[#F2F4F2] dark:bg-[#111412] min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150 animate-in fade-in duration-200">
+    <div className="bg-(--bg-body) min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-(--text-heading) transition-colors duration-150 animate-in fade-in duration-200">
       <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between px-4 sm:px-6 py-4">
         <div>
-          {/* ── Top Header (Screenshot 4) ── */}
+          {/* ── Top Header ── */}
           <div className="relative flex items-center justify-center py-3 mb-4">
             <button
               type="button"
               onClick={() => router.back()}
-              className="absolute left-0 p-2 -ml-2 text-zinc-800 dark:text-zinc-200 hover:opacity-75 transition-opacity cursor-pointer"
+              className="absolute left-0 p-2 -ml-2 text-(--text-heading) hover:opacity-75 transition-opacity cursor-pointer"
               aria-label="Back to form"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-[17px] sm:text-[18px] font-bold text-zinc-900 dark:text-white tracking-tight">
+            <h1 className="text-[17px] sm:text-[18px] font-bold text-(--text-heading) tracking-tight">
               Order review
             </h1>
           </div>
 
-          {/* ── Card 1: Investigation Details Card (Screenshot 4) ── */}
-          <div className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-zinc-100 dark:border-zinc-800/80 p-5 shadow-xs">
+          {/* ── Card 1: Investigation Details Card ── */}
+          <div className="rounded-[22px] bg-(--bg-card) border border-(--border-color) p-5 shadow-xs">
             {/* Row 1: Task */}
             <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-              <span className="text-zinc-500 dark:text-zinc-400 font-medium">Task</span>
-              <span className="font-bold text-zinc-900 dark:text-white text-right truncate max-w-[240px]">
+              <span className="text-(--text-muted) font-medium">Task</span>
+              <span className="font-bold text-(--text-heading) text-right truncate max-w-[240px]">
                 {taskTitle}
               </span>
             </div>
 
-            <div className="border-b border-zinc-100 dark:border-zinc-800 my-3.5" />
+            <div className="border-b border-(--border-color) my-3.5" />
 
             {/* Row 2: Where */}
             <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-              <span className="text-zinc-500 dark:text-zinc-400 font-medium">Where</span>
-              <span className="font-bold text-zinc-900 dark:text-white text-right truncate max-w-[240px]">
+              <span className="text-(--text-muted) font-medium">Where</span>
+              <span className="font-bold text-(--text-heading) text-right truncate max-w-[240px]">
                 {locationWhere}
               </span>
             </div>
 
-            <div className="border-b border-zinc-100 dark:border-zinc-800 my-3.5" />
+            <div className="border-b border-(--border-color) my-3.5" />
 
             {/* Row 3: Time window */}
             <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-              <span className="text-zinc-500 dark:text-zinc-400 font-medium">Time window</span>
-              <span className="font-bold text-zinc-900 dark:text-white text-right">
+              <span className="text-(--text-muted) font-medium">Time window</span>
+              <span className="font-bold text-(--text-heading) text-right">
                 {timeWindow}
               </span>
             </div>
 
-            <div className="border-b border-zinc-100 dark:border-zinc-800 my-3.5" />
+            <div className="border-b border-(--border-color) my-3.5" />
 
             {/* Row 4: Report */}
             <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-              <span className="text-zinc-500 dark:text-zinc-400 font-medium">Report</span>
-              <span className="font-bold text-zinc-900 dark:text-white text-right">
+              <span className="text-(--text-muted) font-medium">Report</span>
+              <span className="font-bold text-(--text-heading) text-right">
                 {reportDelivery}
               </span>
             </div>
           </div>
 
-          {/* ── Card 2: Fee Breakdown Card (Screenshot 4) ── */}
-          <div className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-zinc-100 dark:border-zinc-800/80 p-5 mt-4 shadow-xs">
+          {/* ── Card 2: Fee Breakdown Card ── */}
+          <div className="rounded-[22px] bg-(--bg-card) border border-(--border-color) p-5 mt-4 shadow-xs">
             {/* Row 1: Service fee */}
             <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-              <span className="text-zinc-500 dark:text-zinc-400 font-medium">Service fee</span>
-              <span className="font-bold text-zinc-900 dark:text-white">
+              <span className="text-(--text-muted) font-medium">Service fee</span>
+              <span className="font-bold text-(--text-heading)">
                 ₦{serviceFee.toLocaleString()}
               </span>
             </div>
 
-            <div className="border-b border-zinc-100 dark:border-zinc-800 my-3.5" />
+            <div className="border-b border-(--border-color) my-3.5" />
 
             {/* Row 2: Agency filing costs */}
             <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-              <span className="text-zinc-500 dark:text-zinc-400 font-medium">Agency filing costs</span>
-              <span className="font-bold text-zinc-900 dark:text-white">
+              <span className="text-(--text-muted) font-medium">Agency filing costs</span>
+              <span className="font-bold text-(--text-heading)">
                 ₦{filingCost.toLocaleString()}
               </span>
             </div>
@@ -214,12 +214,12 @@ export default function LawEnforcementReviewPage() {
             {/* Row 3: Emergency engagement (2-hr SLA) */}
             {draft?.emergencyEngagement && (
               <>
-                <div className="border-b border-zinc-100 dark:border-zinc-800 my-3.5" />
+                <div className="border-b border-(--border-color) my-3.5" />
                 <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-                  <span className="text-zinc-500 dark:text-zinc-400 font-medium leading-snug max-w-[200px]">
+                  <span className="text-(--text-muted) font-medium leading-snug max-w-[200px]">
                     Emergency engagement (2-hr SLA)
                   </span>
-                  <span className="font-bold text-zinc-900 dark:text-white">
+                  <span className="font-bold text-(--text-heading)">
                     ₦{emergencyFee.toLocaleString()}
                   </span>
                 </div>
@@ -228,13 +228,13 @@ export default function LawEnforcementReviewPage() {
           </div>
         </div>
 
-        {/* ── Bottom Sticky Action Button: Pay ₦27000 (Screenshot 4) ── */}
-        <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[#F2F4F2]/95 dark:bg-[#111412]/95 backdrop-blur-md pt-4 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 mt-6 border-t border-zinc-200/60 dark:border-zinc-800/60">
+        {/* ── Bottom Sticky Action Button ── */}
+        <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-(--bg-body)/95 backdrop-blur-md pt-4 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 mt-6 border-t border-(--border-color)">
           <button
             type="button"
             disabled={isSubmitting}
             onClick={handlePay}
-            className="w-full py-3.5 sm:py-4 rounded-full bg-[#2BB44A] hover:bg-[#259b40] text-white font-bold text-[16px] tracking-wide transition-all duration-200 shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-50"
+            className="w-full py-3.5 sm:py-4 rounded-full bg-(--primary) hover:bg-(--primary-hover) text-white font-bold text-[16px] tracking-wide transition-all duration-200 shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-50"
           >
             {isSubmitting ? "Processing filing..." : `Pay ₦${totalFee}`}
           </button>
@@ -248,17 +248,17 @@ export default function LawEnforcementReviewPage() {
             className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity animate-in fade-in"
             onClick={() => setIsSuccessModalOpen(false)}
           />
-          <div className="relative w-full max-w-sm bg-white dark:bg-[#1E2220] border border-[var(--border-color)] rounded-3xl p-6 shadow-2xl text-center animate-in zoom-in-95 duration-200 z-10">
-            <div className="w-14 h-14 rounded-full bg-[#2BB44A]/15 text-[#2BB44A] flex items-center justify-center mx-auto mb-4">
+          <div className="relative w-full max-w-sm bg-(--bg-card) border border-(--border-color) rounded-3xl p-6 shadow-2xl text-center animate-in zoom-in-95 duration-200 z-10">
+            <div className="w-14 h-14 rounded-full bg-(--primary-light) text-(--primary) flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-8 h-8" />
             </div>
 
-            <h2 className="text-[18px] font-bold text-[var(--text-heading)]">
+            <h2 className="text-[18px] font-bold text-(--text-heading)">
               Petition Commissioned!
             </h2>
-            <p className="text-[12.5px] text-[var(--text-muted)] mt-2 leading-relaxed">
+            <p className="text-[12.5px] text-(--text-muted) mt-2 leading-relaxed">
               Your{" "}
-              <span className="font-semibold text-[var(--text-heading)]">
+              <span className="font-semibold text-(--text-heading)">
                 {taskTitle}
               </span>{" "}
               has been lodged and dispatched for liaison filing. You can monitor filing stamps
@@ -268,7 +268,7 @@ export default function LawEnforcementReviewPage() {
             <div className="mt-6 space-y-2">
               <Link
                 href="/dashboard/tasks"
-                className="w-full py-3.5 rounded-full bg-[#2BB44A] hover:bg-[#259b40] text-white font-bold text-[14px] flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer active:scale-95"
+                className="w-full py-3.5 rounded-full bg-(--primary) hover:bg-(--primary-hover) text-white font-bold text-[14px] flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer active:scale-95"
               >
                 <span>Track Live Petition</span>
                 <ChevronRight className="w-4 h-4" />
@@ -276,7 +276,7 @@ export default function LawEnforcementReviewPage() {
               <button
                 type="button"
                 onClick={() => router.push("/dashboard")}
-                className="w-full py-2.5 rounded-full text-[13px] font-semibold text-[var(--text-heading)] bg-[var(--bg-secondary)] hover:bg-[var(--border-color)] border border-[var(--border-color)] transition-colors cursor-pointer"
+                className="w-full py-2.5 rounded-full text-[13px] font-semibold text-(--text-heading) bg-(--bg-secondary) hover:bg-(--border-color) border border-(--border-color) transition-colors cursor-pointer"
               >
                 Back to Dashboard
               </button>

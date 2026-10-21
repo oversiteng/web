@@ -60,7 +60,7 @@ export default function SupportPage() {
       <div className="flex justify-center mb-6">
         <div className="w-24 h-24 flex items-center justify-center">
           <svg
-            className="w-20 h-20 text-[#2BB44A]"
+            className="w-20 h-20 text-[var(--primary)]"
             viewBox="0 0 64 64"
             fill="none"
           >
@@ -106,7 +106,7 @@ export default function SupportPage() {
       </div>
 
       {/* ── Support Options Card matching Screenshot 2 ── */}
-      <div className="rounded-[28px] bg-white dark:bg-[#1a1b1e] border border-zinc-200/80 dark:border-zinc-800 p-6 shadow-xs space-y-6 transition-colors">
+      <div className="rounded-[28px] bg-[var(--bg-card)] border border-[var(--border-color)] p-6 shadow-xs space-y-6 transition-colors">
         {/* Contact Live Chat */}
         <Link
           href="/support/chat"
@@ -114,11 +114,11 @@ export default function SupportPage() {
         >
           <div className="flex items-center gap-4">
             <MessageSquare className="w-5 h-5 text-[var(--text-heading)] stroke-[1.8]" />
-            <span className="text-[14.5px] font-semibold text-[var(--text-heading)] group-hover:text-[#2BB44A] transition-colors">
+            <span className="text-[14.5px] font-semibold text-[var(--text-heading)] group-hover:text-[var(--primary)] transition-colors">
               Contact Live Chat
             </span>
           </div>
-          <ChevronRight className="w-5 h-5 text-zinc-400 dark:text-zinc-500 group-hover:text-[var(--text-heading)] transition-colors" />
+          <ChevronRight className="w-5 h-5 text-[var(--text-muted)] group-hover:text-[var(--text-heading)] transition-colors" />
         </Link>
 
         {/* Send us a mail */}
@@ -128,11 +128,11 @@ export default function SupportPage() {
         >
           <div className="flex items-center gap-4">
             <Mail className="w-5 h-5 text-[var(--text-heading)] stroke-[1.8]" />
-            <span className="text-[14.5px] font-semibold text-[var(--text-heading)] group-hover:text-[#2BB44A] transition-colors">
+            <span className="text-[14.5px] font-semibold text-[var(--text-heading)] group-hover:text-[var(--primary)] transition-colors">
               Send us a mail
             </span>
           </div>
-          <ChevronRight className="w-5 h-5 text-zinc-400 dark:text-zinc-500 group-hover:text-[var(--text-heading)] transition-colors" />
+          <ChevronRight className="w-5 h-5 text-[var(--text-muted)] group-hover:text-[var(--text-heading)] transition-colors" />
         </a>
 
         {/* FAQs Collapsible */}
@@ -144,14 +144,14 @@ export default function SupportPage() {
           >
             <div className="flex items-center gap-4">
               <HelpCircle className="w-5 h-5 text-[var(--text-heading)] stroke-[1.8]" />
-              <span className="text-[14.5px] font-semibold text-[var(--text-heading)] group-hover:text-[#2BB44A] transition-colors">
+              <span className="text-[14.5px] font-semibold text-[var(--text-heading)] group-hover:text-[var(--primary)] transition-colors">
                 FAQs
               </span>
             </div>
             {faqsOpen ? (
-              <ChevronUp className="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
+              <ChevronUp className="w-5 h-5 text-[var(--text-muted)]" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
+              <ChevronDown className="w-5 h-5 text-[var(--text-muted)]" />
             )}
           </button>
 

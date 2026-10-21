@@ -182,25 +182,25 @@ export default function MessagesPage() {
   // ─── Active Chat Thread View ───
   if (activeConv) {
     return (
-      <div className="bg-[#F2F4F2] dark:bg-[#111412] min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150 flex flex-col justify-between -m-4 sm:-m-6 md:-m-8 p-4 sm:p-6">
+      <div className="bg-(--bg-body) min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-(--text-heading) transition-colors duration-150 flex flex-col justify-between -m-4 sm:-m-6 md:-m-8 p-4 sm:p-6">
         <div className="max-w-xl mx-auto w-full flex-1 flex flex-col justify-between">
           <div>
             {/* Header */}
-            <div className="relative flex items-center justify-between py-3 mb-4 border-b border-zinc-200/60 dark:border-zinc-800/60 pb-3">
+            <div className="relative flex items-center justify-between py-3 mb-4 border-b border-(--border-color) pb-3">
               <button
                 type="button"
                 onClick={() => setActiveConv(null)}
-                className="p-2 -ml-2 text-zinc-800 dark:text-zinc-200 hover:opacity-75 transition-opacity cursor-pointer flex items-center gap-1.5"
+                className="p-2 -ml-2 text-(--text-heading) hover:opacity-75 transition-opacity cursor-pointer flex items-center gap-1.5"
                 aria-label="Back to messages"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
 
               <div className="text-center flex-1 pr-6">
-                <h1 className="text-[17px] font-bold text-zinc-900 dark:text-white">
+                <h1 className="text-[17px] font-bold text-(--text-heading)">
                   {activeConv.name}
                 </h1>
-                <p className="text-[11.5px] text-[#2BB44A] font-medium">Online</p>
+                <p className="text-[11.5px] text-(--primary) font-medium">Online</p>
               </div>
             </div>
 
@@ -214,13 +214,13 @@ export default function MessagesPage() {
                   <div
                     className={`max-w-[82%] px-4 py-2.5 rounded-[20px] text-[13.5px] leading-relaxed shadow-xs ${
                       m.isSelf
-                        ? "bg-[#2BB44A] text-white rounded-tr-xs"
-                        : "bg-white dark:bg-[#1E2220] text-zinc-900 dark:text-white rounded-tl-xs border border-zinc-100 dark:border-zinc-800/80"
+                        ? "bg-(--primary) text-white rounded-tr-xs"
+                        : "bg-(--bg-card) text-(--text-heading) rounded-tl-xs border border-(--border-color)"
                     }`}
                   >
                     {m.text}
                   </div>
-                  <span className="text-[10.5px] text-zinc-400 dark:text-zinc-500 mt-1 px-1">
+                  <span className="text-[10.5px] text-(--text-muted) mt-1 px-1">
                     {m.time}
                   </span>
                 </div>
@@ -229,11 +229,11 @@ export default function MessagesPage() {
           </div>
 
           {/* Sticky Message Input */}
-          <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[#F2F4F2]/95 dark:bg-[#111412]/95 backdrop-blur-md pt-3 pb-3 border-t border-zinc-200/60 dark:border-zinc-800/60">
+          <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-(--bg-body)/95 backdrop-blur-md pt-3 pb-3 border-t border-(--border-color)">
             <form onSubmit={handleSendMessage} className="flex items-center gap-2">
               <button
                 type="button"
-                className="p-2.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full bg-white dark:bg-[#1E2220] shadow-xs cursor-pointer transition-colors"
+                className="p-2.5 text-(--text-muted) hover:text-(--text-heading) rounded-full bg-(--bg-card) border border-(--border-color) shadow-xs cursor-pointer transition-colors"
                 aria-label="Attach file"
               >
                 <Paperclip className="w-5 h-5" />
@@ -243,11 +243,11 @@ export default function MessagesPage() {
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 bg-white dark:bg-[#1E2220] rounded-full px-4 py-3 text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none border border-transparent focus:border-[var(--primary)] shadow-xs transition-all"
+                className="flex-1 bg-(--bg-card) rounded-full px-4 py-3 text-[14px] text-(--text-heading) placeholder:text-(--text-muted) outline-none border border-(--border-color) focus:border-(--primary) shadow-xs transition-all"
               />
               <button
                 type="submit"
-                className="w-11 h-11 bg-[#2BB44A] hover:bg-[#259b40] text-white rounded-full flex items-center justify-center shrink-0 shadow-xs cursor-pointer active:scale-95 transition-all"
+                className="w-11 h-11 bg-(--primary) hover:bg-(--primary-hover) text-white rounded-full flex items-center justify-center shrink-0 shadow-xs cursor-pointer active:scale-95 transition-all"
                 aria-label="Send message"
               >
                 <Send className="w-5 h-5 -translate-x-0.5" />
@@ -259,36 +259,36 @@ export default function MessagesPage() {
     );
   }
 
-  // ─── Main Messages List (Matches User Screenshot Exactly) ───
+  // ─── Main Messages List ───
   return (
-    <div className="bg-[#F2F4F2] dark:bg-[#111412] min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150">
+    <div className="bg-(--bg-body) min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-(--text-heading) transition-colors duration-150">
       <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between px-4 sm:px-6 py-4">
         <div>
           {/* ── Top Header: Centered "Messages" ── */}
           <div className="relative flex items-center justify-center py-3 mb-4">
-            <h1 className="text-[18px] sm:text-[19px] font-bold text-zinc-900 dark:text-white tracking-tight">
+            <h1 className="text-[18px] sm:text-[19px] font-bold text-(--text-heading) tracking-tight">
               Messages
             </h1>
           </div>
 
-          {/* ── Search Input: Rounded Pill matching Screenshot ── */}
+          {/* ── Search Input: Rounded Pill ── */}
           <div className="mb-6">
-            <div className="w-full bg-white dark:bg-[#1E2220] rounded-full px-4 py-3 flex items-center gap-3 shadow-xs border border-transparent focus-within:border-[var(--primary)] transition-all">
-              <Search className="w-5 h-5 text-zinc-400 shrink-0 stroke-[2.2]" />
+            <div className="w-full bg-(--bg-card) rounded-full px-4 py-3 flex items-center gap-3 shadow-xs border border-(--border-color) focus-within:border-(--primary) transition-all">
+              <Search className="w-5 h-5 text-(--text-muted) shrink-0 stroke-[2.2]" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search.."
-                className="w-full bg-transparent text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none"
+                className="w-full bg-transparent text-[14px] text-(--text-heading) placeholder:text-(--text-muted) focus:outline-none"
               />
             </div>
           </div>
 
-          {/* ── Conversation List matching Screenshot ── */}
+          {/* ── Conversation List ── */}
           <div className="space-y-4">
             {filtered.length === 0 ? (
-              <div className="text-center py-12 text-zinc-400 text-[14px]">
+              <div className="text-center py-12 text-(--text-muted) text-[14px]">
                 No messages found matching &quot;{searchQuery}&quot;
               </div>
             ) : (
@@ -297,30 +297,30 @@ export default function MessagesPage() {
                   key={conv.id}
                   type="button"
                   onClick={() => handleOpenConversation(conv)}
-                  className="w-full flex items-center gap-3.5 p-2 rounded-2xl hover:bg-zinc-200/50 dark:hover:bg-zinc-800/40 text-left cursor-pointer transition-all active:scale-[0.99]"
+                  className="w-full flex items-center gap-3.5 p-2 rounded-2xl hover:bg-(--bg-secondary) text-left cursor-pointer transition-all active:scale-[0.99]"
                 >
-                  {/* Avatar circle matching Screenshot */}
-                  <div className="w-14 h-14 rounded-full bg-[#E5E7EB] dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold text-[16px] flex items-center justify-center shrink-0">
+                  {/* Avatar circle */}
+                  <div className="w-14 h-14 rounded-full bg-(--bg-secondary) text-(--text-heading) font-bold text-[16px] flex items-center justify-center shrink-0 border border-(--border-color)">
                     {conv.initials}
                   </div>
 
                   {/* Middle content: Name & Snippet */}
                   <div className="flex-1 min-w-0 pr-1">
-                    <p className="text-[15.5px] font-bold text-zinc-900 dark:text-white truncate">
+                    <p className="text-[15.5px] font-bold text-(--text-heading) truncate">
                       {conv.name}
                     </p>
-                    <p className="text-[13px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5 leading-snug">
+                    <p className="text-[13px] text-(--text-muted) truncate mt-0.5 leading-snug">
                       {conv.lastMessage}
                     </p>
                   </div>
 
-                  {/* Right column: Time & Green unread badge */}
+                  {/* Right column: Time & Emerald unread badge */}
                   <div className="flex flex-col items-end shrink-0 gap-1.5 self-center">
-                    <span className="text-[12px] text-zinc-400 dark:text-zinc-500 font-medium">
+                    <span className="text-[12px] text-(--text-muted) font-medium">
                       {conv.time}
                     </span>
                     {conv.unread > 0 ? (
-                      <span className="w-5 h-5 rounded-full bg-[#2BB44A] text-white text-[11px] font-bold flex items-center justify-center shadow-xs">
+                      <span className="w-5 h-5 rounded-full bg-(--primary) text-white text-[11px] font-bold flex items-center justify-center shadow-xs">
                         {conv.unread}
                       </span>
                     ) : (

@@ -62,8 +62,8 @@ export default function AddCardPage() {
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
           <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
-            <div className="w-5 h-5 rounded-full bg-[#2BB44A]/20 flex items-center justify-center shrink-0">
-              <Check className="w-3.5 h-3.5 text-[#2BB44A] stroke-[3]" />
+            <div className="w-5 h-5 rounded-full bg-[var(--primary-light)] flex items-center justify-center shrink-0">
+              <Check className="w-3.5 h-3.5 text-[var(--primary)] stroke-[3]" />
             </div>
             <span className="text-[13px] font-medium tracking-wide truncate">
               {toastMessage}
@@ -95,14 +95,14 @@ export default function AddCardPage() {
           <label className="block text-[13px] font-medium text-[var(--text-heading)] mb-2">
             Card number
           </label>
-          <div className="flex items-center gap-3.5 bg-white dark:bg-[#1a1b1e] border border-zinc-200 dark:border-zinc-800 focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-4 transition-all shadow-xs">
-            <CreditCard className="w-5 h-5 text-zinc-400 dark:text-zinc-500 shrink-0 stroke-[1.8]" />
+          <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-4 transition-all shadow-xs">
+            <CreditCard className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
             <input
               type="text"
               value={cardNumber}
               onChange={handleCardNumberChange}
               placeholder="0000 0000 0000 0000"
-              className="w-full bg-transparent text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none font-medium tracking-wider"
+              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none font-medium tracking-wider"
             />
           </div>
         </div>
@@ -114,13 +114,13 @@ export default function AddCardPage() {
             <label className="block text-[13px] font-medium text-[var(--text-heading)] mb-2">
               Expiry
             </label>
-            <div className="bg-white dark:bg-[#1a1b1e] border border-zinc-200 dark:border-zinc-800 focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-4 transition-all shadow-xs">
+            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-4 transition-all shadow-xs">
               <input
                 type="text"
                 value={expiry}
                 onChange={handleExpiryChange}
                 placeholder="MM/YY"
-                className="w-full bg-transparent text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none font-medium"
+                className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none font-medium"
               />
             </div>
           </div>
@@ -131,16 +131,16 @@ export default function AddCardPage() {
               <label className="text-[13px] font-medium text-[var(--text-heading)]">
                 CVV
               </label>
-              <Info className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 cursor-pointer" />
+              <Info className="w-3.5 h-3.5 text-[var(--text-muted)] cursor-pointer" />
             </div>
-            <div className="bg-white dark:bg-[#1a1b1e] border border-zinc-200 dark:border-zinc-800 focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-4 transition-all shadow-xs">
+            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-4 transition-all shadow-xs">
               <input
                 type="password"
                 maxLength={4}
                 value={cvv}
                 onChange={handleCvvChange}
                 placeholder="---"
-                className="w-full bg-transparent text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none font-medium tracking-widest"
+                className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none font-medium tracking-widest"
               />
             </div>
           </div>
@@ -151,13 +151,13 @@ export default function AddCardPage() {
           <label className="block text-[13px] font-medium text-[var(--text-heading)] mb-2">
             Cardholder name
           </label>
-          <div className="bg-white dark:bg-[#1a1b1e] border border-zinc-200 dark:border-zinc-800 focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-4 transition-all shadow-xs">
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-4 transition-all shadow-xs">
             <input
               type="text"
               value={cardholderName}
               onChange={(e) => setCardholderName(e.target.value)}
               placeholder="John Doe"
-              className="w-full bg-transparent text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none font-medium"
+              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none font-medium"
             />
           </div>
         </div>
@@ -169,8 +169,8 @@ export default function AddCardPage() {
             disabled={!isFormValid || isSubmitting}
             className={`w-full py-4 rounded-full font-semibold text-[14px] transition-all flex items-center justify-center gap-2 ${
               isFormValid
-                ? "bg-[#2BB44A] hover:bg-[#249e41] text-white shadow-md active:scale-[0.99] cursor-pointer"
-                : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-80"
+                ? "bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white shadow-md active:scale-[0.99] cursor-pointer"
+                : "bg-[var(--bg-secondary)] text-[var(--text-muted)] cursor-not-allowed opacity-80"
             }`}
           >
             {isSubmitting ? (

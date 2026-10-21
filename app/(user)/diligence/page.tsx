@@ -123,7 +123,7 @@ export default function DueDiligenceFormPage() {
   };
 
   return (
-    <div className="bg-[#F2F4F2] dark:bg-[#111412] min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150">
+    <div className="bg-(--bg-body) min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-(--text-heading) transition-colors duration-150">
       <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between px-4 sm:px-6 py-4">
         <div>
           {/* ── Top Header ── */}
@@ -131,12 +131,12 @@ export default function DueDiligenceFormPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="absolute left-0 p-2 -ml-2 text-zinc-800 dark:text-zinc-200 hover:opacity-75 transition-opacity cursor-pointer"
+              className="absolute left-0 p-2 -ml-2 text-(--text-heading) hover:opacity-75 transition-opacity cursor-pointer"
               aria-label="Back"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-[17px] sm:text-[18px] font-bold text-zinc-900 dark:text-white tracking-tight">
+            <h1 className="text-[17px] sm:text-[18px] font-bold text-(--text-heading) tracking-tight">
               Due Diligence
             </h1>
           </div>
@@ -144,19 +144,19 @@ export default function DueDiligenceFormPage() {
           <div className="space-y-4">
             {/* Field 1: Who are you checking? */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-(--text-heading) mb-2">
                 Who are you checking?
               </label>
 
-              {/* Segmented Toggle Pill (Matches Figma Screenshot 1) */}
-              <div className="w-full bg-white dark:bg-[#1E2220] rounded-full p-1 flex items-center border border-zinc-200/60 dark:border-zinc-800 shadow-xs">
+              {/* Segmented Toggle Pill */}
+              <div className="w-full bg-(--bg-card) rounded-full p-1 flex items-center border border-(--border-color) shadow-xs">
                 <button
                   type="button"
                   onClick={() => setSubjectType("individual")}
                   className={`w-1/2 py-2.5 rounded-full text-[13.5px] font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer ${
                     subjectType === "individual"
-                      ? "bg-[#2BB44A] text-white shadow-xs"
-                      : "text-zinc-700 dark:text-zinc-300 hover:text-zinc-900"
+                      ? "bg-(--primary) text-white shadow-xs"
+                      : "text-(--text-muted) hover:text-(--text-heading)"
                   }`}
                 >
                   {subjectType === "individual" && <Check className="w-4 h-4 stroke-[2.5]" />}
@@ -168,8 +168,8 @@ export default function DueDiligenceFormPage() {
                   onClick={() => setSubjectType("business")}
                   className={`w-1/2 py-2.5 rounded-full text-[13.5px] font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer ${
                     subjectType === "business"
-                      ? "bg-[#2BB44A] text-white shadow-xs"
-                      : "text-zinc-700 dark:text-zinc-300 hover:text-zinc-900"
+                      ? "bg-(--primary) text-white shadow-xs"
+                      : "text-(--text-muted) hover:text-(--text-heading)"
                   }`}
                 >
                   {subjectType === "business" && <Check className="w-4 h-4 stroke-[2.5]" />}
@@ -180,7 +180,7 @@ export default function DueDiligenceFormPage() {
 
             {/* Field 2: Business name / Individual Name */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-(--text-heading) mb-2">
                 {subjectType === "business" ? "Business name" : "Business name"}
               </label>
               <input
@@ -188,13 +188,13 @@ export default function DueDiligenceFormPage() {
                 value={targetName}
                 onChange={(e) => setTargetName(e.target.value)}
                 placeholder=""
-                className="w-full bg-white dark:bg-[#1E2220] rounded-[20px] px-4 py-3.5 text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 border border-transparent focus:border-[var(--primary)] focus:outline-none transition-all shadow-xs"
+                className="w-full bg-(--bg-card) rounded-[20px] px-4 py-3.5 text-[14px] text-(--text-heading) placeholder:text-(--text-muted) border border-(--border-color) focus:border-(--primary) focus:outline-none transition-all shadow-xs"
               />
             </div>
 
             {/* Field 3: RC/NIN */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-(--text-heading) mb-2">
                 RC/NIN
               </label>
               <input
@@ -202,20 +202,20 @@ export default function DueDiligenceFormPage() {
                 value={rcNin}
                 onChange={(e) => setRcNin(e.target.value)}
                 placeholder=""
-                className="w-full bg-white dark:bg-[#1E2220] rounded-[20px] px-4 py-3.5 text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 border border-transparent focus:border-[var(--primary)] focus:outline-none transition-all shadow-xs"
+                className="w-full bg-(--bg-card) rounded-[20px] px-4 py-3.5 text-[14px] text-(--text-heading) placeholder:text-(--text-muted) border border-(--border-color) focus:border-(--primary) focus:outline-none transition-all shadow-xs"
               />
             </div>
 
             {/* Field 4: Phone Number */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-(--text-heading) mb-2">
                 Phone Number
               </label>
-              <div className="w-full bg-white dark:bg-[#1E2220] rounded-[20px] px-4 py-2.5 flex items-center shadow-xs border border-transparent focus-within:border-[var(--primary)] transition-all">
-                <span className="text-[14px] font-semibold text-zinc-900 dark:text-white pr-3 select-none">
+              <div className="w-full bg-(--bg-card) rounded-[20px] px-4 py-2.5 flex items-center shadow-xs border border-(--border-color) focus-within:border-(--primary) transition-all">
+                <span className="text-[14px] font-semibold text-(--text-heading) pr-3 select-none">
                   +234
                 </span>
-                <span className="text-zinc-300 dark:text-zinc-700 pr-3 select-none">
+                <span className="text-(--border-color) pr-3 select-none">
                   |
                 </span>
                 <input
@@ -223,14 +223,14 @@ export default function DueDiligenceFormPage() {
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   placeholder="801 234 5678"
-                  className="w-full bg-transparent text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none"
+                  className="w-full bg-transparent text-[14px] text-(--text-heading) placeholder:text-(--text-muted) focus:outline-none"
                 />
               </div>
             </div>
 
             {/* Field 5: Anything specific we should look into? */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-(--text-heading) mb-2">
                 Anything specific we should look into?
               </label>
               <textarea
@@ -238,13 +238,13 @@ export default function DueDiligenceFormPage() {
                 value={specificNotes}
                 onChange={(e) => setSpecificNotes(e.target.value)}
                 placeholder=""
-                className="w-full bg-white dark:bg-[#1E2220] rounded-[22px] p-4 text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 border border-transparent focus:border-[var(--primary)] focus:outline-none transition-all shadow-xs resize-none"
+                className="w-full bg-(--bg-card) rounded-[22px] p-4 text-[14px] text-(--text-heading) placeholder:text-(--text-muted) border border-(--border-color) focus:border-(--primary) focus:outline-none transition-all shadow-xs resize-none"
               />
             </div>
 
-            {/* Section 6: Depth of check (Matches Figma Screenshot 2) */}
+            {/* Section 6: Depth of check */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-(--text-heading) mb-2">
                 Depth of check
               </label>
 
@@ -255,10 +255,10 @@ export default function DueDiligenceFormPage() {
                     <div
                       key={tier.id}
                       onClick={() => setSelectedTierId(tier.id)}
-                      className={`w-full p-4 sm:p-5 rounded-[20px] cursor-pointer transition-all duration-150 flex items-start gap-3.5 shadow-xs ${
+                      className={`w-full p-4 sm:p-5 rounded-[20px] cursor-pointer transition-all duration-150 flex items-start gap-3.5 shadow-xs bg-(--bg-card) ${
                         isSelected
-                          ? "bg-white dark:bg-[#1E2220] border-2 border-[#2BB44A]"
-                          : "bg-white dark:bg-[#1E2220] border border-transparent hover:border-zinc-300 dark:hover:border-zinc-700"
+                          ? "border-2 border-(--primary) shadow-sm"
+                          : "border border-(--border-color) hover:border-(--border-color)/80"
                       }`}
                     >
                       {/* Radio Circle */}
@@ -266,12 +266,12 @@ export default function DueDiligenceFormPage() {
                         <div
                           className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
                             isSelected
-                              ? "border-[#2BB44A] bg-transparent"
-                              : "border-zinc-400 dark:border-zinc-600 bg-transparent"
+                              ? "border-(--primary) bg-transparent"
+                              : "border-(--border-color) bg-transparent"
                           }`}
                         >
                           {isSelected && (
-                            <div className="w-2.5 h-2.5 rounded-full bg-[#2BB44A]" />
+                            <div className="w-2.5 h-2.5 rounded-full bg-(--primary)" />
                           )}
                         </div>
                       </div>
@@ -279,14 +279,14 @@ export default function DueDiligenceFormPage() {
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-[14.5px] sm:text-[15px] font-bold text-zinc-900 dark:text-white leading-snug">
+                          <h3 className="text-[14.5px] sm:text-[15px] font-bold text-(--text-heading) leading-snug">
                             {tier.title}
                           </h3>
-                          <span className="text-[14.5px] sm:text-[15px] font-bold text-zinc-900 dark:text-white shrink-0">
+                          <span className="text-[14.5px] sm:text-[15px] font-bold text-(--text-heading) shrink-0">
                             {tier.priceFormatted}
                           </span>
                         </div>
-                        <p className="text-[12px] sm:text-[12.5px] text-zinc-500 dark:text-zinc-400 mt-1 leading-normal">
+                        <p className="text-[12px] sm:text-[12.5px] text-(--text-muted) mt-1 leading-normal">
                           {tier.turnaround} • {tier.scope}
                         </p>
                       </div>
@@ -296,9 +296,9 @@ export default function DueDiligenceFormPage() {
               </div>
             </div>
 
-            {/* Section 7: Upload file (Matches Figma Screenshot 2) */}
+            {/* Section 7: Upload file */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-(--text-heading) mb-2">
                 Upload file
               </label>
 
@@ -313,29 +313,29 @@ export default function DueDiligenceFormPage() {
               {!attachedFile ? (
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full bg-white dark:bg-[#1E2220] rounded-[22px] p-6 text-center cursor-pointer border border-transparent hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors shadow-xs group"
+                  className="w-full bg-(--bg-card) rounded-[22px] p-6 text-center cursor-pointer border border-(--border-color) hover:border-(--border-color)/80 transition-colors shadow-xs group"
                 >
-                  <div className="w-12 h-12 rounded-full bg-[#EAF7ED] dark:bg-[#1E2E23] flex items-center justify-center mx-auto mb-2 text-[#2BB44A] group-hover:scale-105 transition-transform">
+                  <div className="w-12 h-12 rounded-full bg-(--primary-light) flex items-center justify-center mx-auto mb-2 text-(--primary) group-hover:scale-105 transition-transform">
                     <Upload className="w-6 h-6 stroke-[2]" />
                   </div>
-                  <p className="text-[14px] font-semibold text-[#2BB44A]">
+                  <p className="text-[14px] font-semibold text-(--primary)">
                     Tap to upload file
                   </p>
-                  <p className="text-[12px] text-zinc-400 dark:text-zinc-500 mt-1">
+                  <p className="text-[12px] text-(--text-muted) mt-1">
                     Supported formats: PDF, JPG, PNG (Max 5MB)
                   </p>
                 </div>
               ) : (
-                <div className="w-full bg-white dark:bg-[#1E2220] rounded-[22px] p-4 flex items-center justify-between shadow-xs border border-transparent">
+                <div className="w-full bg-(--bg-card) rounded-[22px] p-4 flex items-center justify-between shadow-xs border border-(--border-color)">
                   <div className="flex items-center gap-3 truncate pr-2">
-                    <div className="w-10 h-10 rounded-xl bg-[#EAF7ED] dark:bg-[#1E2E23] text-[#2BB44A] flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-(--primary-light) text-(--primary) flex items-center justify-center shrink-0">
                       <FileText className="w-5 h-5" />
                     </div>
                     <div className="truncate">
-                      <p className="text-[13.5px] font-semibold text-zinc-900 dark:text-white truncate">
+                      <p className="text-[13.5px] font-semibold text-(--text-heading) truncate">
                         {attachedFile.name}
                       </p>
-                      <p className="text-[11.5px] text-zinc-400">
+                      <p className="text-[11.5px] text-(--text-muted)">
                         {(attachedFile.size / 1024 / 1024).toFixed(2)} MB
                       </p>
                     </div>
@@ -343,7 +343,7 @@ export default function DueDiligenceFormPage() {
                   <button
                     type="button"
                     onClick={handleRemoveFile}
-                    className="p-1.5 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer"
+                    className="p-1.5 text-(--text-muted) hover:text-red-500 transition-colors cursor-pointer"
                     title="Remove file"
                   >
                     <X className="w-5 h-5" />
@@ -355,12 +355,12 @@ export default function DueDiligenceFormPage() {
         </div>
 
         {/* ── Bottom Sticky Bar ── */}
-        <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[#F2F4F2]/95 dark:bg-[#111412]/95 backdrop-blur-md pt-4 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 mt-6 border-t border-zinc-200/60 dark:border-zinc-800/60">
+        <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-(--bg-body)/95 backdrop-blur-md pt-4 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 mt-6 border-t border-(--border-color)">
           <div className="flex items-center justify-between mb-3 px-1">
-            <span className="text-[14px] font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="text-[14px] font-medium text-(--text-muted)">
               Service fee
             </span>
-            <span className="text-[18px] sm:text-[20px] font-bold text-zinc-900 dark:text-white">
+            <span className="text-[18px] sm:text-[20px] font-bold text-(--text-heading)">
               {selectedTier.id === "tier-2" ? "₦26,100" : selectedTier.priceFormatted}
             </span>
           </div>
@@ -369,7 +369,7 @@ export default function DueDiligenceFormPage() {
             type="button"
             disabled={!canProceed}
             onClick={handleReview}
-            className="w-full py-3.5 sm:py-4 rounded-full bg-[#2BB44A] hover:bg-[#259b40] active:scale-[0.98] text-white font-bold text-[16px] transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-3.5 sm:py-4 rounded-full bg-(--primary) hover:bg-(--primary-hover) active:scale-[0.98] text-white font-bold text-[16px] transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Review
           </button>

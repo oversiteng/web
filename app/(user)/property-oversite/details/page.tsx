@@ -93,7 +93,7 @@ export default function PropertyOversiteDetailsPage() {
   };
 
   return (
-    <div className="bg-[#F2F4F2] dark:bg-[#111412] min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150">
+    <div className="bg-(--bg-body) min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-(--text-heading) transition-colors duration-150">
       <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between px-4 sm:px-6 py-4">
         <div>
           {/* ── Top Header ── */}
@@ -101,12 +101,12 @@ export default function PropertyOversiteDetailsPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="absolute left-0 p-2 -ml-2 text-zinc-800 dark:text-zinc-200 hover:opacity-75 transition-opacity cursor-pointer"
+              className="absolute left-0 p-2 -ml-2 text-(--text-heading) hover:opacity-75 transition-opacity cursor-pointer"
               aria-label="Back"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-[17px] sm:text-[18px] font-bold text-zinc-900 dark:text-white tracking-tight">
+            <h1 className="text-[17px] sm:text-[18px] font-bold text-(--text-heading) tracking-tight">
               {headerTitle}
             </h1>
           </div>
@@ -126,18 +126,18 @@ export default function PropertyOversiteDetailsPage() {
 
             {/* Field 2: When (Segmented Toggle) */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-(--text-heading) mb-2">
                 When
               </label>
 
-              <div className="w-full bg-white dark:bg-[#1E2220] rounded-full p-1 flex items-center border border-zinc-200/60 dark:border-zinc-800 shadow-xs">
+              <div className="w-full bg-(--bg-card) rounded-full p-1 flex items-center border border-(--border-color) shadow-xs">
                 <button
                   type="button"
                   onClick={() => setWhenOption("asap")}
                   className={`w-1/2 py-2.5 rounded-full text-[13.5px] font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer ${
                     whenOption === "asap"
-                      ? "bg-[#2BB44A] text-white shadow-xs"
-                      : "text-zinc-700 dark:text-zinc-300 hover:text-zinc-900"
+                      ? "bg-(--primary) text-white shadow-xs"
+                      : "text-(--text-muted) hover:text-(--text-heading)"
                   }`}
                 >
                   {whenOption === "asap" && <Check className="w-4 h-4 stroke-[2.5]" />}
@@ -149,8 +149,8 @@ export default function PropertyOversiteDetailsPage() {
                   onClick={() => setWhenOption("scheduled")}
                   className={`w-1/2 py-2.5 rounded-full text-[13.5px] font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer ${
                     whenOption === "scheduled"
-                      ? "bg-[#2BB44A] text-white shadow-xs"
-                      : "text-zinc-700 dark:text-zinc-300 hover:text-zinc-900"
+                      ? "bg-(--primary) text-white shadow-xs"
+                      : "text-(--text-muted) hover:text-(--text-heading)"
                   }`}
                 >
                   {whenOption === "scheduled" && <Check className="w-4 h-4 stroke-[2.5]" />}
@@ -161,25 +161,25 @@ export default function PropertyOversiteDetailsPage() {
 
             {/* Field 3: Time window */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-(--text-heading) mb-2">
                 Time window
               </label>
 
               <button
                 type="button"
                 onClick={() => setIsTimeDrawerOpen(true)}
-                className="w-full bg-white dark:bg-[#1E2220] rounded-[20px] px-4 py-3.5 flex items-center justify-between text-[14px] text-left cursor-pointer border border-transparent hover:border-zinc-300 dark:hover:border-zinc-700 transition-all shadow-xs"
+                className="w-full bg-(--bg-card) rounded-[20px] px-4 py-3.5 flex items-center justify-between text-[14px] text-left cursor-pointer border border-(--border-color) hover:border-(--border-color)/80 transition-all shadow-xs"
               >
-                <span className="text-zinc-900 dark:text-white font-medium">
+                <span className="text-(--text-heading) font-medium">
                   {timeWindow}
                 </span>
-                <ChevronDown className="w-5 h-5 text-zinc-400 shrink-0" />
+                <ChevronDown className="w-5 h-5 text-(--text-muted) shrink-0" />
               </button>
             </div>
 
             {/* Field 4: Add Instructions */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-(--text-heading) mb-2">
                 Add Instructions
               </label>
 
@@ -188,24 +188,24 @@ export default function PropertyOversiteDetailsPage() {
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 placeholder="e.g. Confirm vacant possession at my Lekki property and photograph the perimeter fence"
-                className="w-full bg-white dark:bg-[#1E2220] rounded-[22px] p-4 text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 border border-transparent focus:border-[var(--primary)] focus:outline-none transition-all shadow-xs resize-none"
+                className="w-full bg-(--bg-card) rounded-[22px] p-4 text-[14px] text-(--text-heading) placeholder:text-(--text-muted) border border-(--border-color) focus:border-(--primary) focus:outline-none transition-all shadow-xs resize-none"
               />
             </div>
           </div>
         </div>
 
-        {/* ── Bottom Sticky Bar (Matches Screenshot 2) ── */}
-        <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[#F2F4F2]/95 dark:bg-[#111412]/95 backdrop-blur-md pt-4 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 mt-6 border-t border-zinc-200/60 dark:border-zinc-800/60">
+        {/* ── Bottom Sticky Bar ── */}
+        <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-(--bg-body)/95 backdrop-blur-md pt-4 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 mt-6 border-t border-(--border-color)">
           <div className="flex items-center justify-center mb-3">
-            <span className="text-[14px] text-zinc-600 dark:text-zinc-400 font-medium">
-              Estimated total <strong className="font-bold text-zinc-900 dark:text-white ml-1">₦12,000</strong>
+            <span className="text-[14px] text-(--text-muted) font-medium">
+              Estimated total <strong className="font-bold text-(--text-heading) ml-1">₦12,000</strong>
             </span>
           </div>
 
           <button
             type="button"
             onClick={handleReview}
-            className="w-full py-3.5 sm:py-4 rounded-full bg-[#2BB44A] hover:bg-[#259b40] active:scale-[0.98] text-white font-bold text-[16px] transition-all shadow-md cursor-pointer"
+            className="w-full py-3.5 sm:py-4 rounded-full bg-(--primary) hover:bg-(--primary-hover) active:scale-[0.98] text-white font-bold text-[16px] transition-all shadow-md cursor-pointer"
           >
             Review
           </button>
@@ -221,15 +221,15 @@ export default function PropertyOversiteDetailsPage() {
             onClick={() => setIsTimeDrawerOpen(false)}
           />
           <div
-            className="relative w-full max-w-lg bg-white dark:bg-[#1A1E1D] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200"
+            className="relative w-full max-w-lg bg-(--bg-card) rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 border border-(--border-color)"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-12 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-4" />
-            <h3 className="text-[17px] font-bold text-center text-zinc-900 dark:text-white mb-4">
+            <div className="w-12 h-1 bg-(--border-color) rounded-full mx-auto mb-4" />
+            <h3 className="text-[17px] font-bold text-center text-(--text-heading) mb-4">
               Select time window
             </h3>
 
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            <div className="divide-y divide-(--border-color)">
               {[
                 "Fri 25 Sep, 10:00 - 13:00",
                 "Fri 25 Sep, 14:00 - 17:00",
@@ -246,12 +246,12 @@ export default function PropertyOversiteDetailsPage() {
                   }}
                   className={`w-full py-3.5 px-2 flex items-center justify-between text-[14.5px] cursor-pointer ${
                     timeWindow === slot
-                      ? "text-[#2BB44A] font-semibold"
-                      : "text-zinc-800 dark:text-zinc-200"
+                      ? "text-(--primary) font-semibold"
+                      : "text-(--text-heading)"
                   }`}
                 >
                   <span>{slot}</span>
-                  {timeWindow === slot && <Check className="w-4 h-4 text-[#2BB44A]" />}
+                  {timeWindow === slot && <Check className="w-4 h-4 text-(--primary)" />}
                 </button>
               ))}
             </div>

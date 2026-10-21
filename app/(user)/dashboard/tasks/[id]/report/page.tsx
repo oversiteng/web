@@ -85,12 +85,12 @@ Verified and signed cryptographically by Oversite Operations Directorate.`;
   };
 
   return (
-    <div className="bg-[#F2F4F2] dark:bg-[#111412] min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150 -m-4 sm:-m-6 md:-m-8">
+    <div className="bg-[var(--bg-body)] min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150 -m-4 sm:-m-6 md:-m-8">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-[90] flex justify-center pointer-events-none transition-all duration-300">
-          <div className="w-full max-w-sm bg-zinc-900/90 dark:bg-white/95 text-white dark:text-zinc-900 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 backdrop-blur-md animate-in fade-in slide-in-from-top-3">
-            <CheckCircle2 className="w-5 h-5 text-[#2BB44A] shrink-0 stroke-[2.2]" />
+          <div className="w-full max-w-sm bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 backdrop-blur-md animate-in fade-in slide-in-from-top-3">
+            <CheckCircle2 className="w-5 h-5 text-[var(--primary)] shrink-0 stroke-[2.2]" />
             <span className="text-[13px] font-medium tracking-wide">
               {toastMessage}
             </span>
@@ -105,20 +105,20 @@ Verified and signed cryptographically by Oversite Operations Directorate.`;
             <button
               type="button"
               onClick={() => router.push(`/dashboard/tasks/${taskId}`)}
-              className="p-2 -ml-2 text-zinc-800 dark:text-zinc-200 hover:opacity-75 transition-opacity cursor-pointer"
+              className="p-2 -ml-2 text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer"
               aria-label="Back to task"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
 
-            <h1 className="text-[17px] sm:text-[18px] font-bold text-zinc-900 dark:text-white tracking-tight text-center truncate px-2 flex-1">
+            <h1 className="text-[17px] sm:text-[18px] font-bold text-[var(--text-heading)] tracking-tight text-center truncate px-2 flex-1">
               Final Report Submission
             </h1>
 
             <button
               type="button"
               onClick={handleShare}
-              className="p-2 -mr-2 text-zinc-800 dark:text-zinc-200 hover:text-[#2BB44A] transition-colors cursor-pointer"
+              className="p-2 -mr-2 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
               aria-label="Share report"
             >
               <Share2 className="w-5 h-5" />
@@ -128,18 +128,18 @@ Verified and signed cryptographically by Oversite Operations Directorate.`;
           {/* ── Subheader Block (Matches Screenshots 3 & 4) ── */}
           <div className="flex items-start justify-between gap-3 mb-4">
             <div className="min-w-0 flex-1">
-              <h2 className="text-[19px] sm:text-[21px] font-bold text-zinc-900 dark:text-white tracking-tight truncate">
+              <h2 className="text-[19px] sm:text-[21px] font-bold text-[var(--text-heading)] tracking-tight truncate">
                 Lekki duplex - Block B
               </h2>
-              <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">
+              <p className="text-[12.5px] text-[var(--text-muted)] mt-0.5 leading-snug">
                 Project review · Completed by Folake A. · Today
               </p>
             </div>
 
             {/* Status Badge */}
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E8F8EC] dark:bg-emerald-950/50 shadow-2xs shrink-0">
-              <span className="w-2 h-2 rounded-full bg-[#2BB44A]" />
-              <span className="text-[12px] font-bold text-[#2BB44A] dark:text-[#34D399]">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--primary-light)] border border-[var(--primary)]/20 shadow-2xs shrink-0">
+              <span className="w-2 h-2 rounded-full bg-[var(--primary)]" />
+              <span className="text-[12px] font-bold text-[var(--primary)]">
                 Completed
               </span>
             </div>
@@ -147,18 +147,18 @@ Verified and signed cryptographically by Oversite Operations Directorate.`;
 
           {/* ── Risk & Ref Badges (Matches Screenshot 3) ── */}
           <div className="flex items-center gap-2 mb-5">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-medium bg-[#E8F8EC] dark:bg-emerald-950/60 text-[#2BB44A] dark:text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#2BB44A]" />
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-medium bg-[var(--primary-light)] text-[var(--primary)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />
               Risk: Low
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-medium bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-medium bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-body)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)]" />
               Ref: OS-2026-08841
             </span>
           </div>
 
           {/* ── PDF Report Card (Matches Screenshot 4 & Vault Style) ── */}
-          <div className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-zinc-100 dark:border-zinc-800/80 p-4.5 sm:p-5 shadow-xs mb-5 flex items-center justify-between">
+          <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-4.5 sm:p-5 shadow-xs mb-5 flex items-center justify-between">
             <div className="flex items-center gap-3.5 min-w-0">
               {/* Document icon matching Oversite Document Vault */}
               <div className="relative w-11 h-11 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-200">
@@ -180,7 +180,7 @@ Verified and signed cryptographically by Oversite Operations Directorate.`;
             <button
               type="button"
               onClick={handleDownload}
-              className="w-10 h-10 rounded-full flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:text-[#2BB44A] hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0 cursor-pointer"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-heading)] hover:text-[var(--primary)] hover:bg-[var(--bg-secondary)] transition-colors shrink-0 cursor-pointer"
               aria-label="Download report file"
             >
               <Download className="w-5 h-5 stroke-[2.2]" />
@@ -189,25 +189,25 @@ Verified and signed cryptographically by Oversite Operations Directorate.`;
 
           {/* ── Visual Inspection Evidence (Matches Screenshot 3) ── */}
           <div className="mb-5">
-            <h3 className="text-[15px] sm:text-[16px] font-bold text-zinc-900 dark:text-white mb-2.5">
+            <h3 className="text-[15px] sm:text-[16px] font-bold text-[var(--text-heading)] mb-2.5">
               Verified Photographic Evidence
             </h3>
             <div className="grid grid-cols-3 gap-2.5">
-              <div className="h-[84px] sm:h-[96px] rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 shadow-2xs">
+              <div className="h-[84px] sm:h-[96px] rounded-2xl overflow-hidden bg-[var(--bg-secondary)] border border-[var(--border-color)] shadow-2xs">
                 <img
                   src="/assets/images/tasks/site-worker.jpg"
                   alt="Site worker audit"
                   className="w-full h-full object-cover"
                 />
               </div>
-              <div className="h-[84px] sm:h-[96px] rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 shadow-2xs">
+              <div className="h-[84px] sm:h-[96px] rounded-2xl overflow-hidden bg-[var(--bg-secondary)] border border-[var(--border-color)] shadow-2xs">
                 <img
                   src="/assets/images/tasks/blueprints.jpg"
                   alt="Blueprint compliance"
                   className="w-full h-full object-cover"
                 />
               </div>
-              <div className="h-[84px] sm:h-[96px] rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 shadow-2xs">
+              <div className="h-[84px] sm:h-[96px] rounded-2xl overflow-hidden bg-[var(--bg-secondary)] border border-[var(--border-color)] shadow-2xs">
                 <img
                   src="/assets/images/tasks/foundation.jpg"
                   alt="Foundation integrity"
@@ -215,44 +215,44 @@ Verified and signed cryptographically by Oversite Operations Directorate.`;
                 />
               </div>
             </div>
-            <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 mt-1.5">
+            <p className="text-[11.5px] text-[var(--text-muted)] mt-1.5">
               3 of 12 geo-tagged photographs attached to the official record
             </p>
           </div>
 
           {/* ── Milestones & Executive Audit Findings (Matches Screenshot 3 & 4) ── */}
           <div className="mb-5">
-            <h3 className="text-[15px] sm:text-[16px] font-bold text-zinc-900 dark:text-white mb-2.5">
+            <h3 className="text-[15px] sm:text-[16px] font-bold text-[var(--text-heading)] mb-2.5">
               Milestones
             </h3>
 
             <div className="space-y-3">
-              <div className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-zinc-100 dark:border-zinc-800/80 p-4.5 sm:p-5 shadow-xs">
+              <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-4.5 sm:p-5 shadow-xs">
                 <div className="flex items-center justify-between mb-1.5">
-                  <h4 className="text-[14px] sm:text-[14.5px] font-bold text-zinc-900 dark:text-white">
+                  <h4 className="text-[14px] sm:text-[14.5px] font-bold text-[var(--text-heading)]">
                     1. Foundation & DPC
                   </h4>
-                  <span className="text-[11.5px] font-semibold text-[#2BB44A] flex items-center gap-1">
+                  <span className="text-[11.5px] font-semibold text-[var(--primary)] flex items-center gap-1">
                     <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                     Verified
                   </span>
                 </div>
-                <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                <p className="text-[12.5px] text-[var(--text-muted)] leading-relaxed">
                   The foundation is in excellent condition, but after verification, we found a few notes that still need to be addressed.
                 </p>
               </div>
 
-              <div className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-zinc-100 dark:border-zinc-800/80 p-4.5 sm:p-5 shadow-xs">
+              <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-4.5 sm:p-5 shadow-xs">
                 <div className="flex items-center justify-between mb-1.5">
-                  <h4 className="text-[14px] sm:text-[14.5px] font-bold text-zinc-900 dark:text-white">
+                  <h4 className="text-[14px] sm:text-[14.5px] font-bold text-[var(--text-heading)]">
                     2. Superstructure to roof level
                   </h4>
-                  <span className="text-[11.5px] font-semibold text-[#2BB44A] flex items-center gap-1">
+                  <span className="text-[11.5px] font-semibold text-[var(--primary)] flex items-center gap-1">
                     <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                     Verified
                   </span>
                 </div>
-                <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                <p className="text-[12.5px] text-[var(--text-muted)] leading-relaxed">
                   The foundation is in excellent condition, but after verification, we found a few notes that still need to be addressed.
                 </p>
               </div>
@@ -261,12 +261,12 @@ Verified and signed cryptographically by Oversite Operations Directorate.`;
 
           {/* ── Oversite Manager Note (Matches Screenshot 4) ── */}
           <div className="mb-5">
-            <h3 className="text-[15px] sm:text-[16px] font-bold text-zinc-900 dark:text-white mb-2.5">
+            <h3 className="text-[15px] sm:text-[16px] font-bold text-[var(--text-heading)] mb-2.5">
               Oversite manager note
             </h3>
 
-            <div className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-zinc-100 dark:border-zinc-800/80 p-5 shadow-xs">
-              <p className="text-[13px] text-zinc-700 dark:text-zinc-300 leading-relaxed">
+            <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-xs">
+              <p className="text-[13px] text-[var(--text-body)] leading-relaxed">
                 Property confirmed at registered GPS coordinates. No unauthorized construction observed. Perimeter fence intact on north and west boundaries. 12 geo-tagged photographs attached. Title status confirmed clean at the Lagos State Lands Bureau.
               </p>
             </div>
@@ -274,26 +274,26 @@ Verified and signed cryptographically by Oversite Operations Directorate.`;
 
           {/* ── Accompanied Messages & Operations Log ── */}
           <div className="mb-5">
-            <h3 className="text-[15px] sm:text-[16px] font-bold text-zinc-900 dark:text-white mb-2.5">
+            <h3 className="text-[15px] sm:text-[16px] font-bold text-[var(--text-heading)] mb-2.5">
               Accompanied remarks & message
             </h3>
 
-            <div className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-zinc-100 dark:border-zinc-800/80 p-4.5 sm:p-5 shadow-xs space-y-3">
+            <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-4.5 sm:p-5 shadow-xs space-y-3">
               {/* Message from Oversite Admin to Client */}
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-full bg-[#2BB44A]/10 text-[#2BB44A] flex items-center justify-center shrink-0 font-bold text-[12px]">
+                <div className="w-9 h-9 rounded-full bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center shrink-0 font-bold text-[12px]">
                   OS
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[13px] font-bold text-zinc-900 dark:text-white">
+                    <span className="text-[13px] font-bold text-[var(--text-heading)]">
                       Oversite Operations
                     </span>
-                    <span className="text-[11px] text-zinc-400">
+                    <span className="text-[11px] text-[var(--text-muted)]">
                       Today · 1:15 PM
                     </span>
                   </div>
-                  <p className="text-[12.5px] text-zinc-600 dark:text-zinc-300 mt-1 leading-relaxed">
+                  <p className="text-[12.5px] text-[var(--text-muted)] mt-1 leading-relaxed">
                     Hello Adaeze, your project review for Lekki duplex - Block B has been completed by accredited manager Folake A. All 12 geo-tagged photographs and structural milestone assessments have been validated. The certified inspection report is ready for your records.
                   </p>
                 </div>
@@ -302,59 +302,59 @@ Verified and signed cryptographically by Oversite Operations Directorate.`;
           </div>
 
           {/* ── Task Summary Breakdown Table (Matches Screenshot 4) ── */}
-          <div className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-zinc-100 dark:border-zinc-800/80 p-5 shadow-xs mb-6">
+          <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-xs mb-6">
             {/* Row 1 */}
             <div className="flex items-center justify-between text-[13.5px]">
-              <span className="text-zinc-500 dark:text-zinc-400 font-medium">Task</span>
-              <span className="font-bold text-zinc-900 dark:text-white">
+              <span className="text-[var(--text-muted)] font-medium">Task</span>
+              <span className="font-bold text-[var(--text-heading)]">
                 Project review
               </span>
             </div>
 
-            <div className="border-b border-zinc-100 dark:border-zinc-800 my-3.5" />
+            <div className="border-b border-[var(--border-color)] my-3.5" />
 
             {/* Row 2 */}
             <div className="flex items-center justify-between text-[13.5px]">
-              <span className="text-zinc-500 dark:text-zinc-400 font-medium">
+              <span className="text-[var(--text-muted)] font-medium">
                 Accredited Manager
               </span>
-              <span className="font-bold text-zinc-900 dark:text-white">
+              <span className="font-bold text-[var(--text-heading)]">
                 Folake A.
               </span>
             </div>
 
-            <div className="border-b border-zinc-100 dark:border-zinc-800 my-3.5" />
+            <div className="border-b border-[var(--border-color)] my-3.5" />
 
             {/* Row 3 */}
             <div className="flex items-center justify-between text-[13.5px]">
-              <span className="text-zinc-500 dark:text-zinc-400 font-medium">
+              <span className="text-[var(--text-muted)] font-medium">
                 Time on task
               </span>
-              <span className="font-bold text-zinc-900 dark:text-white">
+              <span className="font-bold text-[var(--text-heading)]">
                 2 h 14 min
               </span>
             </div>
 
-            <div className="border-b border-zinc-100 dark:border-zinc-800 my-3.5" />
+            <div className="border-b border-[var(--border-color)] my-3.5" />
 
             {/* Row 4 */}
             <div className="flex items-center justify-between text-[13.5px]">
-              <span className="text-zinc-500 dark:text-zinc-400 font-medium">
+              <span className="text-[var(--text-muted)] font-medium">
                 Evidence
               </span>
-              <span className="font-bold text-zinc-900 dark:text-white">
+              <span className="font-bold text-[var(--text-heading)]">
                 3 photos · geo-tagged
               </span>
             </div>
 
-            <div className="border-b border-zinc-100 dark:border-zinc-800 my-3.5" />
+            <div className="border-b border-[var(--border-color)] my-3.5" />
 
             {/* Row 5 */}
             <div className="flex items-center justify-between text-[13.5px]">
-              <span className="text-zinc-500 dark:text-zinc-400 font-medium">
+              <span className="text-[var(--text-muted)] font-medium">
                 Total charged
               </span>
-              <span className="font-bold text-zinc-900 dark:text-white">
+              <span className="font-bold text-[var(--text-heading)]">
                 ₦15,000
               </span>
             </div>
@@ -365,11 +365,11 @@ Verified and signed cryptographically by Oversite Operations Directorate.`;
         <div className="pb-36" />
 
         {/* ── Sticky Bottom Action Bar ── */}
-        <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[#F2F4F2]/95 dark:bg-[#111412]/95 backdrop-blur-md pt-3 pb-3 -mx-4 sm:-mx-6 px-4 sm:px-6 border-t border-zinc-200/60 dark:border-zinc-800/60">
+        <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[var(--bg-body)]/95 backdrop-blur-md pt-3 pb-3 -mx-4 sm:-mx-6 px-4 sm:px-6 border-t border-[var(--border-color)]">
           <button
             type="button"
             onClick={handleDownload}
-            className="w-full py-3.5 sm:py-4 rounded-full bg-[#2BB44A] hover:bg-[#259b40] active:scale-[0.98] text-white font-bold text-[15px] sm:text-[16px] transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+            className="w-full py-3.5 sm:py-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.98] text-white font-bold text-[15px] sm:text-[16px] transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
           >
             <Download className="w-5 h-5 stroke-[2.2]" />
             <span>Download Certified Report (PDF)</span>

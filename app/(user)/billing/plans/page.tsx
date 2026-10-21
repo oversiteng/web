@@ -19,8 +19,8 @@ export default function PlansPage() {
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
           <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
-            <div className="w-5 h-5 rounded-full bg-[#2BB44A]/20 flex items-center justify-center shrink-0">
-              <Check className="w-3.5 h-3.5 text-[#2BB44A] stroke-[3]" />
+            <div className="w-5 h-5 rounded-full bg-[var(--primary-light)] flex items-center justify-center shrink-0">
+              <Check className="w-3.5 h-3.5 text-[var(--primary)] stroke-[3]" />
             </div>
             <span className="text-[13px] font-medium tracking-wide truncate">
               {toastMessage}
@@ -115,7 +115,7 @@ export default function PlansPage() {
             <span className="text-[14px] font-semibold text-[var(--text-heading)]">
               Pro
             </span>
-            <span className="px-3 py-1 rounded-full bg-[#eaf7ee] text-[#187534] border border-emerald-200/60 dark:border-transparent dark:bg-[#0e3b1c] dark:text-[#2BB44A] text-[12px] font-medium">
+            <span className="px-3 py-1 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/30 text-[12px] font-medium">
               Most popular
             </span>
           </div>
@@ -165,7 +165,7 @@ export default function PlansPage() {
           <button
             type="button"
             onClick={() => showToast("Upgraded to Pro plan successfully!")}
-            className="w-full py-4 rounded-full bg-[#85e19e] hover:bg-[#74d38e] active:scale-[0.99] text-zinc-950 text-[14px] font-semibold transition-all cursor-pointer shadow-xs"
+            className="w-full py-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.99] text-white text-[14px] font-semibold transition-all cursor-pointer shadow-xs"
           >
             Upgrade to Pro
           </button>
@@ -177,7 +177,7 @@ export default function PlansPage() {
             <span className="text-[14px] font-semibold text-[var(--text-heading)]">
               Enterprise
             </span>
-            <span className="px-3 py-1 rounded-full bg-[#eaf7ee] text-[#187534] border border-emerald-200/60 dark:border-transparent dark:bg-[#0e3b1c] dark:text-[#2BB44A] text-[12px] font-medium">
+            <span className="px-3 py-1 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/30 text-[12px] font-medium">
               For teams
             </span>
           </div>

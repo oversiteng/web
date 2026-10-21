@@ -43,7 +43,7 @@ function ToggleSwitch({
         checked
           ? hasMoon
             ? "bg-[#25272c]"
-            : "bg-[#2BB44A]"
+            : "bg-[var(--primary)]"
           : "bg-zinc-200 dark:bg-[#25272c] border border-zinc-300 dark:border-transparent"
       }`}
     >
@@ -147,7 +147,7 @@ export default function SettingsPage() {
 
         {/* Preferences Header */}
         <div className="pt-6 pb-2 px-1">
-          <span className="text-[14px] font-semibold text-[#2BB44A]">
+          <span className="text-[14px] font-semibold text-[var(--primary)]">
             Preferences
           </span>
         </div>
@@ -328,7 +328,7 @@ export default function SettingsPage() {
                 }}
                 className={`w-full flex items-center justify-between py-3 px-3 text-left rounded-xl transition-colors cursor-pointer ${
                   isSelected
-                    ? "bg-[var(--primary)]/10 dark:bg-[#2BB44A]/10 text-[#2BB44A] font-semibold"
+                    ? "bg-[var(--primary-light)] text-[var(--primary)] font-semibold"
                     : "text-[var(--text-body)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)]"
                 }`}
               >
@@ -336,8 +336,8 @@ export default function SettingsPage() {
                   {lang.label}
                 </span>
                 {isSelected && (
-                  <div className="w-5 h-5 rounded-full border-2 border-[#2BB44A] flex items-center justify-center">
-                    <Check className="w-3.5 h-3.5 text-[#2BB44A] stroke-[3]" />
+                  <div className="w-5 h-5 rounded-full border-2 border-[var(--primary)] flex items-center justify-center">
+                    <Check className="w-3.5 h-3.5 text-[var(--primary)] stroke-[3]" />
                   </div>
                 )}
               </button>

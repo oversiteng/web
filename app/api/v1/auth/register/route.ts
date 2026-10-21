@@ -12,7 +12,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
   try {
     const body = await req.json();
     const { email, password } = body;
-    const name = body.name || body.fullName;
+    const name = body.name;
     const phone = body.phone || body.phoneNumber;
     // Mobile spec uses CLIENT, DB uses USER
     let normalizedRole = body.role || "USER";
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
       normalizedRole = "USER";
     }
     console.log({email, password})
-    
+
     if (!email || !password) {
       return NextResponse.json(
         {

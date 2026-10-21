@@ -149,7 +149,7 @@ export default function ProjectReviewFormPage() {
   };
 
   return (
-    <div className="bg-[#F2F4F2] dark:bg-[#111412] min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150">
+    <div className="bg-[var(--bg-body)] min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150">
       <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between px-4 sm:px-6 py-4">
         <div>
           {/* ── Top Header ── */}
@@ -157,12 +157,12 @@ export default function ProjectReviewFormPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="absolute left-0 p-2 -ml-2 text-zinc-800 dark:text-zinc-200 hover:opacity-75 transition-opacity cursor-pointer"
+              className="absolute left-0 p-2 -ml-2 text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer"
               aria-label="Back"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-[17px] sm:text-[18px] font-bold text-zinc-900 dark:text-white tracking-tight">
+            <h1 className="text-[17px] sm:text-[18px] font-bold text-[var(--text-heading)] tracking-tight">
               Project review
             </h1>
           </div>
@@ -171,7 +171,7 @@ export default function ProjectReviewFormPage() {
           <div className="space-y-4">
             {/* Field 1: Project Name */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-[var(--text-heading)] mb-2">
                 Project name
               </label>
               <input
@@ -179,36 +179,36 @@ export default function ProjectReviewFormPage() {
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
                 placeholder=""
-                className="w-full bg-white dark:bg-[#1E2220] rounded-[18px] px-4 py-3.5 text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 border border-transparent focus:border-[var(--primary)] focus:outline-none transition-all shadow-xs"
+                className="w-full bg-[var(--bg-card)] rounded-[18px] px-4 py-3.5 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] border border-[var(--border-color)] focus:border-[var(--primary)] focus:outline-none transition-all shadow-xs"
               />
             </div>
 
             {/* Field 2: Building Type */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-[var(--text-heading)] mb-2">
                 Building type
               </label>
               <button
                 type="button"
                 onClick={() => setActiveDrawer("building")}
-                className="w-full bg-white dark:bg-[#1E2220] rounded-[18px] px-4 py-3.5 flex items-center justify-between text-[14px] text-left cursor-pointer border border-transparent focus:border-[var(--primary)] transition-all shadow-xs"
+                className="w-full bg-[var(--bg-card)] rounded-[18px] px-4 py-3.5 flex items-center justify-between text-[14px] text-left cursor-pointer border border-[var(--border-color)] focus:border-[var(--primary)] transition-all shadow-xs"
               >
                 <span
                   className={
                     buildingType
-                      ? "text-zinc-900 dark:text-white font-medium truncate pr-2"
-                      : "text-zinc-400 dark:text-zinc-500"
+                      ? "text-[var(--text-heading)] font-medium truncate pr-2"
+                      : "text-[var(--text-muted)]"
                   }
                 >
                   {buildingType || ""}
                 </span>
-                <ChevronDown className="w-5 h-5 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                <ChevronDown className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
               </button>
             </div>
 
             {/* Field 3: Target Completion (Calendar Picker matching Legal Page) */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-[var(--text-heading)] mb-2">
                 Target completion
               </label>
               <div
@@ -219,18 +219,18 @@ export default function ProjectReviewFormPage() {
                     targetDateRef.current?.focus();
                   }
                 }}
-                className="relative w-full bg-white dark:bg-[#1E2220] rounded-[18px] px-4 py-3.5 flex items-center justify-between border border-transparent hover:border-zinc-300 dark:hover:border-zinc-700 focus-within:border-[var(--primary)] transition-colors shadow-xs cursor-pointer text-left"
+                className="relative w-full bg-[var(--bg-card)] rounded-[18px] px-4 py-3.5 flex items-center justify-between border border-[var(--border-color)] hover:border-[var(--text-muted)] focus-within:border-[var(--primary)] transition-colors shadow-xs cursor-pointer text-left"
               >
                 <span
                   className={`text-[14px] ${
                     targetCompletion
-                      ? "text-zinc-900 dark:text-white font-medium"
-                      : "text-zinc-400 dark:text-zinc-500"
+                      ? "text-[var(--text-heading)] font-medium"
+                      : "text-[var(--text-muted)]"
                   }`}
                 >
                   {targetCompletion || "DD/MM/YYYY"}
                 </span>
-                <div className="flex items-center gap-1.5 text-zinc-400 dark:text-zinc-500 pointer-events-none">
+                <div className="flex items-center gap-1.5 text-[var(--text-muted)] pointer-events-none">
                   <Calendar className="w-4 h-4" />
                   <ChevronDown className="w-4 h-4" />
                 </div>
@@ -250,10 +250,10 @@ export default function ProjectReviewFormPage() {
             {/* Section 4: Milestones */}
             <div>
               <div className="mb-2">
-                <h2 className="text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200">
+                <h2 className="text-[13.5px] font-semibold text-[var(--text-heading)]">
                   Milestones
                 </h2>
-                <p className="text-[12px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
                   Add the stages you want to be checked
                 </p>
               </div>
@@ -264,19 +264,19 @@ export default function ProjectReviewFormPage() {
                   {milestones.map((m) => (
                     <div
                       key={m.id}
-                      className="w-full bg-white dark:bg-[#1E2220] rounded-[18px] px-4 py-3.5 flex items-center justify-between shadow-xs border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-colors"
+                      className="w-full bg-[var(--bg-card)] rounded-[18px] px-4 py-3.5 flex items-center justify-between shadow-xs border border-[var(--border-color)] transition-colors"
                     >
-                      <span className="text-[14px] font-medium text-zinc-900 dark:text-white truncate pr-2">
+                      <span className="text-[14px] font-medium text-[var(--text-heading)] truncate pr-2">
                         {m.name}
                       </span>
                       <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-[13px] text-zinc-400 dark:text-zinc-400">
+                        <span className="text-[13px] text-[var(--text-muted)]">
                           {m.date}
                         </span>
                         <button
                           type="button"
                           onClick={(e) => handleRemoveMilestone(m.id, e)}
-                          className="text-zinc-400 hover:text-red-500 transition-colors cursor-pointer p-0.5"
+                          className="text-[var(--text-muted)] hover:text-red-500 transition-colors cursor-pointer p-0.5"
                           title="Remove milestone"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -291,10 +291,10 @@ export default function ProjectReviewFormPage() {
               <button
                 type="button"
                 onClick={() => setActiveDrawer("milestone")}
-                className="w-full bg-white dark:bg-[#1E2220] rounded-[18px] py-4 px-4 flex items-center justify-center gap-2 cursor-pointer shadow-xs hover:opacity-90 active:scale-[0.99] transition-all"
+                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-[18px] py-4 px-4 flex items-center justify-center gap-2 cursor-pointer shadow-xs hover:opacity-90 active:scale-[0.99] transition-all"
               >
-                <Plus className="w-4 h-4 text-[#2BB44A]" />
-                <span className="text-[14px] font-medium text-zinc-800 dark:text-zinc-200">
+                <Plus className="w-4 h-4 text-[var(--primary)]" />
+                <span className="text-[14px] font-medium text-[var(--text-heading)]">
                   Add milestone
                 </span>
               </button>
@@ -302,59 +302,59 @@ export default function ProjectReviewFormPage() {
 
             {/* Field 5: Review Scope */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-[var(--text-heading)] mb-2">
                 Review scope
               </label>
               <button
                 type="button"
                 onClick={() => setActiveDrawer("scope")}
-                className="w-full bg-white dark:bg-[#1E2220] rounded-[18px] px-4 py-3.5 flex items-center justify-between text-[14px] text-left cursor-pointer border border-transparent focus:border-[var(--primary)] transition-all shadow-xs"
+                className="w-full bg-[var(--bg-card)] rounded-[18px] px-4 py-3.5 flex items-center justify-between text-[14px] text-left cursor-pointer border border-[var(--border-color)] focus:border-[var(--primary)] transition-all shadow-xs"
               >
                 <span
                   className={
                     reviewScope
-                      ? "text-zinc-900 dark:text-white font-medium"
-                      : "text-zinc-400 dark:text-zinc-500"
+                      ? "text-[var(--text-heading)] font-medium"
+                      : "text-[var(--text-muted)]"
                   }
                 >
                   {reviewScope || "select"}
                 </span>
-                <ChevronDown className="w-5 h-5 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                <ChevronDown className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
               </button>
             </div>
 
             {/* Field 6: Supervisor Expertise */}
             <div>
-              <label className="block text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+              <label className="block text-[13.5px] font-semibold text-[var(--text-heading)] mb-2">
                 Supervisor expertise
               </label>
               <button
                 type="button"
                 onClick={() => setActiveDrawer("supervisor")}
-                className="w-full bg-white dark:bg-[#1E2220] rounded-[18px] px-4 py-3.5 flex items-center justify-between text-[14px] text-left cursor-pointer border border-transparent focus:border-[var(--primary)] transition-all shadow-xs"
+                className="w-full bg-[var(--bg-card)] rounded-[18px] px-4 py-3.5 flex items-center justify-between text-[14px] text-left cursor-pointer border border-[var(--border-color)] focus:border-[var(--primary)] transition-all shadow-xs"
               >
                 <span
                   className={
                     supervisorExpertise
-                      ? "text-zinc-900 dark:text-white font-medium"
-                      : "text-zinc-400 dark:text-zinc-500"
+                      ? "text-[var(--text-heading)] font-medium"
+                      : "text-[var(--text-muted)]"
                   }
                 >
                   {supervisorExpertise || "select"}
                 </span>
-                <ChevronDown className="w-5 h-5 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                <ChevronDown className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
               </button>
             </div>
           </div>
         </div>
 
         {/* ── Bottom Sticky Bar: Review ── */}
-        <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[#F2F4F2]/95 dark:bg-[#111412]/95 backdrop-blur-md pt-4 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 mt-6 border-t border-zinc-200/60 dark:border-zinc-800/60">
+        <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[var(--bg-body)]/95 backdrop-blur-md pt-4 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 mt-6 border-t border-[var(--border-color)]">
           <div className="flex items-center justify-between mb-3 px-1">
-            <span className="text-[14px] font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="text-[14px] font-medium text-[var(--text-muted)]">
               Service fee
             </span>
-            <span className="text-[18px] sm:text-[20px] font-bold text-zinc-900 dark:text-white">
+            <span className="text-[18px] sm:text-[20px] font-bold text-[var(--text-heading)]">
               ₦12,000
             </span>
           </div>
@@ -363,7 +363,7 @@ export default function ProjectReviewFormPage() {
             type="button"
             disabled={!canProceed}
             onClick={handleReview}
-            className="w-full py-3.5 sm:py-4 rounded-full bg-[#2BB44A] hover:bg-[#259b40] active:scale-[0.98] text-white font-bold text-[16px] transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-3.5 sm:py-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.98] text-white font-bold text-[16px] transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Review
           </button>
@@ -382,16 +382,16 @@ export default function ProjectReviewFormPage() {
             onClick={() => setActiveDrawer(null)}
           />
           <div
-            className="relative w-full max-w-lg bg-white dark:bg-[#1A1E1D] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200"
+            className="relative w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-color)] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-12 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-4" />
+            <div className="w-12 h-1 bg-[var(--border-color)] rounded-full mx-auto mb-4" />
 
             <div className="text-center mb-6">
-              <h3 className="text-[18px] font-bold text-zinc-900 dark:text-white">
+              <h3 className="text-[18px] font-bold text-[var(--text-heading)]">
                 Add a milestone
               </h3>
-              <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 mt-1">
+              <p className="text-[12.5px] text-[var(--text-muted)] mt-1">
                 The oversite manager verifies the progress against each one.
               </p>
             </div>
@@ -399,7 +399,7 @@ export default function ProjectReviewFormPage() {
             <div className="space-y-4">
               {/* Field 1: Milestone Name */}
               <div>
-                <label className="block text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+                <label className="block text-[13px] font-semibold text-[var(--text-heading)] mb-2">
                   Project name
                 </label>
                 <input
@@ -407,13 +407,13 @@ export default function ProjectReviewFormPage() {
                   value={newMilestoneName}
                   onChange={(e) => setNewMilestoneName(e.target.value)}
                   placeholder=""
-                  className="w-full bg-[#F2F4F2] dark:bg-[#252A26] rounded-[18px] px-4 py-3.5 text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none transition-all shadow-xs"
+                  className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-[18px] px-4 py-3.5 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-xs"
                 />
               </div>
 
               {/* Field 2: Target Completion with Calendar Picker */}
               <div>
-                <label className="block text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+                <label className="block text-[13px] font-semibold text-[var(--text-heading)] mb-2">
                   Target completion
                 </label>
                 <div
@@ -424,18 +424,18 @@ export default function ProjectReviewFormPage() {
                       milestoneDateRef.current?.focus();
                     }
                   }}
-                  className="relative w-full bg-[#F2F4F2] dark:bg-[#252A26] rounded-[18px] px-4 py-3.5 flex items-center justify-between cursor-pointer text-left shadow-xs"
+                  className="relative w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-[18px] px-4 py-3.5 flex items-center justify-between cursor-pointer text-left shadow-xs"
                 >
                   <span
                     className={`text-[14px] ${
                       newMilestoneDate
-                        ? "text-zinc-900 dark:text-white font-medium"
-                        : "text-zinc-400 dark:text-zinc-500"
+                        ? "text-[var(--text-heading)] font-medium"
+                        : "text-[var(--text-muted)]"
                     }`}
                   >
                     {newMilestoneDate || "DD/MM/YYYY"}
                   </span>
-                  <div className="flex items-center gap-1.5 text-zinc-400 dark:text-zinc-500 pointer-events-none">
+                  <div className="flex items-center gap-1.5 text-[var(--text-muted)] pointer-events-none">
                     <Calendar className="w-4 h-4" />
                     <ChevronDown className="w-4 h-4" />
                   </div>
@@ -458,7 +458,7 @@ export default function ProjectReviewFormPage() {
               <button
                 type="button"
                 onClick={() => setActiveDrawer(null)}
-                className="w-1/2 py-3.5 rounded-full border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-[#2BB44A] font-bold text-[14px] transition-colors cursor-pointer"
+                className="w-1/2 py-3.5 rounded-full border border-[var(--border-color)] hover:bg-[var(--bg-secondary)] text-[var(--primary)] font-bold text-[14px] transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -466,7 +466,7 @@ export default function ProjectReviewFormPage() {
                 type="button"
                 onClick={handleAddMilestone}
                 disabled={!newMilestoneName.trim()}
-                className="w-1/2 py-3.5 rounded-full bg-[#2BB44A] hover:bg-[#259b40] text-white font-bold text-[14px] transition-colors cursor-pointer disabled:opacity-40"
+                className="w-1/2 py-3.5 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-[14px] transition-colors cursor-pointer disabled:opacity-40"
               >
                 Add milestone
               </button>
@@ -483,14 +483,14 @@ export default function ProjectReviewFormPage() {
             onClick={() => setActiveDrawer(null)}
           />
           <div
-            className="relative w-full max-w-lg bg-white dark:bg-[#1A1E1D] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 max-h-[80vh] overflow-y-auto"
+            className="relative w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-color)] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-12 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-4" />
-            <h3 className="text-[18px] font-bold text-center text-zinc-900 dark:text-white mb-4">
+            <div className="w-12 h-1 bg-[var(--border-color)] rounded-full mx-auto mb-4" />
+            <h3 className="text-[18px] font-bold text-center text-[var(--text-heading)] mb-4">
               Building type
             </h3>
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
+            <div className="divide-y divide-[var(--border-color)]">
               {BUILDING_TYPES.map((type) => (
                 <button
                   key={type}
@@ -501,13 +501,13 @@ export default function ProjectReviewFormPage() {
                   }}
                   className={`w-full py-4 px-2 text-left text-[15px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
                     buildingType === type
-                      ? "text-[#2BB44A] font-semibold"
-                      : "text-zinc-800 dark:text-zinc-200 hover:text-[#2BB44A]"
+                      ? "text-[var(--primary)] font-semibold"
+                      : "text-[var(--text-body)] hover:text-[var(--primary)]"
                   }`}
                 >
                   <span>{type}</span>
                   {buildingType === type && (
-                    <CheckCircle2 className="w-5 h-5 text-[#2BB44A]" />
+                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)]" />
                   )}
                 </button>
               ))}
@@ -524,14 +524,14 @@ export default function ProjectReviewFormPage() {
             onClick={() => setActiveDrawer(null)}
           />
           <div
-            className="relative w-full max-w-lg bg-white dark:bg-[#1A1E1D] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 max-h-[80vh] overflow-y-auto"
+            className="relative w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-color)] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-12 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-4" />
-            <h3 className="text-[18px] font-bold text-center text-zinc-900 dark:text-white mb-4">
+            <div className="w-12 h-1 bg-[var(--border-color)] rounded-full mx-auto mb-4" />
+            <h3 className="text-[18px] font-bold text-center text-[var(--text-heading)] mb-4">
               Review scope
             </h3>
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
+            <div className="divide-y divide-[var(--border-color)]">
               {REVIEW_SCOPES.map((scope) => (
                 <button
                   key={scope}
@@ -542,13 +542,13 @@ export default function ProjectReviewFormPage() {
                   }}
                   className={`w-full py-4 px-2 text-left text-[15px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
                     reviewScope === scope
-                      ? "text-[#2BB44A] font-semibold"
-                      : "text-zinc-800 dark:text-zinc-200 hover:text-[#2BB44A]"
+                      ? "text-[var(--primary)] font-semibold"
+                      : "text-[var(--text-body)] hover:text-[var(--primary)]"
                   }`}
                 >
                   <span>{scope}</span>
                   {reviewScope === scope && (
-                    <CheckCircle2 className="w-5 h-5 text-[#2BB44A]" />
+                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)]" />
                   )}
                 </button>
               ))}
@@ -565,14 +565,14 @@ export default function ProjectReviewFormPage() {
             onClick={() => setActiveDrawer(null)}
           />
           <div
-            className="relative w-full max-w-lg bg-white dark:bg-[#1A1E1D] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 max-h-[80vh] overflow-y-auto"
+            className="relative w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-color)] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-12 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-4" />
-            <h3 className="text-[18px] font-bold text-center text-zinc-900 dark:text-white mb-4">
+            <div className="w-12 h-1 bg-[var(--border-color)] rounded-full mx-auto mb-4" />
+            <h3 className="text-[18px] font-bold text-center text-[var(--text-heading)] mb-4">
               Supervisor expertise
             </h3>
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
+            <div className="divide-y divide-[var(--border-color)]">
               {SUPERVISOR_EXPERTISE.map((exp) => (
                 <button
                   key={exp}
@@ -583,13 +583,13 @@ export default function ProjectReviewFormPage() {
                   }}
                   className={`w-full py-4 px-2 text-left text-[15px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
                     supervisorExpertise === exp
-                      ? "text-[#2BB44A] font-semibold"
-                      : "text-zinc-800 dark:text-zinc-200 hover:text-[#2BB44A]"
+                      ? "text-[var(--primary)] font-semibold"
+                      : "text-[var(--text-body)] hover:text-[var(--primary)]"
                   }`}
                 >
                   <span>{exp}</span>
                   {supervisorExpertise === exp && (
-                    <CheckCircle2 className="w-5 h-5 text-[#2BB44A]" />
+                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)]" />
                   )}
                 </button>
               ))}

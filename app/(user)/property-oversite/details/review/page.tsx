@@ -126,96 +126,96 @@ export default function PropertyOversiteOrderReviewPage() {
           </h1>
         </div>
 
-        {/* ── Card 1: Details Card (Matches Figma Screenshot 4 Exactly) ── */}
-        <div className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-[var(--border-color)]/60 p-5 shadow-xs">
+        {/* ── Card 1: Details Card ── */}
+        <div className="rounded-[22px] bg-(--bg-card) border border-(--border-color) p-5 shadow-xs">
           {/* Row 1: Task */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Task</span>
-            <span className="font-semibold text-[var(--text-heading)] text-right">
+            <span className="text-(--text-muted)">Task</span>
+            <span className="font-semibold text-(--text-heading) text-right">
               {taskTitle}
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
+          <div className="border-b border-(--border-color) my-3.5" />
 
           {/* Row 2: Where */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Where</span>
-            <span className="font-semibold text-[var(--text-heading)] text-right truncate max-w-[240px]">
+            <span className="text-(--text-muted)">Where</span>
+            <span className="font-semibold text-(--text-heading) text-right truncate max-w-[240px]">
               {whereLocation}
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
+          <div className="border-b border-(--border-color) my-3.5" />
 
           {/* Row 3: Time window */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Time window</span>
-            <span className="font-semibold text-[var(--text-heading)] text-right">
+            <span className="text-(--text-muted)">Time window</span>
+            <span className="font-semibold text-(--text-heading) text-right">
               {timeWindow}
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
+          <div className="border-b border-(--border-color) my-3.5" />
 
           {/* Row 4: Instructions */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Instructions</span>
-            <span className="font-semibold text-[var(--text-heading)] text-right truncate max-w-[240px]">
+            <span className="text-(--text-muted)">Instructions</span>
+            <span className="font-semibold text-(--text-heading) text-right truncate max-w-[240px]">
               {instructions}
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
+          <div className="border-b border-(--border-color) my-3.5" />
 
           {/* Row 5: Report */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Report</span>
-            <span className="font-semibold text-[var(--text-heading)] text-right">
+            <span className="text-(--text-muted)">Report</span>
+            <span className="font-semibold text-(--text-heading) text-right">
               {reportDelivery}
             </span>
           </div>
         </div>
 
-        {/* ── Card 2: Fee Breakdown Card (Matches Figma Screenshot 4 Exactly) ── */}
-        <div className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-[var(--border-color)]/60 p-5 mt-4 shadow-xs">
+        {/* ── Card 2: Fee Breakdown Card ── */}
+        <div className="rounded-[22px] bg-(--bg-card) border border-(--border-color) p-5 mt-4 shadow-xs">
           {/* Row 1: Service fee */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Service fee</span>
-            <span className="font-semibold text-[var(--text-heading)]">
+            <span className="text-(--text-muted)">Service fee</span>
+            <span className="font-semibold text-(--text-heading)">
               ₦{serviceFee.toLocaleString()}
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
+          <div className="border-b border-(--border-color) my-3.5" />
 
           {/* Row 2: Travel & logistics */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Travel & logistics</span>
-            <span className="font-semibold text-[var(--text-heading)]">
+            <span className="text-(--text-muted)">Travel & logistics</span>
+            <span className="font-semibold text-(--text-heading)">
               ₦{travelFee.toLocaleString()}
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
+          <div className="border-b border-(--border-color) my-3.5" />
 
           {/* Row 3: Charge */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Charge</span>
-            <span className="font-semibold text-[var(--text-heading)]">
+            <span className="text-(--text-muted)">Charge</span>
+            <span className="font-semibold text-(--text-heading)">
               ₦{charge.toLocaleString()}
             </span>
           </div>
         </div>
       </div>
 
-      {/* ── Bottom Sticky Action Button: Pay ₦26,100 (Matches Screenshot 4) ── */}
-      <div className="pt-6 pb-4 sticky bottom-[68px] md:bottom-0 bg-[var(--bg-body)]/95 backdrop-blur-md z-40 mt-6 border-t border-[var(--border-color)] -mx-2 sm:-mx-4 px-2 sm:px-4">
+      {/* ── Bottom Sticky Action Button ── */}
+      <div className="pt-6 pb-4 sticky bottom-[68px] md:bottom-0 bg-(--bg-body)/95 backdrop-blur-md z-40 mt-6 border-t border-(--border-color) -mx-2 sm:-mx-4 px-2 sm:px-4">
         <button
           type="button"
           disabled={isSubmitting}
           onClick={handlePay}
-          className="w-full py-4 rounded-full bg-[#2BB44A] hover:bg-[#259b40] text-white font-bold text-[16px] tracking-wide transition-all duration-200 shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-50"
+          className="w-full py-4 rounded-full bg-(--primary) hover:bg-(--primary-hover) text-white font-bold text-[16px] tracking-wide transition-all duration-200 shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-50"
         >
           {isSubmitting ? "Processing payment..." : `Pay ₦${totalFee.toLocaleString()}`}
         </button>
@@ -228,17 +228,17 @@ export default function PropertyOversiteOrderReviewPage() {
             className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity animate-in fade-in"
             onClick={() => setIsSuccessModalOpen(false)}
           />
-          <div className="relative w-full max-w-sm bg-white dark:bg-[#1E2220] border border-[var(--border-color)] rounded-3xl p-6 shadow-2xl text-center animate-in zoom-in-95 duration-200 z-10">
-            <div className="w-14 h-14 rounded-full bg-[#2BB44A]/15 text-[#2BB44A] flex items-center justify-center mx-auto mb-4">
+          <div className="relative w-full max-w-sm bg-(--bg-card) border border-(--border-color) rounded-3xl p-6 shadow-2xl text-center animate-in zoom-in-95 duration-200 z-10">
+            <div className="w-14 h-14 rounded-full bg-(--primary-light) text-(--primary) flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-8 h-8" />
             </div>
 
-            <h2 className="text-[18px] font-bold text-[var(--text-heading)]">
+            <h2 className="text-[18px] font-bold text-(--text-heading)">
               Site Inspection Ordered!
             </h2>
-            <p className="text-[12.5px] text-[var(--text-muted)] mt-2 leading-relaxed">
+            <p className="text-[12.5px] text-(--text-muted) mt-2 leading-relaxed">
               Your field inspector is scheduled for{" "}
-              <span className="font-semibold text-[var(--text-heading)]">
+              <span className="font-semibold text-(--text-heading)">
                 {whereLocation}
               </span>
               . Real-time geo-tagged photos and verification report will be delivered to your vault.
@@ -247,7 +247,7 @@ export default function PropertyOversiteOrderReviewPage() {
             <div className="mt-6 space-y-2">
               <Link
                 href="/dashboard/tasks"
-                className="w-full py-3.5 rounded-full bg-[#2BB44A] hover:bg-[#259b40] text-white font-bold text-[14px] flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer active:scale-95"
+                className="w-full py-3.5 rounded-full bg-(--primary) hover:bg-(--primary-hover) text-white font-bold text-[14px] flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer active:scale-95"
               >
                 <span>Track Live Inspection</span>
                 <ChevronRight className="w-4 h-4" />
@@ -255,7 +255,7 @@ export default function PropertyOversiteOrderReviewPage() {
               <button
                 type="button"
                 onClick={() => router.push("/dashboard")}
-                className="w-full py-2.5 rounded-full text-[13px] font-semibold text-[var(--text-heading)] bg-[var(--bg-secondary)] hover:bg-[var(--border-color)] border border-[var(--border-color)] transition-colors cursor-pointer"
+                className="w-full py-2.5 rounded-full text-[13px] font-semibold text-(--text-heading) bg-(--bg-secondary) hover:bg-(--border-color) border border-(--border-color) transition-colors cursor-pointer"
               >
                 Back to Dashboard
               </button>

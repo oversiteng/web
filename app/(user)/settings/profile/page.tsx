@@ -6,8 +6,12 @@ import {
   ArrowLeft,
   User,
   Mail,
-  Eye,
-  EyeOff,
+  MapPin,
+  Briefcase,
+  Home,
+  Globe,
+  Compass,
+  Tag,
   Pencil,
   Check,
 } from "lucide-react";
@@ -16,18 +20,23 @@ export default function EditProfilePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Form states initialized matching design
-  const [name, setName] = useState("Suhan Hasan");
-  const [email, setEmail] = useState("example@youremail.com");
-  const [password, setPassword] = useState("••••••••");
-  const [showPassword, setShowPassword] = useState(false);
+  // Form states
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [title, setTitle] = useState("");
+  const [address, setAddress] = useState("");
+  const [location, setLocation] = useState("");
+  const [occupation, setOccupation] = useState("");
+  const [state, setState] = useState("");
+  const [country, setCountry] = useState("");
+  const [residence, setResidence] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Load existing profile from API if available
+  // Load existing profile from API
   useEffect(() => {
     async function loadProfile() {
       try {
@@ -42,13 +51,21 @@ export default function EditProfilePage() {
         if (res.ok) {
           const data = await res.json();
           if (data?.profile) {
-            if (data.profile.name) setName(data.profile.name);
-            if (data.profile.email) setEmail(data.profile.email);
-            if (data.profile.avatarUrl) setAvatarPreview(data.profile.avatarUrl);
+            const p = data.profile;
+            if (p.name) setName(p.name);
+            if (p.email) setEmail(p.email);
+            if (p.title) setTitle(p.title);
+            if (p.address) setAddress(p.address);
+            if (p.location) setLocation(p.location);
+            if (p.occupation) setOccupation(p.occupation);
+            if (p.state) setState(p.state);
+            if (p.country) setCountry(p.country);
+            if (p.residence) setResidence(p.residence);
+            if (p.avatarUrl) setAvatarPreview(p.avatarUrl);
           }
         }
       } catch (e) {
-        // Fallback to initial mockup values
+        console.error("Failed to load profile:", e);
       }
     }
     loadProfile();
@@ -81,6 +98,13 @@ export default function EditProfilePage() {
         headers,
         body: JSON.stringify({
           name,
+          title,
+          address,
+          location,
+          occupation,
+          state,
+          country,
+          residence,
           avatarUrl: avatarPreview || undefined,
         }),
       });
@@ -110,8 +134,8 @@ export default function EditProfilePage() {
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
           <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
-            <div className="w-5 h-5 rounded-full bg-[#2BB44A]/20 flex items-center justify-center shrink-0">
-              <Check className="w-3.5 h-3.5 text-[#2BB44A] stroke-[3]" />
+            <div className="w-5 h-5 rounded-full bg-[var(--primary-light)] flex items-center justify-center shrink-0">
+              <Check className="w-3.5 h-3.5 text-[var(--primary)] stroke-[3]" />
             </div>
             <span className="text-[13px] font-medium tracking-wide">
               {toastMessage}
@@ -151,7 +175,9 @@ export default function EditProfilePage() {
               className="w-32 h-32 rounded-full object-cover shadow-lg border-2 border-[var(--border-color)]"
             />
           ) : (
-            <div className="w-32 h-32 rounded-full bg-[#1c6b35] flex items-center justify-center shadow-lg" />
+            <div className="w-32 h-32 rounded-full bg-[#1c6b35] flex items-center justify-center shadow-lg text-white font-bold text-2xl">
+              {name ? name.slice(0, 2).toUpperCase() : "OU"}
+            </div>
           )}
 
           {/* Edit Badge */}
@@ -175,11 +201,28 @@ export default function EditProfilePage() {
       </div>
 
       {/* ── Form Fields ── */}
-      <form onSubmit={handleSave} className="space-y-6">
-        {/* Name Field */}
+      <form onSubmit={handleSave} className="space-y-5">
+        {/* Title Field (e.g., Mr, Mrs, Engr, Chief, Dr) */}
         <div>
           <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
-            Name
+            Title
+          </label>
+          <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
+            <Tag className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Mr, Mrs, Dr, Engr, Chief"
+              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Full Name Field */}
+        <div>
+          <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
+            Full Name
           </label>
           <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
             <User className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
@@ -187,86 +230,142 @@ export default function EditProfilePage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
+              placeholder="Your full name"
               className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
             />
           </div>
         </div>
 
-        {/* Email Field */}
+        {/* Email Field (Read Only) */}
         <div>
           <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
             Email
           </label>
-          <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
+          <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] opacity-80 rounded-full px-5 py-3.5 shadow-xs">
             <Mail className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="example@youremail.com"
+              disabled
+              readOnly
+              className="w-full bg-transparent text-[14px] text-[var(--text-muted)] outline-none cursor-not-allowed"
+            />
+          </div>
+        </div>
+
+        {/* Occupation Field */}
+        <div>
+          <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
+            Occupation
+          </label>
+          <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
+            <Briefcase className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
+            <input
+              type="text"
+              value={occupation}
+              onChange={(e) => setOccupation(e.target.value)}
+              placeholder="e.g. Civil Engineer, Real Estate Investor"
               className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
             />
           </div>
         </div>
 
-        {/* Password Field */}
+        {/* Address Field */}
         <div>
           <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
-            Password
+            Address
           </label>
           <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
-            {/* Padlock with three dots matching Screenshot */}
-            <svg
-              className="w-5 h-5 text-[var(--text-muted)] shrink-0"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="11" width="18" height="11" rx="4" ry="4" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              <circle cx="8.5" cy="16.5" r="0.75" fill="currentColor" />
-              <circle cx="12" cy="16.5" r="0.75" fill="currentColor" />
-              <circle cx="15.5" cy="16.5" r="0.75" fill="currentColor" />
-            </svg>
-
+            <MapPin className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
             <input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Street address"
               className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
             />
+          </div>
+        </div>
 
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="text-[var(--text-muted)] hover:text-[var(--text-heading)] transition-colors cursor-pointer"
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
-              {showPassword ? (
-                <EyeOff className="w-5 h-5 stroke-[1.8]" />
-              ) : (
-                <Eye className="w-5 h-5 stroke-[1.8]" />
-              )}
-            </button>
+        {/* Location / Area Field */}
+        <div>
+          <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
+            Location / City
+          </label>
+          <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
+            <Compass className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Lekki Phase 1, Victoria Island"
+              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+            />
+          </div>
+        </div>
+
+        {/* State & Country Fields */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
+              State
+            </label>
+            <div className="flex items-center gap-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-4 py-3.5 transition-all shadow-xs">
+              <input
+                type="text"
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                placeholder="e.g. Lagos"
+                className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
+              Country
+            </label>
+            <div className="flex items-center gap-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-4 py-3.5 transition-all shadow-xs">
+              <Globe className="w-4 h-4 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
+              <input
+                type="text"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder="e.g. Nigeria"
+                className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Residence Field */}
+        <div>
+          <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
+            Residence Type
+          </label>
+          <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
+            <Home className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
+            <input
+              type="text"
+              value={residence}
+              onChange={(e) => setResidence(e.target.value)}
+              placeholder="e.g. Own House, Rented, Diaspora Resident"
+              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+            />
           </div>
         </div>
 
         {/* Save Changes Button */}
-        <div className="pt-8">
+        <div className="pt-6">
           <button
             type="submit"
             disabled={isSaving}
-            className="w-full py-4 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] hover:bg-[var(--bg-secondary)] active:scale-[0.99] text-[#2BB44A] font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+            className="w-full py-4 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] hover:bg-[var(--bg-secondary)] active:scale-[0.99] text-[var(--primary)] font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
           >
             {isSaving ? (
-              <span className="inline-block w-5 h-5 border-2 border-[#2BB44A] border-t-transparent rounded-full animate-spin" />
+              <span className="inline-block w-5 h-5 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
             ) : savedSuccess ? (
-              <span className="flex items-center gap-1.5 text-[#2BB44A]">
+              <span className="flex items-center gap-1.5 text-[var(--primary)]">
                 <Check className="w-4 h-4 stroke-[3]" /> Saved Changes
               </span>
             ) : (

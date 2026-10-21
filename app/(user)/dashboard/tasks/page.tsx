@@ -107,33 +107,33 @@ const STATUS_CONFIG: Record<
 > = {
   in_progress: {
     label: "In progress",
-    dot: "bg-[#ED8C01]",
-    text: "text-[#ED8C01] dark:text-[#FBBF24]",
-    bg: "bg-[#FEF3EB] dark:bg-[#281B0A]",
+    dot: "bg-(--warning)",
+    text: "text-(--warning)",
+    bg: "bg-(--warning-light)",
   },
   ready: {
     label: "Ready",
-    dot: "bg-[#2BB44A]",
-    text: "text-[#2BB44A] dark:text-[#34D399]",
-    bg: "bg-[#E8F8EC] dark:bg-emerald-950/50",
+    dot: "bg-(--primary)",
+    text: "text-(--primary)",
+    bg: "bg-(--primary-light)",
   },
   review: {
     label: "Review",
-    dot: "bg-[#3B82F6]",
-    text: "text-[#2563EB] dark:text-[#60A5FA]",
-    bg: "bg-[#EFF6FF] dark:bg-blue-950/50",
+    dot: "bg-(--info)",
+    text: "text-(--info)",
+    bg: "bg-(--info-light)",
   },
   completed: {
     label: "Completed",
-    dot: "bg-[#9CA3AF]",
-    text: "text-[#6B7280] dark:text-[#9CA3AF]",
-    bg: "bg-[#F3F4F6] dark:bg-zinc-800",
+    dot: "bg-(--text-muted)",
+    text: "text-(--text-muted)",
+    bg: "bg-(--bg-secondary)",
   },
   pending: {
     label: "Pending",
-    dot: "bg-[#3B82F6]",
-    text: "text-[#2563EB] dark:text-[#60A5FA]",
-    bg: "bg-[#EFF6FF] dark:bg-blue-950/50",
+    dot: "bg-(--info)",
+    text: "text-(--info)",
+    bg: "bg-(--info-light)",
   },
 };
 
@@ -245,7 +245,7 @@ export default function TasksPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search tasks..."
-                    className="w-full bg-white dark:bg-[#1E2220] rounded-full px-4 py-2.5 text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none shadow-xs border border-transparent focus:border-[var(--primary)]"
+                    className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-full px-4 py-2.5 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none shadow-xs focus:border-[var(--primary)]"
                   />
                   {searchQuery && (
                     <button
@@ -268,7 +268,7 @@ export default function TasksPage() {
                   <button
                     type="button"
                     onClick={() => setSearchActive(true)}
-                    className="w-10 h-10 rounded-full bg-white dark:bg-[#1E2220] shadow-xs flex items-center justify-center text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                    className="w-10 h-10 rounded-full bg-(--bg-card) border border-(--border-color) shadow-xs flex items-center justify-center text-(--text-heading) hover:bg-(--bg-secondary) transition-colors cursor-pointer"
                     aria-label="Search tasks"
                   >
                     <Search className="w-5 h-5 stroke-[2.2]" />
@@ -276,7 +276,7 @@ export default function TasksPage() {
                   <button
                     type="button"
                     onClick={() => setFilterDrawerOpen(true)}
-                    className="w-10 h-10 rounded-full bg-white dark:bg-[#1E2220] shadow-xs flex items-center justify-center text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                    className="w-10 h-10 rounded-full bg-(--bg-card) border border-(--border-color) shadow-xs flex items-center justify-center text-(--text-heading) hover:bg-(--bg-secondary) transition-colors cursor-pointer"
                     aria-label="Filter tasks"
                   >
                     <Filter className="w-5 h-5 stroke-[2.2]" />
@@ -286,7 +286,7 @@ export default function TasksPage() {
             )}
           </div>
 
-          {/* ── Filter Chips (Matches Screenshot 1 Exactly) ── */}
+          {/* ── Filter Chips ── */}
           <div className="flex items-center gap-2.5 overflow-x-auto scrollbar-hide pb-2 mb-4 -mx-1 px-1">
             {FILTER_CHIPS.map((chip) => {
               const isSelected = activeChip === chip;
@@ -295,10 +295,11 @@ export default function TasksPage() {
                   key={chip}
                   type="button"
                   onClick={() => setActiveChip(chip)}
-                  className={`px-5 py-2 rounded-full text-[13.5px] sm:text-[14px] font-semibold whitespace-nowrap transition-all cursor-pointer ${isSelected
-                      ? "bg-emerald-500/10 text-white shadow-xs"
-                      : "bg-white dark:bg-[#1E2220] text-zinc-800 dark:text-zinc-200 border border-zinc-100 dark:border-zinc-800/80 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 shadow-xs"
-                    }`}
+                  className={`px-5 py-2 rounded-full text-[13.5px] sm:text-[14px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-(--primary) text-white shadow-xs"
+                      : "bg-(--bg-card) text-(--text-heading) border border-(--border-color) hover:bg-(--bg-secondary) shadow-xs"
+                  }`}
                 >
                   {chip}
                 </button>
@@ -306,10 +307,10 @@ export default function TasksPage() {
             })}
           </div>
 
-          {/* ── Task List (Matches Screenshot 1 Exactly) ── */}
+          {/* ── Task List ── */}
           <div className="space-y-4 pt-1">
             {filtered.length === 0 ? (
-              <div className="text-center py-16 text-zinc-400 text-[14px]">
+              <div className="text-center py-16 text-(--text-muted) text-[14px]">
                 No tasks found
               </div>
             ) : (
@@ -324,20 +325,20 @@ export default function TasksPage() {
                   >
                     {/* Left: Title & Subtitle */}
                     <div className="min-w-0 pr-3 flex-1">
-                      <h3 className="text-[13px] sm:text-[16px]  text-zinc-900 dark:text-white truncate group-hover:text-[#2BB44A] transition-colors">
+                      <h3 className="text-[13px] sm:text-[16px] text-(--text-heading) truncate group-hover:text-(--primary) transition-colors">
                         {task.title}
                       </h3>
-                      <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate leading-snug">
+                      <p className="text-[12.5px] text-(--text-muted) mt-0.5 truncate leading-snug">
                         {task.subtitle}
                       </p>
                     </div>
 
-                    {/* Right: Status Pill matching Screenshot 1 */}
+                    {/* Right: Status Pill */}
                     <div
                       className={`flex items-center gap-1.5 px-3 py-1 rounded-full shrink-0 ${st.bg} shadow-2xs`}
                     >
                       <span className={`w-2 h-2 rounded-full ${st.dot}`} />
-                      <span className={`text-[11px] ${st.text}`}>
+                      <span className={`text-[11px] font-semibold ${st.text}`}>
                         {st.label}
                       </span>
                     </div>
@@ -351,11 +352,11 @@ export default function TasksPage() {
         {/* Space above bottom nav to ensure FAB never covers text */}
         <div className="pb-36" />
 
-        {/* ── Floating Action Button (+) matching Screenshot 1 ── */}
+        {/* ── Floating Action Button (+) ── */}
         <button
           type="button"
           onClick={() => setCreateActionOpen(true)}
-          className="fixed bottom-[88px] md:bottom-8 right-6 sm:right-8 z-30 w-14 h-14 rounded-full bg-[#2BB44A] hover:bg-[#259b40] active:scale-95 text-white flex items-center justify-center shadow-lg transition-all cursor-pointer"
+          className="fixed bottom-[88px] md:bottom-8 right-6 sm:right-8 z-30 w-14 h-14 rounded-full bg-(--primary) hover:bg-(--primary-hover) active:scale-95 text-white flex items-center justify-center shadow-lg shadow-(--primary)/30 transition-all cursor-pointer"
           aria-label="Create new task"
         >
           <Plus className="w-7 h-7 stroke-[2.5]" />
@@ -370,11 +371,11 @@ export default function TasksPage() {
             onClick={() => setFilterDrawerOpen(false)}
           />
           <div
-            className="relative w-full max-w-lg bg-white dark:bg-[#1A1E1D] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 max-h-[85vh] flex flex-col"
+            className="relative w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-color)] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-12 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-5 shrink-0" />
-            <h3 className="text-[18px] font-bold text-zinc-900 dark:text-white text-center mb-6 shrink-0">
+            <div className="w-12 h-1 bg-[var(--border-color)] rounded-full mx-auto mb-5 shrink-0" />
+            <h3 className="text-[18px] font-bold text-[var(--text-heading)] text-center mb-6 shrink-0">
               Filter by Status
             </h3>
             <div className="space-y-2">
@@ -393,8 +394,8 @@ export default function TasksPage() {
                     setFilterDrawerOpen(false);
                   }}
                   className={`w-full py-3.5 px-4 rounded-2xl text-left font-semibold text-[14.5px] cursor-pointer transition-all ${selectedStatusFilter === opt.id
-                      ? "bg-[#2BB44A]/10 text-[#2BB44A]"
-                      : "text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      ? "bg-[var(--primary-light)] text-[var(--primary)]"
+                      : "text-[var(--text-heading)] hover:bg-[var(--bg-secondary)]"
                     }`}
                 >
                   {opt.label}
@@ -413,11 +414,11 @@ export default function TasksPage() {
             onClick={() => setCreateActionOpen(false)}
           />
           <div
-            className="relative w-full max-w-lg bg-white dark:bg-[#1A1E1D] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 max-h-[85vh] flex flex-col"
+            className="relative w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-color)] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-12 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-5 shrink-0" />
-            <h3 className="text-[18px] font-bold text-zinc-900 dark:text-white text-center mb-5 shrink-0">
+            <div className="w-12 h-1 bg-[var(--border-color)] rounded-full mx-auto mb-5 shrink-0" />
+            <h3 className="text-[18px] font-bold text-[var(--text-heading)] text-center mb-5 shrink-0">
               Request New Service / Task
             </h3>
             <div className="space-y-2.5 overflow-y-auto max-h-[60vh] pr-1">

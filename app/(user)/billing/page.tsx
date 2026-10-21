@@ -43,8 +43,8 @@ export default function BillingPage() {
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
           <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
-            <div className="w-5 h-5 rounded-full bg-[#2BB44A]/20 flex items-center justify-center shrink-0">
-              <Check className="w-3.5 h-3.5 text-[#2BB44A] stroke-[3]" />
+            <div className="w-5 h-5 rounded-full bg-[var(--primary-light)] flex items-center justify-center shrink-0">
+              <Check className="w-3.5 h-3.5 text-[var(--primary)] stroke-[3]" />
             </div>
             <span className="text-[13px] font-medium tracking-wide truncate">
               {toastMessage}
@@ -81,7 +81,7 @@ export default function BillingPage() {
           <span className="text-[13px] font-medium text-[var(--text-muted)]">
             Current plan
           </span>
-          <span className="px-3 py-1 rounded-full bg-[#eaf7ee] text-[#187534] border border-emerald-200/60 dark:border-transparent dark:bg-[#103b1e] dark:text-[#2BB44A] text-[12px] font-medium">
+          <span className="px-3 py-1 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/30 text-[12px] font-medium">
             Starter plan
           </span>
         </div>
@@ -103,7 +103,7 @@ export default function BillingPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/billing/plans"
-            className="flex-1 py-3.5 px-4 rounded-full bg-[#85e19e] hover:bg-[#74d38e] text-zinc-950 font-semibold text-[14px] text-center transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+            className="flex-1 py-3.5 px-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold text-[14px] text-center transition-all cursor-pointer shadow-xs active:scale-[0.99]"
           >
             Compare plan
           </Link>
@@ -126,7 +126,7 @@ export default function BillingPage() {
           </h2>
           <Link
             href="/billing/add-card"
-            className="text-[13px] font-medium text-[#2BB44A] hover:opacity-80 transition-opacity cursor-pointer"
+            className="text-[13px] font-medium text-[var(--primary)] hover:opacity-80 transition-opacity cursor-pointer"
           >
             Add new
           </Link>
@@ -179,7 +179,7 @@ export default function BillingPage() {
           </h2>
           <Link
             href="/billing/history"
-            className="text-[13px] font-medium text-[#2BB44A] hover:opacity-80 transition-opacity cursor-pointer"
+            className="text-[13px] font-medium text-[var(--primary)] hover:opacity-80 transition-opacity cursor-pointer"
           >
             See all
           </Link>
@@ -192,7 +192,7 @@ export default function BillingPage() {
             className="flex items-center justify-between py-2 px-2 hover:bg-[var(--bg-secondary)]/50 rounded-xl transition-colors cursor-pointer group"
           >
             <div>
-              <p className="text-[14px] font-medium text-[var(--text-heading)] group-hover:text-[#2BB44A] transition-colors">
+              <p className="text-[14px] font-medium text-[var(--text-heading)] group-hover:text-[var(--primary)] transition-colors">
                 Pro subscription
               </p>
               <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
@@ -203,8 +203,8 @@ export default function BillingPage() {
               <p className="text-[14px] font-semibold text-[var(--text-heading)]">
                 ₦5,000
               </p>
-              <p className="text-[11px] font-medium text-emerald-500 dark:text-emerald-400 flex items-center justify-end gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <p className="text-[11px] font-medium text-[var(--primary)] flex items-center justify-end gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />
                 Paid
               </p>
             </div>
@@ -216,7 +216,7 @@ export default function BillingPage() {
             className="flex items-center justify-between py-2 px-2 hover:bg-[var(--bg-secondary)]/50 rounded-xl transition-colors cursor-pointer group"
           >
             <div>
-              <p className="text-[14px] font-medium text-[var(--text-heading)] group-hover:text-[#2BB44A] transition-colors">
+              <p className="text-[14px] font-medium text-[var(--text-heading)] group-hover:text-[var(--primary)] transition-colors">
                 CAC certified copy
               </p>
               <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
@@ -227,8 +227,8 @@ export default function BillingPage() {
               <p className="text-[14px] font-semibold text-[var(--text-heading)]">
                 ₦5,000
               </p>
-              <p className="text-[11px] font-medium text-emerald-500 dark:text-emerald-400 flex items-center justify-end gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <p className="text-[11px] font-medium text-[var(--primary)] flex items-center justify-end gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />
                 Paid
               </p>
             </div>
@@ -316,7 +316,7 @@ export default function BillingPage() {
                   showToast(isCanceled ? "Pro subscription resumed" : "Pro subscription canceled");
                 }}
                 className={`flex-1 py-3.5 rounded-full font-semibold text-[14px] cursor-pointer text-white ${
-                  isCanceled ? "bg-[#2BB44A]" : "bg-red-500 hover:bg-red-600"
+                  isCanceled ? "bg-[var(--primary)] hover:bg-[var(--primary-hover)]" : "bg-red-500 hover:bg-red-600"
                 }`}
               >
                 {isCanceled ? "Resume" : "Confirm"}

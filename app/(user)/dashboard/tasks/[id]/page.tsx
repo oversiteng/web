@@ -209,30 +209,30 @@ export default function TaskDetailPage({
   };
 
   return (
-    <div className="bg-[#F2F4F2] dark:bg-[#111412] min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150 animate-in fade-in duration-200 -m-4 sm:-m-6 md:-m-8">
+    <div className="bg-(--bg-body) min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-(--text-heading) transition-colors duration-150 animate-in fade-in duration-200 -m-4 sm:-m-6 md:-m-8">
       <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between px-4 sm:px-6 py-4">
         <div>
-          {/* ── Top Header (Matches Screenshots 2, 3, 4 Exactly) ── */}
+          {/* ── Top Header ── */}
           <div className="relative flex items-center justify-between py-3 mb-3">
             <button
               type="button"
               onClick={() => router.push("/dashboard/tasks")}
-              className="p-2 -ml-2 text-zinc-800 dark:text-zinc-200 hover:opacity-75 transition-opacity cursor-pointer"
+              className="p-2 -ml-2 text-(--text-heading) hover:opacity-75 transition-opacity cursor-pointer"
               aria-label="Back to tasks"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
 
-            <h1 className="text-[17px] sm:text-[18px] font-bold text-zinc-900 dark:text-white tracking-tight text-center truncate px-2 flex-1">
+            <h1 className="text-[17px] sm:text-[18px] font-bold text-(--text-heading) tracking-tight text-center truncate px-2 flex-1">
               {task.title}
             </h1>
 
-            {/* View Mode Toggle (⇄) icon matching Screenshots */}
+            {/* View Mode Toggle (⇄) icon */}
             <button
               type="button"
               onClick={toggleViewMode}
               title="Toggle between Awaiting state and Completed Report state"
-              className="p-2 -mr-2 text-zinc-800 dark:text-zinc-200 hover:text-[#2BB44A] transition-colors cursor-pointer"
+              className="p-2 -mr-2 text-(--text-muted) hover:text-(--primary) transition-colors cursor-pointer"
               aria-label="Toggle state view"
             >
               <ArrowLeftRight className="w-5 h-5" />
@@ -242,10 +242,10 @@ export default function TaskDetailPage({
           {/* ── Task Subheader Block ── */}
           <div className="flex items-start justify-between gap-3 mb-5">
             <div className="min-w-0 flex-1">
-              <h2 className="text-[19px] sm:text-[21px] font-bold text-zinc-900 dark:text-white tracking-tight truncate">
+              <h2 className="text-[19px] sm:text-[21px] font-bold text-(--text-heading) tracking-tight truncate">
                 {task.projectName}
               </h2>
-              <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 mt-1 leading-snug">
+              <p className="text-[12.5px] text-(--text-muted) mt-1 leading-snug">
                 {task.subtitle}
               </p>
             </div>
@@ -253,15 +253,15 @@ export default function TaskDetailPage({
             {/* Status Badge */}
             <div>
               {viewMode === "awaiting" ? (
-                <span className="inline-block bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 font-semibold px-2.5 py-1 rounded-md text-[12px] whitespace-nowrap shadow-xs">
+                <span className="inline-block bg-(--warning-light) text-(--warning) font-semibold px-2.5 py-1 rounded-md text-[12px] whitespace-nowrap shadow-xs">
                   In progress
                 </span>
               ) : viewMode === "proposal" ? (
-                <span className="inline-block bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 font-semibold px-2.5 py-1 rounded-md text-[12px] whitespace-nowrap shadow-xs">
+                <span className="inline-block bg-(--info-light) text-(--info) font-semibold px-2.5 py-1 rounded-md text-[12px] whitespace-nowrap shadow-xs">
                   Review quote
                 </span>
               ) : (
-                <span className="inline-block bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-semibold px-2.5 py-1 rounded-md text-[12px] whitespace-nowrap shadow-xs">
+                <span className="inline-block bg-(--primary-light) text-(--primary) font-semibold px-2.5 py-1 rounded-md text-[12px] whitespace-nowrap shadow-xs">
                   Completed
                 </span>
               )}
@@ -273,7 +273,7 @@ export default function TaskDetailPage({
              ───────────────────────────────────────────────────────────── */}
           {viewMode === "proposal" && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-blue-200 dark:border-blue-900/60 p-5 shadow-xs">
+              <div className="rounded-[22px] bg-[var(--bg-card)] border border-blue-200 dark:border-blue-900/60 p-5 shadow-xs">
                 <div className="flex items-center gap-2.5 text-blue-600 dark:text-blue-400 mb-2">
                   <ShieldCheck className="w-5 h-5" />
                   <h3 className="text-[15px] font-bold">Oversite Price Proposal</h3>
@@ -301,9 +301,9 @@ export default function TaskDetailPage({
                       ₦{task.proposalDetails?.filingCost.toLocaleString()}
                     </span>
                   </div>
-                  <div className="flex justify-between pt-2 border-t border-zinc-200 dark:border-zinc-700 text-[15px] font-bold">
-                    <span className="text-zinc-900 dark:text-white">Total Agreed Tariff</span>
-                    <span className="text-[#2BB44A]">
+                  <div className="flex justify-between pt-2 border-t border-[var(--border-color)] text-[15px] font-bold">
+                    <span className="text-[var(--text-heading)]">Total Agreed Tariff</span>
+                    <span className="text-[var(--primary)]">
                       ₦{task.proposalDetails?.total.toLocaleString()}
                     </span>
                   </div>
@@ -316,7 +316,7 @@ export default function TaskDetailPage({
                   type="button"
                   disabled={isAcceptingProposal}
                   onClick={handleAcceptProposal}
-                  className="w-full py-4 rounded-full bg-[#2BB44A] hover:bg-[#259b40] active:scale-[0.98] text-white font-bold text-[16px] transition-all shadow-md cursor-pointer disabled:opacity-50"
+                  className="w-full py-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.98] text-white font-bold text-[16px] transition-all shadow-md cursor-pointer disabled:opacity-50"
                 >
                   {isAcceptingProposal
                     ? "Securing Escrow Payment..."
@@ -325,8 +325,8 @@ export default function TaskDetailPage({
               </div>
 
               {proposalAccepted && (
-                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center gap-3 text-emerald-800 dark:text-emerald-300 text-[13px]">
-                  <CheckCircle2 className="w-5 h-5 shrink-0 text-[#2BB44A]" />
+                <div className="p-4 rounded-2xl bg-[var(--primary-light)] border border-[var(--primary)]/30 flex items-center gap-3 text-[var(--primary)] text-[13px]">
+                  <CheckCircle2 className="w-5 h-5 shrink-0 text-[var(--primary)]" />
                   <span>Proposal accepted and funded via Escrow! Agent dispatched.</span>
                 </div>
               )}
@@ -338,10 +338,10 @@ export default function TaskDetailPage({
              ───────────────────────────────────────────────────────────── */}
           {viewMode === "awaiting" && (
             <div className="py-20 sm:py-28 text-center flex flex-col items-center justify-center animate-in fade-in duration-200">
-              <h3 className="text-[17px] sm:text-[18px] font-bold text-zinc-900 dark:text-white mb-2 max-w-sm">
+              <h3 className="text-[17px] sm:text-[18px] font-bold text-[var(--text-heading)] mb-2 max-w-sm">
                 It looks like this space is currently empty!
               </h3>
-              <p className="text-[13.5px] sm:text-[14px] text-zinc-500 dark:text-zinc-400 max-w-sm leading-relaxed px-4">
+              <p className="text-[13.5px] sm:text-[14px] text-[var(--text-muted)] max-w-sm leading-relaxed px-4">
                 The oversite agent is currently looking into it. We will let you know once the report is completed or ready.
               </p>
 
@@ -349,7 +349,7 @@ export default function TaskDetailPage({
               <button
                 type="button"
                 onClick={() => setViewMode("completed")}
-                className="mt-8 px-6 py-2.5 rounded-full bg-white dark:bg-[#1E2220] border border-zinc-200 dark:border-zinc-800 text-[13px] font-bold text-zinc-800 dark:text-zinc-200 hover:border-[#2BB44A] hover:text-[#2BB44A] transition-colors shadow-xs cursor-pointer"
+                className="mt-8 px-6 py-2.5 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-[13px] font-bold text-[var(--text-heading)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors shadow-xs cursor-pointer"
               >
                 Simulate Agent Submission →
               </button>
@@ -379,9 +379,9 @@ export default function TaskDetailPage({
                       key={idx}
                       type="button"
                       onClick={() => setSelectedImageIndex(idx)}
-                      className={`h-[72px] sm:h-[80px] rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 transition-all cursor-pointer ${
+                      className={`h-[72px] sm:h-[80px] rounded-xl overflow-hidden bg-[var(--bg-secondary)] border border-[var(--border-color)] transition-all cursor-pointer ${
                         selectedImageIndex === idx
-                          ? "ring-2 ring-[#2BB44A] opacity-100 scale-[0.98]"
+                          ? "ring-2 ring-[var(--primary)] opacity-100 scale-[0.98]"
                           : "opacity-85 hover:opacity-100"
                       }`}
                     >
@@ -396,12 +396,12 @@ export default function TaskDetailPage({
 
                 {/* Risk and Ref Badges */}
                 <div className="flex items-center gap-2 mt-3">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-medium bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-medium bg-[var(--primary-light)] text-[var(--primary)]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />
                     Risk: {task.riskRating}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-medium bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-medium bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-body)]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)]" />
                     Ref: {task.refNumber}
                   </span>
                 </div>
@@ -409,7 +409,7 @@ export default function TaskDetailPage({
 
               {/* ── Milestones Section (Matches Screenshot 3 & 4) ── */}
               <div>
-                <h3 className="text-[16px] font-bold text-zinc-900 dark:text-white mb-3">
+                <h3 className="text-[16px] font-bold text-[var(--text-heading)] mb-3">
                   Milestones
                 </h3>
 
@@ -417,12 +417,12 @@ export default function TaskDetailPage({
                   {task.milestones.map((m, idx) => (
                     <div
                       key={idx}
-                      className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-zinc-100 dark:border-zinc-800/80 p-4.5 sm:p-5 shadow-xs"
+                      className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-4.5 sm:p-5 shadow-xs"
                     >
-                      <h4 className="text-[14.5px] font-bold text-zinc-900 dark:text-white mb-1.5">
+                      <h4 className="text-[14.5px] font-bold text-[var(--text-heading)] mb-1.5">
                         {m.title}
                       </h4>
-                      <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      <p className="text-[12.5px] text-[var(--text-muted)] leading-relaxed">
                         {m.desc}
                       </p>
                     </div>
@@ -432,12 +432,12 @@ export default function TaskDetailPage({
 
               {/* ── Oversite Manager Note (Matches Screenshot 4) ── */}
               <div>
-                <h3 className="text-[16px] font-bold text-zinc-900 dark:text-white mb-3">
+                <h3 className="text-[16px] font-bold text-[var(--text-heading)] mb-3">
                   Oversite manager note
                 </h3>
 
-                <div className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-zinc-100 dark:border-zinc-800/80 p-5 shadow-xs">
-                  <p className="text-[13px] text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-xs">
+                  <p className="text-[13px] text-[var(--text-body)] leading-relaxed">
                     {task.managerNote}
                   </p>
                 </div>
@@ -446,38 +446,38 @@ export default function TaskDetailPage({
               {/* ── PDF Report Card (Matches Screenshot 4) ── */}
               <Link
                 href={`/dashboard/tasks/${task.id}/report`}
-                className="w-full rounded-[22px] bg-white dark:bg-[#1E2220] border border-zinc-100 dark:border-zinc-800/80 p-4.5 shadow-xs flex items-center justify-between hover:border-[var(--primary)]/40 transition-colors group cursor-pointer"
+                className="w-full rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-4.5 shadow-xs flex items-center justify-between hover:border-[var(--primary)]/40 transition-colors group cursor-pointer"
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-200">
+                  <div className="w-11 h-11 rounded-xl bg-[var(--bg-secondary)] flex items-center justify-center text-[var(--text-heading)]">
                     <FileText className="w-6 h-6 stroke-[1.8]" />
                   </div>
                   <div>
-                    <h4 className="text-[14.5px] font-bold text-zinc-900 dark:text-white group-hover:text-[#2BB44A] transition-colors">
+                    <h4 className="text-[14.5px] font-bold text-[var(--text-heading)] group-hover:text-[var(--primary)] transition-colors">
                       {task.reportName}
                     </h4>
-                    <p className="text-[11.5px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                    <p className="text-[11.5px] text-[var(--text-muted)] mt-0.5">
                       {task.reportSize}
                     </p>
                   </div>
                 </div>
 
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-muted)] group-hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors">
                   <Download className="w-5 h-5 stroke-[2.2]" />
                 </div>
               </Link>
 
               {/* ── Task Summary Breakdown Card (Matches Screenshot 4) ── */}
-              <div className="rounded-[22px] bg-white dark:bg-[#1E2220] border border-zinc-100 dark:border-zinc-800/80 p-5 shadow-xs">
+              <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-xs">
                 {/* Row 1 */}
                 <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-                  <span className="text-zinc-500 dark:text-zinc-400 font-medium">Task</span>
-                  <span className="font-bold text-zinc-900 dark:text-white">
+                  <span className="text-[var(--text-muted)] font-medium">Task</span>
+                  <span className="font-bold text-[var(--text-heading)]">
                     {task.title}
                   </span>
                 </div>
 
-                <div className="border-b border-zinc-100 dark:border-zinc-800 my-3.5" />
+                <div className="border-b border-[var(--border-color)] my-3.5" />
 
                 {/* Row 2 */}
                 <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
@@ -527,11 +527,11 @@ export default function TaskDetailPage({
               </div>
 
               {/* ── Bottom Action Buttons: Rate Agent / Report an Issue (Screenshot 4) ── */}
-              <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[#F2F4F2]/95 dark:bg-[#111412]/95 backdrop-blur-md pt-4 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 border-t border-zinc-200/60 dark:border-zinc-800/60 flex items-center gap-3">
+              <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[var(--bg-body)]/95 backdrop-blur-md pt-4 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 border-t border-[var(--border-color)] flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setIsRatingModalOpen(true)}
-                  className="flex-1 py-3.5 sm:py-4 rounded-full bg-[#2BB44A] hover:bg-[#259b40] text-white font-bold text-[15px] sm:text-[16px] transition-all shadow-md active:scale-[0.98] cursor-pointer text-center"
+                  className="flex-1 py-3.5 sm:py-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-[15px] sm:text-[16px] transition-all shadow-md active:scale-[0.98] cursor-pointer text-center"
                 >
                   Rate Agent
                 </button>
@@ -539,7 +539,7 @@ export default function TaskDetailPage({
                 <button
                   type="button"
                   onClick={() => setIsIssueModalOpen(true)}
-                  className="flex-1 py-3.5 sm:py-4 rounded-full bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-[#2BB44A] dark:text-[#2BB44A] font-bold text-[15px] sm:text-[16px] border border-zinc-200/80 dark:border-zinc-700 transition-all active:scale-[0.98] cursor-pointer text-center"
+                  className="flex-1 py-3.5 sm:py-4 rounded-full bg-[var(--bg-secondary)] hover:bg-[var(--border-color)] text-[var(--primary)] font-bold text-[15px] sm:text-[16px] border border-[var(--border-color)] transition-all active:scale-[0.98] cursor-pointer text-center"
                 >
                   Report an Issue
                 </button>
@@ -559,16 +559,16 @@ export default function TaskDetailPage({
             className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
             onClick={() => setIsRatingModalOpen(false)}
           />
-          <div className="relative w-full max-w-sm bg-white dark:bg-[#1A1E1D] rounded-3xl p-6 shadow-2xl z-10 animate-in zoom-in-95 duration-200 text-center">
+          <div className="relative w-full max-w-sm bg-[var(--bg-card)] border border-[var(--border-color)] rounded-3xl p-6 shadow-2xl z-10 animate-in zoom-in-95 duration-200 text-center">
             {ratingSubmitted ? (
               <div className="py-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-[#2BB44A] flex items-center justify-center mx-auto mb-3">
+                <div className="w-12 h-12 rounded-full bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center mx-auto mb-3">
                   <CheckCircle2 className="w-7 h-7" />
                 </div>
-                <h3 className="text-[17px] font-bold text-zinc-900 dark:text-white mb-1">
+                <h3 className="text-[17px] font-bold text-[var(--text-heading)] mb-1">
                   Thank You!
                 </h3>
-                <p className="text-[13px] text-zinc-500 dark:text-zinc-400 mb-5">
+                <p className="text-[13px] text-[var(--text-muted)] mb-5">
                   Your feedback has been routed to the Oversite Quality Control team.
                 </p>
                 <button
@@ -577,17 +577,17 @@ export default function TaskDetailPage({
                     setIsRatingModalOpen(false);
                     setRatingSubmitted(false);
                   }}
-                  className="w-full py-3 rounded-full bg-[#2BB44A] text-white font-bold text-[14px]"
+                  className="w-full py-3 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-[14px]"
                 >
                   Close
                 </button>
               </div>
             ) : (
               <div>
-                <h3 className="text-[18px] font-bold text-zinc-900 dark:text-white mb-1">
+                <h3 className="text-[18px] font-bold text-[var(--text-heading)] mb-1">
                   Rate {task.agent}
                 </h3>
-                <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 mb-4">
+                <p className="text-[12.5px] text-[var(--text-muted)] mb-4">
                   How satisfied were you with the timeliness and accuracy of this inspection?
                 </p>
 
@@ -604,7 +604,7 @@ export default function TaskDetailPage({
                         className={`w-7 h-7 ${
                           star <= rating
                             ? "fill-amber-400 text-amber-400"
-                            : "text-zinc-300 dark:text-zinc-700"
+                            : "text-[var(--text-muted)] opacity-40"
                         }`}
                       />
                     </button>
@@ -616,21 +616,21 @@ export default function TaskDetailPage({
                   value={ratingComment}
                   onChange={(e) => setRatingComment(e.target.value)}
                   placeholder="Leave an optional remark or testimonial..."
-                  className="w-full bg-zinc-50 dark:bg-zinc-800/60 rounded-2xl p-3.5 text-[13px] text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none border border-transparent focus:border-[var(--primary)] mb-5 resize-none"
+                  className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl p-3.5 text-[13px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--primary)] mb-5 resize-none"
                 />
 
                 <div className="flex gap-2.5">
                   <button
                     type="button"
                     onClick={() => setIsRatingModalOpen(false)}
-                    className="flex-1 py-3 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold text-[14px]"
+                    className="flex-1 py-3 rounded-full bg-[var(--bg-secondary)] text-[var(--text-heading)] font-bold text-[14px]"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={() => setRatingSubmitted(true)}
-                    className="flex-1 py-3 rounded-full bg-[#2BB44A] text-white font-bold text-[14px]"
+                    className="flex-1 py-3 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-[14px]"
                   >
                     Submit
                   </button>
@@ -648,16 +648,16 @@ export default function TaskDetailPage({
             className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
             onClick={() => setIsIssueModalOpen(false)}
           />
-          <div className="relative w-full max-w-sm bg-white dark:bg-[#1A1E1D] rounded-3xl p-6 shadow-2xl z-10 animate-in zoom-in-95 duration-200">
+          <div className="relative w-full max-w-sm bg-[var(--bg-card)] border border-[var(--border-color)] rounded-3xl p-6 shadow-2xl z-10 animate-in zoom-in-95 duration-200">
             {issueSubmitted ? (
               <div className="text-center py-4">
                 <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center mx-auto mb-3">
                   <CheckCircle2 className="w-7 h-7" />
                 </div>
-                <h3 className="text-[17px] font-bold text-zinc-900 dark:text-white mb-1">
+                <h3 className="text-[17px] font-bold text-[var(--text-heading)] mb-1">
                   Ticket Filed
                 </h3>
-                <p className="text-[13px] text-zinc-500 dark:text-zinc-400 mb-5">
+                <p className="text-[13px] text-[var(--text-muted)] mb-5">
                   Oversite Admin has received your escalation and will contact you via email & messages.
                 </p>
                 <button
@@ -666,7 +666,7 @@ export default function TaskDetailPage({
                     setIsIssueModalOpen(false);
                     setIssueSubmitted(false);
                   }}
-                  className="w-full py-3 rounded-full bg-[#2BB44A] text-white font-bold text-[14px]"
+                  className="w-full py-3 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-[14px]"
                 >
                   Close
                 </button>

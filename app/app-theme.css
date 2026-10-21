@@ -27,17 +27,17 @@
   --primitive-grey-85: #121313;
   --primitive-grey-90: #090A0A;
 
-  /* Green Scale (Brand) */
-  --primitive-green-00: #EAF7ED;
-  --primitive-green-10: #D5F0DB;
-  --primitive-green-15: #BFE8C9;
-  --primitive-green-20: #AAE1B7;
-  --primitive-green-25: #80D292;
-  --primitive-green-50: #55C36E;
-  --primitive-green-55: #2BB44A; /* Brand Primary */
-  --primitive-green-60: #1A6C2C;
-  --primitive-green-65: #053720;
-  --primitive-green-70: #0D3616;
+  /* Green Scale (Brand — Emerald) */
+  --primitive-green-00: #ECFDF5;
+  --primitive-green-10: #D1FAE5;
+  --primitive-green-15: #A7F3D0;
+  --primitive-green-20: #6EE7B7;
+  --primitive-green-25: #34D399;
+  --primitive-green-50: #10B981; /* Emerald 500 */
+  --primitive-green-55: #059669; /* Emerald 600 - Brand Primary */
+  --primitive-green-60: #047857; /* Emerald 700 */
+  --primitive-green-65: #065F46; /* Emerald 800 */
+  --primitive-green-70: #064E3B; /* Emerald 900 */
 
   /* Red Scale (Danger) */
   --primitive-red-00: #FFEBEB;

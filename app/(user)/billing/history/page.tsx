@@ -176,7 +176,7 @@ export default function PaymentHistoryPage() {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-[14px] font-medium text-[var(--text-heading)] group-hover:text-[#2BB44A] transition-colors">
+                          <p className="text-[14px] font-medium text-[var(--text-heading)] group-hover:text-[var(--primary)] transition-colors">
                             {item.title}
                           </p>
                           <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
@@ -234,14 +234,14 @@ export default function PaymentHistoryPage() {
           onClick={() => setFilterModalOpen(false)}
         >
           <div
-            className="w-full max-w-full md:max-w-[600px] xl:max-w-[650px] bg-white dark:bg-[#16171a] rounded-t-[32px] border-t border-zinc-200 dark:border-zinc-800 p-6 sm:p-8 shadow-2xl animate-in slide-in-from-bottom-6 transition-all"
+            className="w-full max-w-full md:max-w-[600px] xl:max-w-[650px] bg-[var(--bg-card)] rounded-t-[32px] border-t border-[var(--border-color)] p-6 sm:p-8 shadow-2xl animate-in slide-in-from-bottom-6 transition-all"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Grab Handle */}
-            <div className="w-10 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto -mt-2 mb-4" />
+            <div className="w-10 h-1 bg-[var(--border-color)] rounded-full mx-auto -mt-2 mb-4" />
 
             {/* Title */}
-            <h3 className="text-center text-[17px] sm:text-[18px] font-bold text-zinc-900 dark:text-white mb-6">
+            <h3 className="text-center text-[17px] sm:text-[18px] font-bold text-[var(--text-heading)] mb-6">
               Filter status
             </h3>
 
@@ -260,12 +260,12 @@ export default function PaymentHistoryPage() {
                     <div
                       className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors ${
                         isSelected
-                          ? "border-2 border-[#2BB44A]"
-                          : "border-2 border-zinc-300 dark:border-zinc-600 group-hover:border-zinc-400"
+                          ? "border-2 border-[var(--primary)]"
+                          : "border-2 border-[var(--border-color)] group-hover:border-[var(--text-muted)]"
                       }`}
                     >
                       {isSelected && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#2BB44A]" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-[var(--primary)]" />
                       )}
                     </div>
 
@@ -273,8 +273,8 @@ export default function PaymentHistoryPage() {
                     <span
                       className={`text-[15px] font-medium transition-colors ${
                         isSelected
-                          ? "text-zinc-900 dark:text-white font-semibold"
-                          : "text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white"
+                          ? "text-[var(--text-heading)] font-semibold"
+                          : "text-[var(--text-body)] group-hover:text-[var(--text-heading)]"
                       }`}
                     >
                       {opt.label}
@@ -289,7 +289,7 @@ export default function PaymentHistoryPage() {
               <button
                 type="button"
                 onClick={handleApplyFilter}
-                className="py-3 px-7 rounded-full bg-[#2BB44A] hover:bg-[#259f42] text-white font-semibold text-[14px] shadow-sm active:scale-[0.99] transition-all cursor-pointer"
+                className="py-3 px-7 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold text-[14px] shadow-sm active:scale-[0.99] transition-all cursor-pointer"
               >
                 Apply Filter
               </button>

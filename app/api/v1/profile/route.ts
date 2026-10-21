@@ -14,6 +14,13 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
         email: users.email,
         phone: users.phone,
         name: users.name,
+        title: users.title,
+        address: users.address,
+        location: users.location,
+        occupation: users.occupation,
+        state: users.state,
+        country: users.country,
+        residence: users.residence,
         role: users.role,
         kycStatus: users.kycStatus,
         avatarUrl: users.avatarUrl,
@@ -38,12 +45,30 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
 export const PATCH = withAuth(async (req: NextRequest, { user }) => {
   try {
     const body = await req.json();
-    const { name, phone, avatarUrl } = body;
+    const {
+      name,
+      phone,
+      title,
+      address,
+      location,
+      occupation,
+      state,
+      country,
+      residence,
+      avatarUrl,
+    } = body;
 
-    // Only allow updating safe fields
+    // Only allow updating safe profile fields
     const updates: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
     if (name !== undefined) updates.name = name;
     if (phone !== undefined) updates.phone = phone;
+    if (title !== undefined) updates.title = title;
+    if (address !== undefined) updates.address = address;
+    if (location !== undefined) updates.location = location;
+    if (occupation !== undefined) updates.occupation = occupation;
+    if (state !== undefined) updates.state = state;
+    if (country !== undefined) updates.country = country;
+    if (residence !== undefined) updates.residence = residence;
     if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
 
     if (Object.keys(updates).length === 1) {
@@ -57,7 +82,15 @@ export const PATCH = withAuth(async (req: NextRequest, { user }) => {
       .returning({
         id: users.id,
         name: users.name,
+        email: users.email,
         phone: users.phone,
+        title: users.title,
+        address: users.address,
+        location: users.location,
+        occupation: users.occupation,
+        state: users.state,
+        country: users.country,
+        residence: users.residence,
         avatarUrl: users.avatarUrl,
         updatedAt: users.updatedAt,
       });
