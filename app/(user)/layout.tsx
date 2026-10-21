@@ -5,12 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-interface UserProfile {
-  id?: string;
-  name?: string;
-  email?: string;
-  role?: string;
-}
+import { useAuth } from "@/context/AuthContext";
 
 const NAV_ITEMS = [
   { label: "Home", href: "/dashboard", icon: "home" },
@@ -22,63 +17,16 @@ const NAV_ITEMS = [
 
 export default function UserLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const { user, logout } = useAuth();
 
-  useEffect(() => {
-    async function loadUser() {
-      try {
-        const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
-        const cookieToken = typeof document !== "undefined" && document.cookie.includes("token=");
-
-        if (!token && !cookieToken) {
-          router.replace(`/login?returnUrl=${encodeURIComponent(pathname)}`);
-          return;
-        }
-
-        const headers: Record<string, string> = {};
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-
-        const res = await fetch("/api/v1/auth/me", { headers });
-        if (res.status === 401) {
-          if (typeof window !== "undefined") {
-            localStorage.removeItem("oversite_token");
-            document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-          }
-          router.replace(`/login?returnUrl=${encodeURIComponent(pathname)}`);
-          return;
-        }
-
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            setCurrentUser(json.data);
-          }
-        }
-      } catch (e) {
-        console.error("Failed to load user profile:", e);
-      }
-    }
-
-    loadUser();
-  }, [pathname, router]);
-
-  const handleSignOut = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("oversite_token");
-      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    }
-    router.push("/login");
-  };
-
-  const displayName = currentUser?.name || "Oversite User";
+  const displayName = user?.name || user?.fullName || "Oversite User";
   const initials = displayName
     .split(" ")
     .map((p) => p[0])
     .join("")
     .slice(0, 2)
     .toUpperCase() || "OU";
-  const displayRole = currentUser?.role === "AGENT" ? "Accredited Agent" : "Client Account";
+  const displayRole = user?.role === "AGENT" ? "Accredited Agent" : "Client Account";
 
   return (
     <div className="min-h-screen bg-[#F4F6F4] dark:bg-[var(--bg-body)] text-[var(--text-body)] font-sans flex justify-center transition-colors duration-300">
@@ -193,7 +141,7 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
             <div className="flex items-center justify-between px-1">
               <button
                 type="button"
-                onClick={handleSignOut}
+                onClick={logout}
                 className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-[var(--text-muted)] hover:text-red-500 transition-colors cursor-pointer"
               >
                 <i className="ai-logout text-[16px]" />

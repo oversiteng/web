@@ -17,21 +17,11 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-interface UserProfile {
-  id?: string;
-  name?: string;
-  fullName?: string;
-  email?: string;
-  role?: string;
-}
+import { useAuth } from "@/context/AuthContext";
 
 export default function MorePage() {
   const router = useRouter();
-
-  const [user, setUser] = useState<UserProfile>({
-    name: "Abraham Samuel",
-    email: "abrahamsamuel03@gmail.com",
-  });
+  const { user, logout } = useAuth();
 
   // Modal States
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -40,66 +30,25 @@ export default function MorePage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadUser() {
-      try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("oversite_token")
-            : null;
-        const headers: Record<string, string> = {};
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-
-        const res = await fetch("/api/v1/auth/me", { headers });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            setUser({
-              name: json.data.name || json.data.fullName || "Abraham Samuel",
-              email: json.data.email || "abrahamsamuel03@gmail.com",
-            });
-          }
-        }
-      } catch (e) {
-        console.error("Failed to load user profile in More page:", e);
-      }
-    }
-
-    loadUser();
-  }, []);
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const displayName = user.name || "Abraham Samuel";
-  const displayEmail = user.email || "abrahamsamuel03@gmail.com";
+  const displayName = user?.name || user?.fullName || "Oversite User";
+  const displayEmail = user?.email || "";
   const initials =
     displayName
       .split(" ")
       .map((p) => p[0])
       .join("")
       .slice(0, 2)
-      .toUpperCase() || "AS";
+      .toUpperCase() || "OU";
 
-  const handleConfirmLogout = async () => {
+  const handleConfirmLogout = () => {
     setIsLoggingOut(true);
-    try {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("oversite_token");
-        document.cookie =
-          "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      }
-      setIsLogoutModalOpen(false);
-      router.push("/login");
-    } catch (e) {
-      console.error("Logout error:", e);
-      setIsLogoutModalOpen(false);
-      router.push("/login");
-    } finally {
-      setIsLoggingOut(false);
-    }
+    setIsLogoutModalOpen(false);
+    logout();
   };
 
   const handleConfirmDelete = async () => {

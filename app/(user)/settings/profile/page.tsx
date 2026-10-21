@@ -30,9 +30,10 @@ export default function EditProfilePage() {
   const [location, setLocation] = useState("");
   const [occupation, setOccupation] = useState("");
   const [selectedCountryCode, setSelectedCountryCode] = useState<string>("NG");
+  const [selectedResidenceCode, setSelectedResidenceCode] = useState<string>("NG");
   const [state, setState] = useState("");
   const [country, setCountry] = useState("Nigeria");
-  const [residence, setResidence] = useState("");
+  const [residence, setResidence] = useState("Nigeria");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -74,7 +75,6 @@ export default function EditProfilePage() {
             if (p.occupation) setOccupation(p.occupation);
             if (p.country) {
               setCountry(p.country);
-              // Match country code
               const matchedCountry = allCountries.find(
                 (c) =>
                   c.name.toLowerCase() === p.country.toLowerCase() ||
@@ -85,7 +85,17 @@ export default function EditProfilePage() {
               }
             }
             if (p.state) setState(p.state);
-            if (p.residence) setResidence(p.residence);
+            if (p.residence) {
+              setResidence(p.residence);
+              const matchedCountry = allCountries.find(
+                (c) =>
+                  c.name.toLowerCase() === p.residence.toLowerCase() ||
+                  c.isoCode.toLowerCase() === p.residence.toLowerCase()
+              );
+              if (matchedCountry) {
+                setSelectedResidenceCode(matchedCountry.isoCode);
+              }
+            }
             if (p.avatarUrl) setAvatarPreview(p.avatarUrl);
           }
         }
@@ -101,8 +111,13 @@ export default function EditProfilePage() {
     setSelectedCountryCode(code);
     const found = allCountries.find((c) => c.isoCode === code);
     setCountry(found ? found.name : code);
-    // Reset state when country changes
     setState("");
+  };
+  const handleResidenceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const code = e.target.value;
+    setSelectedResidenceCode(code);
+    const found = allCountries.find((c) => c.isoCode === code);
+    setResidence(found ? found.name : code);
   };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -413,17 +428,29 @@ export default function EditProfilePage() {
         {/* Residence Field */}
         <div>
           <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
-            Residence Type
+            Country of Residence
           </label>
           <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
             <Home className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
-            <input
-              type="text"
-              value={residence}
-              onChange={(e) => setResidence(e.target.value)}
-              placeholder="e.g. Own House, Rented, Diaspora Resident"
-              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
-            />
+            <select
+              value={selectedResidenceCode}
+              onChange={handleResidenceChange}
+              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] outline-none appearance-none pr-6 cursor-pointer"
+            >
+              <option value="" disabled className="bg-[var(--bg-card)] text-[var(--text-heading)]">
+                Select Country
+              </option>
+              {allCountries.map((c) => (
+                <option
+                  key={c.isoCode}
+                  value={c.isoCode}
+                  className="bg-[var(--bg-card)] text-[var(--text-heading)]"
+                >
+                  {c.flag} {c.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-[var(--text-muted)] absolute right-4 pointer-events-none" />
           </div>
         </div>
 
