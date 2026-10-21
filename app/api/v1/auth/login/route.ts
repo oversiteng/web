@@ -28,7 +28,16 @@ export async function POST(
     }
 
     const foundUsers = await db
-      .select()
+      .select({
+        id: users.id,
+        email: users.email,
+        phone: users.phone,
+        name: users.name,
+        role: users.role,
+        kycStatus: users.kycStatus,
+        passwordHash: users.passwordHash,
+        isActive: users.isActive,
+      })
       .from(users)
       .where(or(eq(users.email, identifier), eq(users.phone, identifier)))
       .limit(1);

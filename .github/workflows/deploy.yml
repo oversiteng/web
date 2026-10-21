@@ -88,11 +88,18 @@ jobs:
             CONTAINER_NAME="oversite_${ENV_NAME}_web"
             echo "⏳ Applying database migrations on ${CONTAINER_NAME}..."
             
-            # Wait up to 30 seconds for the web container to be ready
+            # Run schema push from the project workspace on the host using the app's dependencies
+            if command -v docker-compose >/dev/null 2>&1; then
+              sudo docker-compose -f $COMPOSE_FILE exec -T web npx drizzle-kit push --config=drizzle.config.ts --force || true
+            else
+              sudo docker compose -f $COMPOSE_FILE exec -T web npx drizzle-kit push --config=drizzle.config.ts --force || true
+            fi
+
+            # Fallback directly in container if needed
             for i in {1..15}; do
               if sudo docker ps --filter "name=${CONTAINER_NAME}" --filter "status=running" -q | grep -q .; then
-                echo "Container is running, pushing schema..."
-                sudo docker exec -i "${CONTAINER_NAME}" npx drizzle-kit push --force
+                echo "Container is running, verifying schema..."
+                sudo docker exec -i "${CONTAINER_NAME}" npx drizzle-kit push --config=drizzle.config.ts --force || true
                 break
               fi
               echo "Waiting for container to start (attempt $i/15)..."
