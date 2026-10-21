@@ -15,6 +15,16 @@ import {
   InfoCircleIcon as InfoIcon,
 } from "@solar-icons/react/outline";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import dynamic from "next/dynamic";
+
+const OpenFreeMapView = dynamic(() => import("@/components/OpenFreeMapView"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full min-h-[220px] rounded-3xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-center text-xs text-[var(--text-muted)] animate-pulse">
+      Loading OpenFreeMap...
+    </div>
+  ),
+});
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type AlertStatus = "warning" | "resolved";
@@ -49,7 +59,7 @@ const ALERTS: PropertyAlert[] = [
   },
 ];
 
-// ─── Map Component ────────────────────────────────────────────────────────────
+// ─── Map Component (Powered by OpenFreeMap) ──────────────────────────────────
 function MapPreview({
   expanded,
   onToggleExpand,
@@ -63,83 +73,42 @@ function MapPreview({
   isDark: boolean;
   properties: ApiProperty[];
 }) {
+  // Map markers for registered properties
+  const markers = properties
+    .filter((p) => p.latitude && p.longitude)
+    .map((p, idx) => ({
+      id: p.id,
+      latitude: p.latitude!,
+      longitude: p.longitude!,
+      title: p.title || p.address,
+      description: p.propertyType || p.address,
+      color: idx === 0 ? "#10b981" : idx === 1 ? "#3b82f6" : "#f59e0b",
+    }));
+
+  const centerLat = markers.length > 0 ? markers[0].latitude : 6.4281;
+  const centerLng = markers.length > 0 ? markers[0].longitude : 3.4219;
+
   return (
     <div
       className={`relative w-full rounded-3xl overflow-hidden transition-all duration-300 border border-[var(--border-color)] bg-[var(--bg-card)] shadow-md ${
-        expanded ? "h-[380px] sm:h-[420px]" : "h-[220px]"
+        expanded ? "h-[380px] sm:h-[420px]" : "h-[240px]"
       }`}
     >
-      {/* Vector Map Simulation with Theme Colors */}
-      <svg
-        className="absolute inset-0 w-full h-full object-cover select-none"
-        viewBox="0 0 400 300"
-        preserveAspectRatio="xMidYMid slice"
-      >
-        <rect width="400" height="300" fill={isDark ? "#121515" : "#e8eee8"} />
-
-        {/* City Blocks */}
-        <path
-          d="M 20 40 L 130 30 L 120 110 L 20 100 Z"
-          fill={isDark ? "#18191c" : "#f6faf5"}
-          stroke={isDark ? "#202226" : "#d3ded2"}
-          strokeWidth="1.5"
-        />
-        <path
-          d="M 145 25 L 260 15 L 250 85 L 140 90 Z"
-          fill={isDark ? "#18191c" : "#f6faf5"}
-          stroke={isDark ? "#202226" : "#d3ded2"}
-          strokeWidth="1.5"
-        />
-        <path
-          d="M 280 15 L 380 20 L 375 120 L 270 110 Z"
-          fill={isDark ? "#18191c" : "#f6faf5"}
-          stroke={isDark ? "#202226" : "#d3ded2"}
-          strokeWidth="1.5"
-        />
-        <path
-          d="M 25 120 L 120 125 L 110 220 L 30 210 Z"
-          fill={isDark ? "#18191c" : "#f6faf5"}
-          stroke={isDark ? "#202226" : "#d3ded2"}
-          strokeWidth="1.5"
-        />
-        <path
-          d="M 140 115 L 250 110 L 240 230 L 130 225 Z"
-          fill={isDark ? "#191a1d" : "#f6faf5"}
-          stroke={isDark ? "#202226" : "#d3ded2"}
-          strokeWidth="1.5"
-        />
-        <path
-          d="M 270 135 L 370 140 L 360 250 L 260 240 Z"
-          fill={isDark ? "#18191c" : "#f6faf5"}
-          stroke={isDark ? "#202226" : "#d3ded2"}
-          strokeWidth="1.5"
-        />
-
-        {/* Street Lines */}
-        <line x1="0" y1="110" x2="400" y2="125" stroke={isDark ? "#25272c" : "#ffffff"} strokeWidth="6" />
-        <line x1="130" y1="0" x2="120" y2="300" stroke={isDark ? "#25272c" : "#ffffff"} strokeWidth="5" />
-        <line x1="260" y1="0" x2="250" y2="300" stroke={isDark ? "#25272c" : "#ffffff"} strokeWidth="5" />
-        <line x1="0" y1="220" x2="400" y2="235" stroke={isDark ? "#222428" : "#ffffff"} strokeWidth="4" />
-
-        {/* Plot outline polygon (boundary) */}
-        <polygon
-          points="195,50 205,48 203,58 193,57"
-          fill="rgba(239, 68, 68, 0.15)"
-          stroke="#ef4444"
-          strokeWidth="1.5"
-        />
-
-        {/* User live coordinate pulse dot */}
-        <g transform="translate(200, 150)">
-          <circle cx="0" cy="0" r="14" fill="#38bdf8" fillOpacity="0.25" className="animate-ping" />
-          <circle cx="0" cy="0" r="10" fill="#38bdf8" stroke="#ffffff" strokeWidth="2.5" />
-        </g>
-      </svg>
+      {/* Real OpenFreeMap Vector Map with Liberty/Dark style */}
+      <OpenFreeMapView
+        latitude={centerLat}
+        longitude={centerLng}
+        zoom={markers.length > 0 ? 13 : 11}
+        height="100%"
+        interactive={true}
+        showControls={false}
+        markers={markers}
+      />
 
       {/* Property Legend Pills on Top of Map */}
       <div className="absolute top-3 left-3 right-3 flex items-center gap-2 overflow-x-auto no-scrollbar z-10 pointer-events-auto">
         {properties.length > 0 ? (
-          properties.slice(0, 3).map((p, idx) => (
+          properties.slice(0, 4).map((p, idx) => (
             <Link
               key={p.id}
               href={`/properties/${p.id}`}
@@ -147,7 +116,7 @@ function MapPreview({
             >
               <span
                 className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                  idx === 0 ? "bg-red-500" : idx === 1 ? "bg-emerald-500" : "bg-blue-500"
+                  idx === 0 ? "bg-emerald-500" : idx === 1 ? "bg-blue-500" : "bg-amber-500"
                 }`}
               />
               <span className="truncate max-w-[140px]">{p.title || p.address}</span>
@@ -155,8 +124,8 @@ function MapPreview({
           ))
         ) : (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-card)]/90 backdrop-blur-md border border-[var(--border-color)] text-[var(--text-heading)] text-[11px] font-medium whitespace-nowrap shadow-sm">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
-            <span>No properties registered yet</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+            <span>OpenFreeMap active · Register a property to see pins</span>
           </div>
         )}
       </div>

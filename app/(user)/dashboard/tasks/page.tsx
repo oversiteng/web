@@ -32,74 +32,7 @@ export interface TaskItem {
   propertyAddress?: string;
 }
 
-export const INITIAL_TASKS: TaskItem[] = [
-  {
-    id: "task-1",
-    title: "Project review",
-    subtitle: "Lekki duplex - Block B · In progress · by Tunde C...",
-    category: "Property",
-    status: "in_progress",
-    agent: "Tunde C.",
-    time: "2h ago",
-    propertyAddress: "Plot 12, Lekki Phase 1",
-  },
-  {
-    id: "task-2",
-    title: "CAC certified copy",
-    subtitle: "Property Oversite · Tunde C. · 2h ago",
-    category: "Documents",
-    status: "ready",
-    agent: "Tunde C.",
-    time: "2h ago",
-  },
-  {
-    id: "task-3",
-    title: "Ikoyi site visit",
-    subtitle: "Property Oversite · Tunde C. · 2h ago",
-    category: "Property",
-    status: "ready",
-    agent: "Tunde C.",
-    time: "2h ago",
-    propertyAddress: "14 Alexander Ave, Ikoyi",
-  },
-  {
-    id: "task-4",
-    title: "CAC certified copy",
-    subtitle: "Document Processing · Folake A. · today",
-    category: "Documents",
-    status: "in_progress",
-    agent: "Folake A.",
-    time: "today",
-  },
-  {
-    id: "task-5",
-    title: "Utility bill payment",
-    subtitle: "Document Processing · Folake A. · today",
-    category: "Documents",
-    status: "in_progress",
-    agent: "Folake A.",
-    time: "today",
-  },
-  {
-    id: "task-6",
-    title: "Vendor background check",
-    subtitle: "Due Diligence · Tier 2 · yesterday",
-    category: "Due Diligence",
-    status: "review",
-    agent: "Oversite Admin",
-    time: "yesterday",
-    priceNgn: 50000,
-  },
-  {
-    id: "task-7",
-    title: "Vendor background check",
-    subtitle: "Due Diligence · Tier 2 · yesterday",
-    category: "Due Diligence",
-    status: "completed",
-    agent: "Folake A.",
-    time: "yesterday",
-  },
-];
+
 
 const STATUS_CONFIG: Record<
   TaskStatus,
@@ -147,7 +80,7 @@ const FILTER_CHIPS: TaskCategory[] = [
 export default function TasksPage() {
   const router = useRouter();
 
-  const [tasksList, setTasksList] = useState<TaskItem[]>(INITIAL_TASKS);
+  const [tasksList, setTasksList] = useState<TaskItem[]>();
   const [activeChip, setActiveChip] = useState<TaskCategory>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchActive, setSearchActive] = useState(false);
@@ -193,7 +126,7 @@ export default function TasksPage() {
           });
 
           // Merge without losing initial screenshot tasks
-          setTasksList([...apiTasks, ...INITIAL_TASKS]);
+          setTasksList(apiTasks);
         }
       } catch (e) {
         console.error("Failed to load tasks from API:", e);
@@ -204,7 +137,7 @@ export default function TasksPage() {
   }, []);
 
   // Filter tasks
-  const filtered = tasksList.filter((task) => {
+  const filtered = (tasksList || []).filter((task) => {
     const chipMatch = activeChip === "All" || task.category === activeChip;
     const searchMatch =
       !searchQuery.trim() ||

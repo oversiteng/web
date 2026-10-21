@@ -7,8 +7,19 @@ import {
     TargetIcon as Crosshair,
     AltArrowDownIcon as ChevronDown,
     InfoCircleIcon as InfoIcon,
+    MapPointIcon as MapPinIcon,
 } from "@solar-icons/react/outline";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import dynamic from "next/dynamic";
+
+const OpenFreeMapView = dynamic(() => import("@/components/OpenFreeMapView"), {
+    ssr: false,
+    loading: () => (
+        <div className="w-full h-48 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-center text-xs text-[var(--text-muted)] animate-pulse">
+            Loading OpenFreeMap...
+        </div>
+    ),
+});
 
 interface PropertyFormState {
     address: string;
@@ -31,6 +42,17 @@ export default function RegisterPropertyPage() {
     const [isLocating, setIsLocating] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [showMapPicker, setShowMapPicker] = useState(false);
+
+    // Parse lat/lng from form.gps if present
+    const parsedCoordinates = (() => {
+        if (!form.gps || !form.gps.includes(",")) return { lat: 6.4281, lng: 3.4219 };
+        const parts = form.gps.split(",").map((p) => parseFloat(p.trim()));
+        if (!isNaN(parts[0]) && !isNaN(parts[1])) {
+            return { lat: parts[0], lng: parts[1] };
+        }
+        return { lat: 6.4281, lng: 3.4219 };
+    })();
 
     const showToast = (msg: string, duration = 3500) => {
         setToastMessage(msg);
@@ -199,18 +221,28 @@ export default function RegisterPropertyPage() {
                                         (optional)
                                     </span>
                                 </label>
-                                <button
-                                    type="button"
-                                    onClick={handleFindCoordinate}
-                                    disabled={isLocating}
-                                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--primary)] hover:opacity-85 transition-opacity disabled:opacity-50 cursor-pointer"
-                                >
-                                    <Crosshair
-                                        size={14}
-                                        className={isLocating ? "animate-spin" : ""}
-                                    />
-                                    <span>{isLocating ? "Locating..." : "Find my coordinate"}</span>
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowMapPicker((prev) => !prev)}
+                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--primary)] hover:opacity-85 transition-opacity cursor-pointer"
+                                    >
+                                        <MapPinIcon size={14} />
+                                        <span>{showMapPicker ? "Hide Map" : "Pin on Map"}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleFindCoordinate}
+                                        disabled={isLocating}
+                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--primary)] hover:opacity-85 transition-opacity disabled:opacity-50 cursor-pointer"
+                                    >
+                                        <Crosshair
+                                            size={14}
+                                            className={isLocating ? "animate-spin" : ""}
+                                        />
+                                        <span>{isLocating ? "Locating..." : "Find my coordinate"}</span>
+                                    </button>
+                                </div>
                             </div>
                             <input
                                 id="gps"
@@ -221,6 +253,26 @@ export default function RegisterPropertyPage() {
                                 placeholder="e.g. 6.4281, 3.4219"
                                 className="w-full px-4.5 py-3 sm:py-3.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] border border-[var(--border-color)] text-[14px] outline-none focus:ring-2 focus:ring-[var(--primary)]/40 transition-all shadow-xs"
                             />
+
+                            {/* OpenFreeMap Interactive Map Pin Picker */}
+                            {showMapPicker && (
+                                <div className="pt-2 animate-in fade-in duration-200">
+                                    <OpenFreeMapView
+                                        latitude={parsedCoordinates.lat}
+                                        longitude={parsedCoordinates.lng}
+                                        zoom={14}
+                                        height="240px"
+                                        enablePicker={true}
+                                        interactive={true}
+                                        showControls={true}
+                                        onLocationSelect={(coords) => {
+                                            const formatted = `${coords.latitude}, ${coords.longitude}`;
+                                            setForm((prev) => ({ ...prev, gps: formatted }));
+                                            showToast(`Map location selected: ${formatted}`, 2000);
+                                        }}
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         {/* Nickname */}

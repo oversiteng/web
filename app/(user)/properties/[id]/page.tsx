@@ -14,9 +14,18 @@ import {
   CheckCircle,
   AlertTriangle,
   FileText,
-  ExternalLink,
   Edit2,
 } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const OpenFreeMapView = dynamic(() => import("@/components/OpenFreeMapView"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-72 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-center text-xs text-[var(--text-muted)] animate-pulse">
+      Loading OpenFreeMap...
+    </div>
+  ),
+});
 
 interface PropertyTask {
   id: string;
@@ -297,21 +306,43 @@ export default function PropertyDetailPage() {
         </Link>
       </div>
 
-      {/* Geofence & Boundary Visualizer Map Placeholder */}
-      <div className="rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] overflow-hidden shadow-xs">
-        <div className="h-64 bg-[var(--bg-secondary)] relative flex items-center justify-center p-6 text-center">
-          <div className="space-y-2">
-            <div className="w-12 h-12 rounded-full bg-[var(--primary)]/10 border border-[var(--primary)]/20 text-[var(--primary)] flex items-center justify-center mx-auto">
-              <MapPin className="w-6 h-6" />
-            </div>
-            <h3 className="text-sm font-semibold text-[var(--text-heading)]">Interactive Geo-Fence & Boundary Polygon</h3>
-            <p className="text-xs text-[var(--text-muted)] max-w-md">
-              {property.latitude && property.longitude
-                ? `Registered GPS Coordinates: Lat ${property.latitude.toFixed(4)}° N, Lng ${property.longitude.toFixed(4)}° E. 24/7 telemetry and boundary monitoring active.`
-                : "No GPS coordinates registered for this plot. Geofence alerts will activate once coordinates are supplied."}
-            </p>
-          </div>
+      {/* Geofence & Boundary Visualizer Map (Powered by OpenFreeMap) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-heading)]">
+            Telemetry, Geo-Fence & Location Map
+          </h3>
+          <span className="text-[11px] text-[var(--primary)] font-semibold flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-pulse" />
+            OpenFreeMap Vector Tiles
+          </span>
         </div>
+
+        <OpenFreeMapView
+          latitude={property.latitude || 6.4281}
+          longitude={property.longitude || 3.4219}
+          zoom={property.latitude && property.longitude ? 15 : 12}
+          height="280px"
+          interactive={true}
+          showControls={true}
+          markers={[
+            {
+              latitude: property.latitude || 6.4281,
+              longitude: property.longitude || 3.4219,
+              title: property.title,
+              description: property.address,
+              color: "#10b981",
+            },
+          ]}
+        />
+        <p className="text-[11px] text-[var(--text-muted)] flex items-center justify-between">
+          <span>
+            {property.latitude && property.longitude
+              ? `Registered GPS: ${property.latitude.toFixed(6)}, ${property.longitude.toFixed(6)}`
+              : "Approximate boundary view (Lagos central) · Update coordinates in Edit Asset to lock pin"}
+          </span>
+          <span>OpenFreeMap Liberty / Dark vector style</span>
+        </p>
       </div>
 
       {/* Connected Tasks & Inspection Reports */}
