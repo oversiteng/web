@@ -17,9 +17,11 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Country, State } from "country-state-city";
+import { useAuth } from "@/context/AuthContext";
 
 export default function EditProfilePage() {
   const router = useRouter();
+  const { refreshUser } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form states
@@ -122,10 +124,58 @@ export default function EditProfilePage() {
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setAvatarPreview(url);
+    if (!file) return;
+
+    // Check file type
+    if (!file.type.startsWith("image/")) {
+      setToastMessage("Please select a valid image file.");
+      setTimeout(() => setToastMessage(null), 2500);
+      return;
     }
+
+    // Check size limit (max 5MB raw)
+    if (file.size > 5 * 1024 * 1024) {
+      setToastMessage("Image size must be less than 5MB.");
+      setTimeout(() => setToastMessage(null), 2500);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Resize image to max 400x400 to keep base64 compact & fast
+        const maxDim = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.82);
+          setAvatarPreview(compressedDataUrl);
+        } else {
+          setAvatarPreview(event.target?.result as string);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -161,6 +211,9 @@ export default function EditProfilePage() {
       if (!res.ok) {
         throw new Error("Failed to update profile");
       }
+
+      // Refresh global AuthContext user so More, Sidebar, etc. immediately update
+      await refreshUser();
 
       // Show success feedback
       setSavedSuccess(true);
