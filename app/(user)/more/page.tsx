@@ -35,7 +35,7 @@ export default function MorePage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const displayName = user?.name || user?.fullName || "Oversite User";
+  const displayName = user?.name || "Oversite User";
   const displayEmail = user?.email || "";
   const initials =
     displayName
@@ -114,8 +114,16 @@ export default function MorePage() {
             href="/settings/profile"
             className="flex items-center gap-3.5 p-4 rounded-[22px] bg-(--bg-card) border border-(--border-color) shadow-xs mb-4 hover:border-(--primary)/30 transition-all cursor-pointer group"
           >
-            <div className="relative w-14 h-14 rounded-full bg-(--primary-light) text-(--primary) flex items-center justify-center font-bold text-[18px] shrink-0">
-              {initials}
+            <div className="relative w-14 h-14 rounded-full bg-(--primary-light) text-(--primary) flex items-center justify-center font-bold text-[18px] shrink-0 overflow-visible">
+              {user?.avatarUrl || user?.avatar ? (
+                <img
+                  src={user.avatarUrl || user.avatar || ""}
+                  alt={displayName}
+                  className="w-full h-full rounded-full object-cover border border-(--border-color)"
+                />
+              ) : (
+                initials
+              )}
               <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-(--primary) text-white flex items-center justify-center border-2 border-(--bg-card) shadow-xs">
                 <Pencil className="w-2.5 h-2.5 stroke-[2.5]" />
               </div>

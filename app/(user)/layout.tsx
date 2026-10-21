@@ -130,8 +130,16 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
           {/* User Card & Logout */}
           <div className="p-3 border-t border-[var(--border-color)]">
             <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-[var(--bg-secondary)] mb-2">
-              <div className="w-8 h-8 rounded-full bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] font-semibold text-[11px]">
-                {initials}
+              <div className="w-8 h-8 rounded-full bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] font-semibold text-[11px] overflow-hidden shrink-0">
+                {user?.avatarUrl || user?.avatar ? (
+                  <img
+                    src={user.avatarUrl || user.avatar || ""}
+                    alt={displayName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  initials
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[12px] font-semibold text-[var(--text-heading)] truncate">{displayName}</p>
