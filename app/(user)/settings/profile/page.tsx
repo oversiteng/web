@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -14,7 +14,9 @@ import {
   Tag,
   Pencil,
   Check,
+  ChevronDown,
 } from "lucide-react";
+import { Country, State } from "country-state-city";
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -27,14 +29,26 @@ export default function EditProfilePage() {
   const [address, setAddress] = useState("");
   const [location, setLocation] = useState("");
   const [occupation, setOccupation] = useState("");
+  const [selectedCountryCode, setSelectedCountryCode] = useState<string>("NG");
   const [state, setState] = useState("");
-  const [country, setCountry] = useState("");
+  const [country, setCountry] = useState("Nigeria");
   const [residence, setResidence] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Memoized country list
+  const allCountries = useMemo(() => {
+    return Country.getAllCountries();
+  }, []);
+
+  // Memoized states list depending on selected country
+  const statesForCountry = useMemo(() => {
+    if (!selectedCountryCode) return [];
+    return State.getStatesOfCountry(selectedCountryCode);
+  }, [selectedCountryCode]);
 
   // Load existing profile from API
   useEffect(() => {
@@ -58,8 +72,19 @@ export default function EditProfilePage() {
             if (p.address) setAddress(p.address);
             if (p.location) setLocation(p.location);
             if (p.occupation) setOccupation(p.occupation);
+            if (p.country) {
+              setCountry(p.country);
+              // Match country code
+              const matchedCountry = allCountries.find(
+                (c) =>
+                  c.name.toLowerCase() === p.country.toLowerCase() ||
+                  c.isoCode.toLowerCase() === p.country.toLowerCase()
+              );
+              if (matchedCountry) {
+                setSelectedCountryCode(matchedCountry.isoCode);
+              }
+            }
             if (p.state) setState(p.state);
-            if (p.country) setCountry(p.country);
             if (p.residence) setResidence(p.residence);
             if (p.avatarUrl) setAvatarPreview(p.avatarUrl);
           }
@@ -69,7 +94,16 @@ export default function EditProfilePage() {
       }
     }
     loadProfile();
-  }, []);
+  }, [allCountries]);
+
+  const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const code = e.target.value;
+    setSelectedCountryCode(code);
+    const found = allCountries.find((c) => c.isoCode === code);
+    setCountry(found ? found.name : code);
+    // Reset state when country changes
+    setState("");
+  };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -304,36 +338,74 @@ export default function EditProfilePage() {
           </div>
         </div>
 
-        {/* State & Country Fields */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
-              State
-            </label>
-            <div className="flex items-center gap-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-4 py-3.5 transition-all shadow-xs">
-              <input
-                type="text"
-                value={state}
-                onChange={(e) => setState(e.target.value)}
-                placeholder="e.g. Lagos"
-                className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
-              />
-            </div>
-          </div>
-
+        {/* Country & State Dropdowns (using country-state-city) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Country Dropdown */}
           <div>
             <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
               Country
             </label>
-            <div className="flex items-center gap-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-4 py-3.5 transition-all shadow-xs">
-              <Globe className="w-4 h-4 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
-              <input
-                type="text"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                placeholder="e.g. Nigeria"
-                className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
-              />
+            <div className="relative flex items-center bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-4 py-3.5 transition-all shadow-xs">
+              <Globe className="w-4 h-4 text-[var(--text-muted)] shrink-0 mr-2.5 stroke-[1.8]" />
+              <select
+                value={selectedCountryCode}
+                onChange={handleCountryChange}
+                className="w-full bg-transparent text-[14px] text-[var(--text-heading)] outline-none appearance-none pr-6 cursor-pointer"
+              >
+                <option value="" disabled className="bg-[var(--bg-card)] text-[var(--text-heading)]">
+                  Select Country
+                </option>
+                {allCountries.map((c) => (
+                  <option
+                    key={c.isoCode}
+                    value={c.isoCode}
+                    className="bg-[var(--bg-card)] text-[var(--text-heading)]"
+                  >
+                    {c.flag} {c.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-[var(--text-muted)] absolute right-4 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* State Dropdown / Input Fallback */}
+          <div>
+            <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
+              State / Region
+            </label>
+            <div className="relative flex items-center bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-4 py-3.5 transition-all shadow-xs">
+              {statesForCountry.length > 0 ? (
+                <>
+                  <select
+                    value={state}
+                    onChange={(e) => setState(e.target.value)}
+                    className="w-full bg-transparent text-[14px] text-[var(--text-heading)] outline-none appearance-none pr-6 cursor-pointer"
+                  >
+                    <option value="" className="bg-[var(--bg-card)] text-[var(--text-heading)]">
+                      Select State
+                    </option>
+                    {statesForCountry.map((s) => (
+                      <option
+                        key={s.isoCode || s.name}
+                        value={s.name}
+                        className="bg-[var(--bg-card)] text-[var(--text-heading)]"
+                      >
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[var(--text-muted)] absolute right-4 pointer-events-none" />
+                </>
+              ) : (
+                <input
+                  type="text"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  placeholder="e.g. State / Province"
+                  className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+                />
+              )}
             </div>
           </div>
         </div>

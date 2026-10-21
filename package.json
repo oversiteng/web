@@ -34,6 +34,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cors": "^2.8.6",
+    "country-state-city": "^3.2.1",
     "dotenv": "^18.0.4",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
