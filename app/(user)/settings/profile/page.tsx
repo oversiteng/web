@@ -37,6 +37,7 @@ export default function EditProfilePage() {
   const [country, setCountry] = useState("Nigeria");
   const [residence, setResidence] = useState("Nigeria");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -133,49 +134,59 @@ export default function EditProfilePage() {
       return;
     }
 
-    // Check size limit (max 5MB raw)
+    // Check size limit (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setToastMessage("Image size must be less than 5MB.");
       setTimeout(() => setToastMessage(null), 2500);
       return;
     }
 
+    setSelectedAvatarFile(file);
+
+    // Create immediate local preview
     const reader = new FileReader();
     reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        // Resize image to max 400x400 to keep base64 compact & fast
-        const maxDim = 400;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > maxDim) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          }
-        } else {
-          if (height > maxDim) {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.82);
-          setAvatarPreview(compressedDataUrl);
-        } else {
-          setAvatarPreview(event.target?.result as string);
-        }
-      };
-      img.src = event.target?.result as string;
+      setAvatarPreview(event.target?.result as string);
     };
     reader.readAsDataURL(file);
+  };
+
+  // Helper to upload image to S3 using authenticated presigned URL
+  const uploadAvatarToS3 = async (file: File, token: string | null): Promise<string> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const presignRes = await fetch("/api/v1/user/avatar/presign", {
+      method: "POST",
+      credentials: "include",
+      headers,
+      body: JSON.stringify({
+        contentType: file.type || "image/jpeg",
+        fileExtension: file.name.split(".").pop() || "jpg",
+      }),
+    });
+
+    if (!presignRes.ok) {
+      throw new Error("Could not acquire S3 upload credentials");
+    }
+
+    const { data } = await presignRes.json();
+    const { url, publicUrl } = data;
+
+    // Direct PUT to S3
+    const uploadRes = await fetch(url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type || "image/jpeg",
+      },
+      body: file,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error("Failed to upload avatar to S3 bucket");
+    }
+
+    return publicUrl;
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -191,6 +202,18 @@ export default function EditProfilePage() {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
+      let finalAvatarUrl = avatarPreview;
+
+      // If user selected a new image file, upload to S3 first
+      if (selectedAvatarFile) {
+        try {
+          finalAvatarUrl = await uploadAvatarToS3(selectedAvatarFile, token);
+        } catch (s3Err) {
+          console.warn("S3 upload failed, falling back to base64 preview:", s3Err);
+          // Fall back to avatarPreview (base64) so user upload still succeeds
+        }
+      }
+
       const res = await fetch("/api/v1/profile", {
         method: "PATCH",
         credentials: "include",
@@ -204,13 +227,19 @@ export default function EditProfilePage() {
           state,
           country,
           residence,
-          avatarUrl: avatarPreview || undefined,
+          avatarUrl: finalAvatarUrl || undefined,
         }),
       });
 
       if (!res.ok) {
         throw new Error("Failed to update profile");
       }
+
+      const updatedData = await res.json();
+      if (updatedData?.profile?.avatarUrl) {
+        setAvatarPreview(updatedData.profile.avatarUrl);
+      }
+      setSelectedAvatarFile(null);
 
       // Refresh global AuthContext user so More, Sidebar, etc. immediately update
       await refreshUser();
