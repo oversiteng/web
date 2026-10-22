@@ -14,6 +14,14 @@ export async function ensureDatabaseMigrated(): Promise<void> {
   if (migrationPromise) return migrationPromise;
 
   migrationPromise = (async () => {
+    // Skip running migrations during Next.js static build phase in Docker!
+    if (
+      process.env.NEXT_PHASE === "phase-production-build" ||
+      process.env.DATABASE_URL?.includes("dummy")
+    ) {
+      return;
+    }
+
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
       console.warn("⚠️ DATABASE_URL not set; skipping automated migration check.");
