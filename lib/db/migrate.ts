@@ -54,9 +54,27 @@ export async function ensureDatabaseMigrated(): Promise<void> {
       console.log(`⏳ Applying database migrations from ${migrationsFolder}...`);
       const db = drizzle(migrationClient);
       await migrate(db, { migrationsFolder });
-      console.log("✅ Database schema is up to date!");
+      console.log("✅ Database schema is up to date via migrations!");
     } catch (err: any) {
-      console.error("❌ Failed to automatically apply migrations:", err?.message || err);
+      console.warn("⚠️ Standard migration encountered an issue, running safety column synchronizer:", err?.message || err);
+      // Run fallback schema reconciliation to ensure all columns exist
+      try {
+        await migrationClient`
+          ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "nin_verification_status" varchar(20) DEFAULT 'pending' NOT NULL;
+          ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "nba_verification_status" varchar(20) DEFAULT 'pending' NOT NULL;
+          ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "title" varchar(50);
+          ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "address" text;
+          ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "location" varchar(150);
+          ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "occupation" varchar(120);
+          ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "state" varchar(80);
+          ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "country" varchar(80);
+          ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "residence" varchar(150);
+          ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "avatar_url" text;
+        `;
+        console.log("✅ Safety column synchronization applied successfully!");
+      } catch (patchErr: any) {
+        console.error("❌ Failed to patch missing columns:", patchErr?.message || patchErr);
+      }
     } finally {
       await migrationClient.end({ timeout: 5 }).catch(() => {});
     }

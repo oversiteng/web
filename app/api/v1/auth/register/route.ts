@@ -3,13 +3,13 @@ import { ApiResponse } from "@/lib/types/api";
 import { User } from "@/lib/types/user";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { getDb } from "@/lib/db/client";
+import { getDbReady } from "@/lib/db/client";
 import { users, agentProfiles } from "@/db/schema";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
 
-const db = getDb();
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{ user: Partial<User> & { fullName?: string | null; ninVerificationStatus?: string }; token: string; accessToken: string; refreshToken: string }>>> {
   try {
+    const db = await getDbReady();
     const body = await req.json();
     const { email, password } = body;
     const name = body.name;

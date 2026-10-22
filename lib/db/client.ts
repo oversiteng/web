@@ -3,6 +3,7 @@ import postgres from "postgres";
 import { ensureDatabaseMigrated } from "./migrate";
 
 let dbInstance: ReturnType<typeof drizzle> | null = null;
+let initPromise: Promise<void> | null = null;
 
 export function getDb() {
   if (dbInstance) return dbInstance;
@@ -24,10 +25,19 @@ export function getDb() {
 
   dbInstance = drizzle(client);
 
-  // Automatically check and apply pending migrations asynchronously on startup
-  ensureDatabaseMigrated().catch((err) => {
-    console.error("Migration check encountered an error:", err);
-  });
+  if (!initPromise) {
+    initPromise = ensureDatabaseMigrated().catch((err) => {
+      console.error("Migration check encountered an error:", err);
+    });
+  }
 
   return dbInstance;
+}
+
+export async function getDbReady() {
+  const db = getDb();
+  if (initPromise) {
+    await initPromise;
+  }
+  return db;
 }
