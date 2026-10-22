@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { ensureDatabaseMigrated } from "./migrate";
 
 let dbInstance: ReturnType<typeof drizzle> | null = null;
 
@@ -22,5 +23,11 @@ export function getDb() {
   });
 
   dbInstance = drizzle(client);
+
+  // Automatically check and apply pending migrations asynchronously on startup
+  ensureDatabaseMigrated().catch((err) => {
+    console.error("Migration check encountered an error:", err);
+  });
+
   return dbInstance;
 }

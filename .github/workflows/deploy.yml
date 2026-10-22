@@ -83,27 +83,25 @@ jobs:
               sudo docker compose -f $COMPOSE_FILE up -d --build
             fi
 
-            # Automatically run database migration / schema push
+            # Automatically run database migration
             ENV_NAME="${{ steps.env.outputs.env_name }}"
             CONTAINER_NAME="oversite_${ENV_NAME}_web"
             echo "⏳ Applying database migrations on ${CONTAINER_NAME}..."
-            
-            # Run schema push from the project workspace on the host using the app's dependencies
-            if command -v docker-compose >/dev/null 2>&1; then
-              sudo docker-compose -f $COMPOSE_FILE exec -T web npx drizzle-kit push --config=drizzle.config.ts --force || true
-            else
-              sudo docker compose -f $COMPOSE_FILE exec -T web npx drizzle-kit push --config=drizzle.config.ts --force || true
-            fi
 
-            # Fallback directly in container if needed
+            # 1. First run the standalone migration runner inside the running container
             for i in {1..15}; do
               if sudo docker ps --filter "name=${CONTAINER_NAME}" --filter "status=running" -q | grep -q .; then
-                echo "Container is running, verifying schema..."
-                sudo docker exec -i "${CONTAINER_NAME}" npx drizzle-kit push --config=drizzle.config.ts --force || true
+                echo "Container is running, applying migrations..."
+                sudo docker exec -i "${CONTAINER_NAME}" node -e "require('./lib/db/migrate').ensureDatabaseMigrated()" || true
                 break
               fi
               echo "Waiting for container to start (attempt $i/15)..."
               sleep 2
             done
+
+            # 2. Also run schema push from host if local node_modules exist
+            if [ -d "node_modules" ]; then
+              npx drizzle-kit push --config=drizzle.config.ts --force || true
+            fi
 
             echo "✅ Deployed and migrated ${{ steps.env.outputs.env_name }} environment successfully"
