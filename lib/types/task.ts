@@ -120,3 +120,27 @@ export interface Property {
   createdAt: string;
   updatedAt?: string;
 }
+
+export interface PropertyCurrentTask {
+  id: string;
+  title: string;
+  moduleType: TaskModule;
+  status: TaskStatus;
+  agentId?: string | null;
+  agentName?: string | null;
+  agentTitle?: string | null;
+  agentDisplayName: string;
+  createdAt: string;
+  updatedAt: string;
+  scheduledAt?: string | null;
+  completedAt?: string | null;
+  clientPromisedDeliveryDate?: string | null;
+  timeAgo: string;
+  formattedDisplay: string;
+}
+
+export interface PropertyWithCurrentTask extends Property {
+  currentTask?: PropertyCurrentTask | null;
+  activeTaskCount?: number;
+  totalTaskCount?: number;
+}

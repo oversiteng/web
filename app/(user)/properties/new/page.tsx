@@ -8,6 +8,9 @@ import {
     AltArrowDownIcon as ChevronDown,
     InfoCircleIcon as InfoIcon,
     MapPointIcon as MapPinIcon,
+    MagnifierIcon as SearchIcon,
+    CheckCircleIcon as CheckIcon,
+    DangerTriangleIcon as AlertTriangle,
 } from "@solar-icons/react/outline";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import dynamic from "next/dynamic";
@@ -40,6 +43,9 @@ export default function RegisterPropertyPage() {
         type: "",
     });
     const [isLocating, setIsLocating] = useState(false);
+    const [isGeocoding, setIsGeocoding] = useState(false);
+    const [distanceWarning, setDistanceWarning] = useState<string | null>(null);
+    const [geocodedAddressSuggestion, setGeocodedAddressSuggestion] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [showMapPicker, setShowMapPicker] = useState(false);
@@ -64,8 +70,45 @@ export default function RegisterPropertyPage() {
     ) => {
         const { name, value } = e.target;
         setForm((prev) => ({ ...prev, [name]: value }));
+        if (name === "address") {
+            setDistanceWarning(null);
+            setGeocodedAddressSuggestion(null);
+        }
     };
 
+    // Forward Geocode: Converts the typed address into accurate property GPS coordinates
+    const handleGeocodeAddress = async (overrideAddress?: string) => {
+        const targetAddress = (overrideAddress || form.address || "").trim();
+        if (!targetAddress || targetAddress.length < 3) {
+            showToast("Please enter a property address first.");
+            return;
+        }
+
+        setIsGeocoding(true);
+        showToast("Locating property address on satellite map...");
+        try {
+            const res = await fetch(`/api/v1/geo?address=${encodeURIComponent(targetAddress)}`);
+            const json = await res.json();
+            if (json.success && json.data) {
+                const { latitude, longitude, displayName } = json.data;
+                const coords = `${latitude}, ${longitude}`;
+                setForm((prev) => ({ ...prev, gps: coords }));
+                setGeocodedAddressSuggestion(displayName);
+                setDistanceWarning(null);
+                setShowMapPicker(true);
+                showToast(`Address mapped: ${latitude}, ${longitude}`);
+            } else {
+                showToast("Could not auto-locate address. Please click 'Pin on Map' to set pin.");
+            }
+        } catch (err) {
+            console.error("Geocoding failed:", err);
+            showToast("Location service busy. Please pin manually on map.");
+        } finally {
+            setIsGeocoding(false);
+        }
+    };
+
+    // Device GPS: Uses device geolocation, with distance warning if far from entered address
     const handleFindCoordinate = () => {
         if (!navigator.geolocation) {
             showToast("Geolocation is not supported by your browser.");
@@ -73,13 +116,38 @@ export default function RegisterPropertyPage() {
         }
 
         setIsLocating(true);
-        showToast("Fetching GPS coordinates...");
+        showToast("Fetching current device coordinates...");
         navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const coords = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+            async (pos) => {
+                const userLat = pos.coords.latitude;
+                const userLng = pos.coords.longitude;
+                const coords = `${userLat.toFixed(6)}, ${userLng.toFixed(6)}`;
                 setForm((prev) => ({ ...prev, gps: coords }));
                 setIsLocating(false);
-                showToast(`Coordinates found: ${coords}`);
+                setShowMapPicker(true);
+                showToast(`Device coordinates: ${coords}`);
+
+                // Compare with address if user already entered an address
+                if (form.address && form.address.trim().length >= 3) {
+                    try {
+                        const checkRes = await fetch(
+                            `/api/v1/geo?address=${encodeURIComponent(form.address)}&compareLat=${userLat}&compareLng=${userLng}`
+                        );
+                        const checkJson = await checkRes.json();
+                        if (checkJson.success && checkJson.data?.distanceFromUserKm != null) {
+                            const km = checkJson.data.distanceFromUserKm;
+                            if (km > 10) {
+                                setDistanceWarning(
+                                    `Notice: Your current device location is ~${km}km away from '${form.address}'. If you are not physically standing at the property, click 'Locate Address' to lock the property's coordinates.`
+                                );
+                            } else {
+                                setDistanceWarning(null);
+                            }
+                        }
+                    } catch {
+                        // ignore distance check errors
+                    }
+                }
             },
             (err) => {
                 console.error("Location lookup error:", err);
@@ -191,12 +259,24 @@ export default function RegisterPropertyPage() {
                     <form id="register-property-form" onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
                         {/* Address */}
                         <div className="space-y-1.5">
-                            <label
-                                htmlFor="address"
-                                className="block text-[13px] font-semibold text-[var(--text-heading)]"
-                            >
-                                Address
-                            </label>
+                            <div className="flex items-center justify-between">
+                                <label
+                                    htmlFor="address"
+                                    className="block text-[13px] font-semibold text-[var(--text-heading)]"
+                                >
+                                    Property Address
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => handleGeocodeAddress()}
+                                    disabled={isGeocoding || !form.address}
+                                    className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--primary)] hover:opacity-85 transition-opacity disabled:opacity-40 cursor-pointer"
+                                    title="Find coordinates for this address on map"
+                                >
+                                    <SearchIcon size={14} className={isGeocoding ? "animate-spin" : ""} />
+                                    <span>{isGeocoding ? "Locating..." : "Locate Address"}</span>
+                                </button>
+                            </div>
                             <input
                                 id="address"
                                 name="address"
@@ -204,9 +284,20 @@ export default function RegisterPropertyPage() {
                                 required
                                 value={form.address}
                                 onChange={handleInputChange}
+                                onBlur={() => {
+                                    if (form.address && form.address.trim().length >= 4 && !form.gps) {
+                                        handleGeocodeAddress();
+                                    }
+                                }}
                                 placeholder="e.g. Lekki Phase 1, Lagos"
                                 className="w-full px-4.5 py-3 sm:py-3.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] border border-[var(--border-color)] text-[14px] outline-none focus:ring-2 focus:ring-[var(--primary)]/40 transition-all shadow-xs"
                             />
+                            {geocodedAddressSuggestion && (
+                                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 px-1 pt-0.5">
+                                    <CheckIcon size={13} className="shrink-0" />
+                                    <span className="truncate">Verified Location: {geocodedAddressSuggestion}</span>
+                                </p>
+                            )}
                         </div>
 
                         {/* GPS Coordinates */}
@@ -218,7 +309,7 @@ export default function RegisterPropertyPage() {
                                 >
                                     GPS coordinates{" "}
                                     <span className="text-[var(--text-muted)] font-normal text-xs">
-                                        (optional)
+                                        (auto-mapped)
                                     </span>
                                 </label>
                                 <div className="flex items-center gap-3">
@@ -234,16 +325,18 @@ export default function RegisterPropertyPage() {
                                         type="button"
                                         onClick={handleFindCoordinate}
                                         disabled={isLocating}
-                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--primary)] hover:opacity-85 transition-opacity disabled:opacity-50 cursor-pointer"
+                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors disabled:opacity-50 cursor-pointer"
+                                        title="Only use if you are physically at the property right now"
                                     >
                                         <Crosshair
                                             size={14}
                                             className={isLocating ? "animate-spin" : ""}
                                         />
-                                        <span>{isLocating ? "Locating..." : "Find my coordinate"}</span>
+                                        <span>{isLocating ? "Detecting..." : "Use Device GPS"}</span>
                                     </button>
                                 </div>
                             </div>
+
                             <input
                                 id="gps"
                                 name="gps"
@@ -253,6 +346,23 @@ export default function RegisterPropertyPage() {
                                 placeholder="e.g. 6.4281, 3.4219"
                                 className="w-full px-4.5 py-3 sm:py-3.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] border border-[var(--border-color)] text-[14px] outline-none focus:ring-2 focus:ring-[var(--primary)]/40 transition-all shadow-xs"
                             />
+
+                            {/* Distance Discrepancy Notice */}
+                            {distanceWarning && (
+                                <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs flex items-start gap-2.5 animate-in fade-in">
+                                    <AlertTriangle size={18} className="shrink-0 mt-0.5 text-amber-500" />
+                                    <div className="flex-1 space-y-1">
+                                        <p className="leading-relaxed">{distanceWarning}</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleGeocodeAddress()}
+                                            className="text-xs font-bold text-[var(--primary)] hover:underline cursor-pointer block mt-1"
+                                        >
+                                            → Lock Pin to Address Location
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* OpenFreeMap Interactive Map Pin Picker */}
                             {showMapPicker && (
@@ -267,8 +377,16 @@ export default function RegisterPropertyPage() {
                                         showControls={true}
                                         onLocationSelect={(coords) => {
                                             const formatted = `${coords.latitude}, ${coords.longitude}`;
-                                            setForm((prev) => ({ ...prev, gps: formatted }));
-                                            showToast(`Map location selected: ${formatted}`, 2000);
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                gps: formatted,
+                                                address: !prev.address && coords.address ? coords.address : prev.address,
+                                            }));
+                                            if (coords.address) {
+                                                setGeocodedAddressSuggestion(coords.address);
+                                            }
+                                            setDistanceWarning(null);
+                                            showToast(`Map pin locked: ${formatted}`, 2000);
                                         }}
                                     />
                                 </div>

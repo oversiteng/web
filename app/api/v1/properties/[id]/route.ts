@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
-import { Property, Task, TaskModule, TaskStatus } from "@/lib/types/task";
+import { Property, PropertyWithCurrentTask, Task, TaskModule, TaskStatus } from "@/lib/types/task";
 import { getDb } from "@/lib/db/client";
 import { properties, tasks } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { enrichPropertiesWithCurrentTasks } from "@/lib/services/propertyTaskService";
+import { geocodeAddress } from "@/lib/services/geocodingService";
 
 const db = getDb();
 
-export interface PropertyWithTasks extends Property {
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export interface PropertyWithTasks extends PropertyWithCurrentTask {
   tasks: Task[];
   activeTaskCount: number;
 }
@@ -17,6 +21,13 @@ export const GET = withAuth<{ id: string }>(
   async (req: NextRequest, { user, params }) => {
     try {
       const { id } = await params;
+
+      if (!id || !UUID_REGEX.test(id)) {
+        return NextResponse.json(
+          { success: false, error: { code: "NOT_FOUND", message: "Property not found" } },
+          { status: 404 }
+        );
+      }
 
       // 1. Fetch property from DB
       const propRecords = await db
@@ -65,6 +76,8 @@ export const GET = withAuth<{ id: string }>(
         (t) => t.status !== "COMPLETED" && t.status !== "CANCELLED"
       );
 
+      const [enriched] = await enrichPropertiesWithCurrentTasks([prop], db);
+
       const propertyData: PropertyWithTasks = {
         ...prop,
         latitude: prop.latitude ? parseFloat(prop.latitude) : undefined,
@@ -73,6 +86,8 @@ export const GET = withAuth<{ id: string }>(
         updatedAt: prop.updatedAt.toISOString(),
         tasks: mappedTasks,
         activeTaskCount: activeTasks.length,
+        totalTaskCount: mappedTasks.length,
+        currentTask: enriched?.currentTask || null,
       };
 
       return NextResponse.json<ApiResponse<PropertyWithTasks>>({
@@ -95,16 +110,39 @@ export const PATCH = withAuth<{ id: string }>(
   async (req: NextRequest, { user, params }) => {
     try {
       const { id } = await params;
+
+      if (!id || !UUID_REGEX.test(id)) {
+        return NextResponse.json(
+          { success: false, error: { code: "NOT_FOUND", message: "Property not found" } },
+          { status: 404 }
+        );
+      }
+
       const body = await req.json();
       const { title, address, latitude, longitude, parcelNumber, propertyType, description } = body;
+
+      let finalLat = latitude ? String(latitude) : undefined;
+      let finalLng = longitude ? String(longitude) : undefined;
+
+      if ((!finalLat || !finalLng) && address) {
+        try {
+          const geo = await geocodeAddress(address);
+          if (geo) {
+            finalLat = String(geo.latitude);
+            finalLng = String(geo.longitude);
+          }
+        } catch (err) {
+          console.warn("Auto-geocoding fallback in property update failed:", err);
+        }
+      }
 
       const [updatedProp] = await db
         .update(properties)
         .set({
           title,
           address,
-          latitude: latitude ? String(latitude) : undefined,
-          longitude: longitude ? String(longitude) : undefined,
+          latitude: finalLat,
+          longitude: finalLng,
           parcelNumber,
           propertyType,
           description,
@@ -153,6 +191,13 @@ export const DELETE = withAuth<{ id: string }>(
   async (req: NextRequest, { user, params }) => {
     try {
       const { id } = await params;
+
+      if (!id || !UUID_REGEX.test(id)) {
+        return NextResponse.json(
+          { success: false, error: { code: "NOT_FOUND", message: "Property not found" } },
+          { status: 404 }
+        );
+      }
 
       await db
         .delete(properties)

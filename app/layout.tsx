@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "@/app/assets/icons/around-icons.min.css";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 export const metadata: Metadata = {
   title: "Oversite.ng | Monitoring Properties and Building Projects",

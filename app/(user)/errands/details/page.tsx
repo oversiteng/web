@@ -96,7 +96,7 @@ export default function ErrandDetailsPage() {
       };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      let instructions = `${selectedOption.title}: ${description.trim()}`;
+      let instructions = description.trim();
       if (needsPhotos) {
         instructions += selectedOption.id === "building-material"
           ? "\n[Requirement: Photo verification of merchant price boards & available stock]"
@@ -112,6 +112,7 @@ export default function ErrandDetailsPage() {
         method: "POST",
         headers,
         body: JSON.stringify({
+          title: selectedOption.title,
           categoryId: selectedOption.id,
           location: location.trim(),
           instructions,

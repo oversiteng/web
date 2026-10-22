@@ -33,7 +33,7 @@ const CAROUSEL_IMAGES = [
 export default function UserDashboard() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
-  const [userName, setUserName] = useState<string>("Adaeze");
+  const [userName, setUserName] = useState<string>("User");
   const [summary, setSummary] = useState<{
     activeRequests: number;
     pendingReports: number;
@@ -274,29 +274,29 @@ export default function UserDashboard() {
             onClick={() => setQuickActionsOpen(false)}
           />
           <div
-            className="relative w-full sm:max-w-md bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-[28px] sm:rounded-3xl p-5 pb-8 sm:p-6 shadow-2xl z-10 animate-in slide-in-from-bottom"
+            className="relative w-full sm:max-w-md bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-md sm:rounded-3xl p-5 pb-8 sm:p-6 shadow-2xl z-10 animate-in slide-in-from-bottom"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-1 rounded-full bg-[var(--border-color)] mx-auto mb-4 sm:hidden" />
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-[17px] font-bold text-[var(--text-heading)]">Quick Actions</h2>
-                <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Select a service to get started immediately</p>
+                <h2 className="text-[18px] font-bold text-[var(--text-heading)]">Quick Actions</h2>
+                <p className="text-[13px] text-[var(--text-muted)] mt-0.5">Select a service to get started immediately</p>
               </div>
               <button
                 type="button"
                 onClick={() => setQuickActionsOpen(false)}
-                className="w-7 h-7 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center text-[12px] text-[var(--text-muted)] hover:text-[var(--text-heading)] cursor-pointer"
+                className="w-7 h-7 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center text-[15px] text-red-500  hover:text-[var(--text-heading)] cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+            <div className="max-h-[70vh] overflow-y-auto pr-1">
               <Link
                 href="/errands"
                 onClick={() => setQuickActionsOpen(false)}
-                className="flex items-center gap-3.5 p-3 rounded-2xl bg-[var(--bg-secondary)] hover:border-[var(--primary)]/40 border border-transparent transition-all group"
+                className="flex items-center gap-3.5 p-3 rounded-sm hover:bg-[var(--bg-secondary)] hover:border-[var(--primary)] rounded-sm border-2 border-transparent transition-all group"
               >
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
                   <BoltIcon className="w-5 h-5" />
@@ -314,7 +314,7 @@ export default function UserDashboard() {
               <Link
                 href="/legal"
                 onClick={() => setQuickActionsOpen(false)}
-                className="flex items-center gap-3.5 p-3 rounded-2xl bg-[var(--bg-secondary)] hover:border-[var(--primary)]/40 border border-transparent transition-all group"
+                className="flex items-center gap-3.5 p-3 hover:bg-[var(--bg-secondary)] hover:border-[var(--primary)] rounded-sm border-2 border-transparent transition-all group"
               >
                 <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
                   <ChandelierIcon className="w-5 h-5" />
@@ -332,7 +332,7 @@ export default function UserDashboard() {
               <Link
                 href="/enforcement"
                 onClick={() => setQuickActionsOpen(false)}
-                className="flex items-center gap-3.5 p-3 rounded-2xl bg-[var(--bg-secondary)] hover:border-[var(--primary)]/40 border border-transparent transition-all group"
+                className="flex items-center gap-3.5 p-3 hover:bg-[var(--bg-secondary)] hover:border-[var(--primary)] rounded-sm border-2 border-transparent transition-all group"
               >
                 <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
                   <ShieldCheckIcon className="w-5 h-5" />
@@ -350,7 +350,7 @@ export default function UserDashboard() {
               <Link
                 href="/vulnerability"
                 onClick={() => setQuickActionsOpen(false)}
-                className="flex items-center gap-3.5 p-3 rounded-2xl bg-[var(--bg-secondary)] hover:border-[var(--primary)]/40 border border-transparent transition-all group"
+                className="flex items-center gap-3.5 p-3 hover:bg-[var(--bg-secondary)] hover:border-[var(--primary)] rounded-sm border-2 border-transparent transition-all group"
               >
                 <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
                   <ObjectScanIcon className="w-5 h-5" />
@@ -368,7 +368,7 @@ export default function UserDashboard() {
               <Link
                 href="/property-oversite"
                 onClick={() => setQuickActionsOpen(false)}
-                className="flex items-center gap-3.5 p-3 rounded-2xl bg-[var(--bg-secondary)] hover:border-[var(--primary)]/40 border border-transparent transition-all group"
+                className="flex items-center gap-3.5 p-3 hover:bg-[var(--bg-secondary)] hover:border-[var(--primary)] rounded-sm border-2 border-transparent transition-all group"
               >
                 <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
                   <MapPointSearchIcon className="w-5 h-5" />
@@ -386,7 +386,7 @@ export default function UserDashboard() {
               <Link
                 href="/diligence"
                 onClick={() => setQuickActionsOpen(false)}
-                className="flex items-center gap-3.5 p-3 rounded-2xl bg-[var(--bg-secondary)] hover:border-[var(--primary)]/40 border border-transparent transition-all group"
+                className="flex items-center gap-3.5 p-3 hover:bg-[var(--bg-secondary)] hover:border-[var(--primary)] rounded-sm border-2 border-transparent transition-all group"
               >
                 <div className="w-10 h-10 rounded-xl bg-yellow-500/10 text-yellow-500 flex items-center justify-center shrink-0">
                   <PieChartIcon className="w-5 h-5" />
@@ -404,7 +404,7 @@ export default function UserDashboard() {
               <Link
                 href="/vault"
                 onClick={() => setQuickActionsOpen(false)}
-                className="flex items-center gap-3.5 p-3 rounded-2xl bg-[var(--bg-secondary)] hover:border-[var(--primary)]/40 border border-transparent transition-all group"
+                className="flex items-center gap-3.5 p-3 hover:bg-[var(--bg-secondary)] hover:border-[var(--primary)] rounded-sm border-2 border-transparent transition-all group"
               >
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
                   <DocumentsMinimalisticIcon className="w-5 h-5" />
@@ -422,7 +422,7 @@ export default function UserDashboard() {
               <Link
                 href="/projects"
                 onClick={() => setQuickActionsOpen(false)}
-                className="flex items-center gap-3.5 p-3 rounded-2xl bg-[var(--bg-secondary)] hover:border-[var(--primary)]/40 border border-transparent transition-all group"
+                className="flex items-center gap-3.5 p-3 hover:bg-[var(--bg-secondary)] hover:border-[var(--primary)] rounded-sm border-2 border-transparent transition-all group"
               >
                 <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center shrink-0">
                   <DocumentIcon className="w-5 h-5" />

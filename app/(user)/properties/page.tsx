@@ -13,20 +13,22 @@ import {
   CheckCircleIcon as CheckCircle,
   MagnifierIcon as SearchIcon,
   InfoCircleIcon as InfoIcon,
+  MaximizeIcon,
+  MinimizeIcon
 } from "@solar-icons/react/outline";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import dynamic from "next/dynamic";
+import { PropertyWithCurrentTask, PropertyCurrentTask } from "@/lib/types/task";
 
 const OpenFreeMapView = dynamic(() => import("@/components/OpenFreeMapView"), {
   ssr: false,
   loading: () => (
     <div className="w-full h-full min-h-[220px] rounded-3xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-center text-xs text-[var(--text-muted)] animate-pulse">
-      Loading OpenFreeMap...
+      Loading Map...
     </div>
   ),
 });
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 type AlertStatus = "warning" | "resolved";
 
 interface PropertyAlert {
@@ -37,29 +39,7 @@ interface PropertyAlert {
   description: string;
 }
 
-interface ApiProperty {
-  id: string;
-  title: string;
-  address: string;
-  latitude?: number;
-  longitude?: number;
-  propertyType?: string;
-  createdAt: string;
-  updatedAt?: string;
-}
 
-// ─── Default Alerts ───────────────────────────────────────────────────────────
-const ALERTS: PropertyAlert[] = [
-  {
-    id: "a1",
-    property: "Satellite Telemetry Active",
-    status: "resolved",
-    title: "Continuous 24/7 Boundary Scan",
-    description: "All registered plots are monitored for adjoining developments and perimeter changes.",
-  },
-];
-
-// ─── Map Component (Powered by OpenFreeMap) ──────────────────────────────────
 function MapPreview({
   expanded,
   onToggleExpand,
@@ -71,7 +51,7 @@ function MapPreview({
   onToggleExpand: () => void;
   onLocate: () => void;
   isDark: boolean;
-  properties: ApiProperty[];
+  properties: PropertyWithCurrentTask[];
 }) {
   // Map markers for registered properties
   const markers = properties
@@ -125,7 +105,7 @@ function MapPreview({
         ) : (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-card)]/90 backdrop-blur-md border border-[var(--border-color)] text-[var(--text-heading)] text-[11px] font-medium whitespace-nowrap shadow-sm">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-            <span>OpenFreeMap active · Register a property to see pins</span>
+            <span>Register a property to see pins</span>
           </div>
         )}
       </div>
@@ -151,86 +131,116 @@ function MapPreview({
             onToggleExpand();
           }}
           className="w-10 h-10 rounded-full bg-[var(--bg-card)]/90 backdrop-blur-md border border-[var(--border-color)] flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] active:scale-95 transition-all shadow-md cursor-pointer"
-          aria-label={expanded ? "Collapse map" : "Expand map"}
-          title={expanded ? "Collapse map" : "Expand map"}
+          aria-label={expanded ? "Minimize map" : "Maximize map"}
+          title={expanded ? "Minimize map" : "Maximize map"}
         >
-          {expanded ? <CollapseIcon size={18} /> : <ExpandIcon size={18} />}
+          {expanded ? <MinimizeIcon size={18} /> : <MaximizeIcon size={18} />}
         </button>
       </div>
     </div>
   );
 }
 
-// ─── Alert Card ───────────────────────────────────────────────────────────────
-function AlertCard({ alert }: { alert: PropertyAlert }) {
-  const isWarning = alert.status === "warning";
+function getPropertyStatusBadge(task?: PropertyCurrentTask | null) {
+  if (!task) {
+    return {
+      label: "Standby",
+      dotClass: "bg-gray-500",
+      textClass: "text-gray-600 dark:text-gray-400",
+    };
+  }
 
-  return (
-    <div
-      className={`rounded-2xl p-4 transition-all duration-200 border ${
-        isWarning
-          ? "bg-amber-50 dark:bg-[#714b03]/40 border-amber-200 dark:border-[#8a5b00]/60"
-          : "bg-emerald-50 dark:bg-[#0b421a]/50 border-emerald-200 dark:border-[#0e5622]/60"
-      }`}
-    >
-      <div className="flex items-center gap-2 mb-2">
-        {isWarning ? (
-          <TriangleWarning size={17} className="text-amber-500 dark:text-amber-400 shrink-0" />
-        ) : (
-          <CheckCircle size={17} className="text-emerald-500 dark:text-emerald-400 shrink-0" />
-        )}
-        <span
-          className={`text-[13px] font-semibold ${
-            isWarning ? "text-amber-800 dark:text-amber-200" : "text-emerald-800 dark:text-emerald-200"
-          }`}
-        >
-          {alert.property}
-        </span>
-      </div>
-      <p
-        className={`text-[14px] font-bold mb-1 ${
-          isWarning ? "text-amber-900 dark:text-amber-300" : "text-emerald-900 dark:text-emerald-300"
-        }`}
-      >
-        {alert.title}
-      </p>
-      <p className="text-[12px] text-zinc-700 dark:text-white/80 leading-relaxed">
-        {alert.description}
-      </p>
-    </div>
-  );
+  switch (task.status) {
+    case "IN_PROGRESS":
+      return {
+        label: "In progress",
+        dotClass: "bg-amber-500 animate-pulse",
+        textClass: "text-amber-600 dark:text-amber-400",
+      };
+    case "AGENT_ON_SITE":
+      return {
+        label: "On site",
+        dotClass: "bg-indigo-500 animate-pulse",
+        textClass: "text-indigo-600 dark:text-indigo-400",
+      };
+    case "AGENT_EN_ROUTE":
+      return {
+        label: "En route",
+        dotClass: "bg-blue-500",
+        textClass: "text-blue-600 dark:text-blue-400",
+      };
+    case "REPORT_SUBMITTED":
+    case "UNDER_REVIEW":
+      return {
+        label: "In review",
+        dotClass: "bg-purple-500",
+        textClass: "text-purple-600 dark:text-purple-400",
+      };
+    case "MATCHED":
+      return {
+        label: "Assigned",
+        dotClass: "bg-sky-500",
+        textClass: "text-sky-600 dark:text-sky-400",
+      };
+    case "PENDING":
+    case "DRAFT":
+      return {
+        label: "Pending",
+        dotClass: "bg-amber-400",
+        textClass: "text-amber-600 dark:text-amber-400",
+      };
+    case "COMPLETED":
+      return {
+        label: "Completed",
+        dotClass: "bg-emerald-500",
+        textClass: "text-emerald-600 dark:text-emerald-400",
+      };
+    default:
+      return {
+        label: "Monitoring Active",
+        dotClass: "bg-emerald-500",
+        textClass: "text-emerald-600 dark:text-emerald-400",
+      };
+  }
 }
 
-// ─── Registered Property Card ─────────────────────────────────────────────────
-function PropertyCard({ property }: { property: ApiProperty }) {
+function PropertyCard({ property }: { property: PropertyWithCurrentTask }) {
+  const statusBadge = getPropertyStatusBadge(property.currentTask);
+
   return (
     <Link
       href={`/properties/${property.id}`}
       className="block p-4 hover:bg-[var(--bg-secondary)] transition-colors group"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3 min-w-0">
+        <div className="flex items-start gap-3 min-w-0 flex-1">
           <div className="mt-0.5 text-[var(--text-muted)] group-hover:text-[var(--primary)] transition-colors shrink-0">
-            <MapPin size={18} />
+            <MapPin size={24} />
           </div>
-          <div className="min-w-0">
-            <p className="text-[14px] font-semibold text-[var(--text-heading)] truncate">
+          <div className="min-w-0 flex-1">
+            <p className="max-sm:text-[15px] font-semibold text-[var(--text-heading)] truncate">
               {property.title}
             </p>
-            <p className="text-[12px] text-[var(--text-muted)] mt-0.5 truncate">
-              {property.address}
-            </p>
-            <p className="text-[11px] text-[var(--text-muted)] opacity-75 mt-0.5">
-              Type: {property.propertyType || "Real Estate"} • Registered {new Date(property.createdAt).toLocaleDateString()}
-            </p>
+            {property.currentTask ? (
+              <p
+                className="text-[13px] text-[var(--text-secondary)] mt-0.5 truncate font-normal tracking-tight"
+                title={property.currentTask.formattedDisplay}
+              >
+                {property.currentTask.formattedDisplay}
+              </p>
+            ) : (
+              <p className="text-[13px] text-[var(--text-secondary)] opacity-75 mt-0.5 truncate font-normal">
+                No active tasks • Ready for dispatch
+              </p>
+            )}
           </div>
         </div>
 
         {/* Status indicator */}
         <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span className="text-[12px] font-medium text-emerald-600 dark:text-emerald-400">
-            Active
+          <span className={`w-2 h-2 rounded-full ${statusBadge.dotClass}`} />
+          <span className={`text-[12px] font-medium ${statusBadge.textClass}`}>
+            {statusBadge.label}
           </span>
         </div>
       </div>
@@ -238,7 +248,6 @@ function PropertyCard({ property }: { property: ApiProperty }) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function PropertiesPage() {
   const [mapExpanded, setMapExpanded] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -247,7 +256,7 @@ export default function PropertiesPage() {
   const [mounted, setMounted] = useState(false);
 
   // Live Properties State
-  const [properties, setProperties] = useState<ApiProperty[]>([]);
+  const [properties, setProperties] = useState<PropertyWithCurrentTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -306,7 +315,10 @@ export default function PropertiesPage() {
     return (
       p.title?.toLowerCase().includes(q) ||
       p.address?.toLowerCase().includes(q) ||
-      p.propertyType?.toLowerCase().includes(q)
+      p.propertyType?.toLowerCase().includes(q) ||
+      p.currentTask?.title?.toLowerCase().includes(q) ||
+      p.currentTask?.agentDisplayName?.toLowerCase().includes(q) ||
+      p.currentTask?.formattedDisplay?.toLowerCase().includes(q)
     );
   });
 
@@ -367,19 +379,6 @@ export default function PropertiesPage() {
         />
       </div>
 
-      {/* ── Alerts Section ── */}
-      <section className="mb-6">
-        <h2 className="text-[15px] font-semibold text-[var(--text-heading)] mb-3 tracking-wide">
-          Alerts
-        </h2>
-        <div className="space-y-3">
-          {ALERTS.map((alert) => (
-            <AlertCard key={alert.id} alert={alert} />
-          ))}
-        </div>
-      </section>
-
-      {/* ── Registered Properties Section ── */}
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-[15px] font-semibold text-[var(--text-heading)] tracking-wide">
@@ -398,7 +397,7 @@ export default function PropertiesPage() {
             Loading properties...
           </div>
         ) : filteredProperties.length > 0 ? (
-          <div className="bg-[var(--bg-card)] rounded-2xl divide-y divide-[var(--border-color)] border border-[var(--border-color)] shadow-xs overflow-hidden">
+          <div className="bg-[var(--bg-card)] rounded-md divide-y divide-[var(--border-color)] shadow-xs overflow-hidden">
             {filteredProperties.map((prop) => (
               <PropertyCard key={prop.id} property={prop} />
             ))}

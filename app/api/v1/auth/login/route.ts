@@ -4,15 +4,14 @@ import { User } from "@/lib/types/user";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
 import { eq, or } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { getDb } from "@/lib/db/client";
+import { getDbReady } from "@/lib/db/client";
 import { users } from "@/db/schema";
-
-const db = getDb();
 
 export async function POST(
   req: NextRequest
 ): Promise<NextResponse<ApiResponse<{ user: Partial<User>; token: string }>>> {
   try {
+    const db = await getDbReady();
     const body = await req.json();
     const identifier = (body.email || body.phone || body.phoneNumber || "").trim();
     const password = body.password;

@@ -49,3 +49,17 @@ export const ERRAND_OPTIONS: ErrandOption[] = [
     locationPlaceholder: "Errand location / meeting address",
   },
 ];
+
+export const ERRAND_TITLES: Record<string, string> = {
+  "building-material": "Building material cost",
+  "document-delivery": "Document delivery",
+  "utility-payment": "Utility bill payment",
+  "parcel-pickup": "Parcel pickup",
+  "something-else": "Something else",
+};
+
+export function getErrandTitle(id?: string | null): string {
+  if (!id) return "Quick Errand Task";
+  const matched = ERRAND_OPTIONS.find((opt) => opt.id === id);
+  return matched?.title || ERRAND_TITLES[id] || "Quick Errand Task";
+}

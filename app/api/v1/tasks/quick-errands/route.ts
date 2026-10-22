@@ -4,13 +4,22 @@ import { ApiResponse } from "@/lib/types/api";
 import { Task, TaskModule, TaskStatus } from "@/lib/types/task";
 import { getDb } from "@/lib/db/client";
 import { tasks } from "@/db/schema";
+import { getErrandTitle } from "@/app/(user)/errands/errands-data";
 
 const db = getDb();
 
 export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
     const body = await req.json();
-    const { categoryId, location, timeWindow, instructions, priceNgn, propertyId } = body;
+    const {
+      title: customTitle,
+      categoryId,
+      location,
+      timeWindow,
+      instructions,
+      priceNgn,
+      propertyId,
+    } = body;
 
     if (!location && !instructions) {
       return NextResponse.json(
@@ -25,9 +34,10 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       );
     }
 
-    const title = instructions
-      ? instructions.slice(0, 80)
-      : "Quick Errand Task";
+    const title =
+      typeof customTitle === "string" && customTitle.trim().length > 0
+        ? customTitle.trim()
+        : getErrandTitle(categoryId);
 
     const [newTask] = await db
       .insert(tasks)

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse, PaginatedResponse } from "@/lib/types/api";
-import { Property } from "@/lib/types/task";
+import { Property, PropertyWithCurrentTask } from "@/lib/types/task";
 import { getDb } from "@/lib/db/client";
 import { properties } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { enrichPropertiesWithCurrentTasks } from "@/lib/services/propertyTaskService";
+import { geocodeAddress } from "@/lib/services/geocodingService";
 
 const db = getDb();
 
@@ -13,24 +15,22 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "20", 10);
 
-  const dbProperties = await db.select().from(properties).where(eq(properties.userId, user.sub)).limit(limit).offset((page - 1) * limit);
+  const dbProperties = await db
+    .select()
+    .from(properties)
+    .where(eq(properties.userId, user.sub))
+    .limit(limit)
+    .offset((page - 1) * limit);
 
-  // Convert dates to string to match Property type
-  const mappedProperties: Property[] = dbProperties.map(p => ({
-    ...p,
-    latitude: p.latitude ? parseFloat(p.latitude) : undefined,
-    longitude: p.longitude ? parseFloat(p.longitude) : undefined,
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString()
-  }));
+  const enrichedProperties = await enrichPropertiesWithCurrentTasks(dbProperties, db);
 
-  return NextResponse.json<PaginatedResponse<Property>>({
+  return NextResponse.json<PaginatedResponse<PropertyWithCurrentTask>>({
     success: true,
-    data: mappedProperties,
+    data: enrichedProperties,
     pagination: {
       page,
       limit,
-      total: mappedProperties.length, // Ideally count query here
+      total: enrichedProperties.length,
       totalPages: 1,
     },
   });
@@ -51,12 +51,28 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       );
     }
 
+    let finalLat = latitude ? String(latitude) : undefined;
+    let finalLng = longitude ? String(longitude) : undefined;
+
+    // Automatically geocode address if coordinates are missing
+    if ((!finalLat || !finalLng) && address) {
+      try {
+        const geo = await geocodeAddress(address);
+        if (geo) {
+          finalLat = String(geo.latitude);
+          finalLng = String(geo.longitude);
+        }
+      } catch (err) {
+        console.warn("Auto-geocoding property address fallback failed:", err);
+      }
+    }
+
     const [newProp] = await db.insert(properties).values({
       userId: user.sub,
       title,
       address,
-      latitude,
-      longitude,
+      latitude: finalLat,
+      longitude: finalLng,
       parcelNumber,
       propertyType,
       description,
