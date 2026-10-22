@@ -30,11 +30,16 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
         { status: 400 }
       );
     }
-    // Hash password with bcryptjs
+    // Hash password with bcryptjs (work factor 10 is fast and secure)
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    // Check if user already exists
-    const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
+
+    // Check if user already exists (only select id for maximum speed)
+    const existingUser = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
 
     if (existingUser.length > 0) {
       return NextResponse.json(
@@ -43,16 +48,27 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
       );
     }
 
-    // Insert user record into db
-    const [newUser] = await db.insert(users).values({
-      email,
-      passwordHash: hashedPassword,
-      name: name || null,
-      phone: phone || null,
-      role: normalizedRole,
-      kycStatus: "PENDING",
-      isActive: true,
-    }).returning();
+    // Insert user record into db returning only essential fields
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        email,
+        passwordHash: hashedPassword,
+        name: name || null,
+        phone: phone || null,
+        role: normalizedRole,
+        kycStatus: "PENDING",
+        isActive: true,
+      })
+      .returning({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        phone: users.phone,
+        role: users.role,
+        kycStatus: users.kycStatus,
+        isActive: users.isActive,
+      });
 
     // If agent, create agent profile
     if (newUser.role === "AGENT") {

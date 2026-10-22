@@ -153,6 +153,8 @@ export const users = pgTable(
     passwordHash: text("password_hash"),
     role: userRoleEnum("role").notNull().default("USER"),
     kycStatus: kycStatusEnum("kyc_status").notNull().default("PENDING"),
+    ninVerificationStatus: varchar("nin_verification_status", { length: 20 }).notNull().default("pending"),
+    nbaVerificationStatus: varchar("nba_verification_status", { length: 20 }).notNull().default("pending"),
     avatarUrl: text("avatar_url"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -164,6 +166,7 @@ export const users = pgTable(
   },
   (table) => [
     uniqueIndex("users_email_unique").on(table.email),
+    index("users_phone_idx").on(table.phone),
     index("users_role_idx").on(table.role),
   ],
 );
@@ -270,8 +273,11 @@ export const tasks = pgTable(
   (table) => [
     index("tasks_user_idx").on(table.userId),
     index("tasks_agent_idx").on(table.agentId),
+    index("tasks_property_idx").on(table.propertyId),
     index("tasks_module_idx").on(table.moduleType),
     index("tasks_status_idx").on(table.status),
+    index("tasks_agent_status_idx").on(table.agentId, table.status),
+    index("tasks_user_status_idx").on(table.userId, table.status),
   ],
 );
 
@@ -323,6 +329,7 @@ export const taskReports = pgTable(
   (table) => [
     index("task_reports_task_idx").on(table.taskId),
     index("task_reports_agent_idx").on(table.agentId),
+    index("task_reports_status_idx").on(table.status),
   ],
 );
 
@@ -372,7 +379,9 @@ export const taskChats = pgTable(
   },
   (table) => [
     index("task_chats_task_idx").on(table.taskId),
+    index("task_chats_task_created_idx").on(table.taskId, table.createdAt),
     index("task_chats_sender_idx").on(table.senderId),
+    index("task_chats_receiver_idx").on(table.receiverId),
   ],
 );
 
@@ -403,7 +412,9 @@ export const payments = pgTable(
   (table) => [
     index("payments_task_idx").on(table.taskId),
     index("payments_user_idx").on(table.userId),
+    index("payments_user_created_idx").on(table.userId, table.createdAt),
     index("payments_status_idx").on(table.status),
+    index("payments_gateway_ref_idx").on(table.gatewayRef),
   ],
 );
 
@@ -450,7 +461,9 @@ export const payoutTransactions = pgTable(
     processedAt: timestamp("processed_at", { withTimezone: true }),
   },
   (table) => [
+    index("payout_transactions_wallet_idx").on(table.walletId),
     index("payout_transactions_agent_idx").on(table.agentId),
+    index("payout_transactions_agent_created_idx").on(table.agentId, table.createdAt),
     index("payout_transactions_status_idx").on(table.status),
   ],
 );
@@ -526,7 +539,9 @@ export const notifications = pgTable(
   },
   (table) => [
     index("notifications_user_idx").on(table.userId),
+    index("notifications_task_idx").on(table.taskId),
     index("notifications_read_idx").on(table.isRead),
+    index("notifications_user_created_idx").on(table.userId, table.createdAt),
   ],
 );
 
@@ -560,7 +575,10 @@ export const outboundEmails = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [index("outbound_emails_to_address_idx").on(table.toAddress)],
+  (table) => [
+    index("outbound_emails_to_address_idx").on(table.toAddress),
+    index("outbound_emails_user_idx").on(table.userId),
+  ],
 );
 
 // Waitlist — captures early interest from the landing page

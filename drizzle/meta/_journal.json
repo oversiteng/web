@@ -8,6 +8,13 @@
       "when": 1792604383638,
       "tag": "0000_lean_wendigo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792658569343,
+      "tag": "0001_salty_arachne",
+      "breakpoints": true
     }
   ]
 }

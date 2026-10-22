@@ -15,11 +15,17 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      setErrorMessage("Passwords do not match");
+      return;
+    }
     setLoading(true);
+    setErrorMessage(null);
 
     try {
       const response = await fetch("/api/v1/auth/register", {
@@ -27,19 +33,28 @@ export default function RegisterPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: `${firstName.trim()} ${lastName.trim()}`,
-          email,
-          phoneNumber,
+          email: email.trim(),
+          phoneNumber: phoneNumber.trim(),
           password,
         }),
       });
 
       const data = await response.json();
-      if (data.success) {
+      if (!response.ok || !data.success) {
+        setErrorMessage(data.error?.message || "Registration failed. Please try again.");
         setLoading(false);
-        router.push("/dashboard");
+        return;
       }
+
+      if (data.data?.token) {
+        localStorage.setItem("oversite_token", data.data.token);
+      }
+
+      setLoading(false);
+      router.push("/dashboard");
     } catch (error) {
       console.error(error);
+      setErrorMessage("Network error. Please check your connection and try again.");
       setLoading(false);
     }
   };
@@ -60,6 +75,12 @@ export default function RegisterPage() {
           </p>
         </div>
       </div>
+
+      {errorMessage && (
+        <div className="w-full mb-4 p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium text-center animate-in fade-in">
+          {errorMessage}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="w-full space-y-3">
         {/* Name Row */}
