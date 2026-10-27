@@ -1,0 +1,24 @@
+meta {
+  name: Initialize Payment
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/payments/initialize
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "taskId": "{{taskId}}",
+    "amountNgn": 15000.00,
+    "gateway": "PAYSTACK"
+  }
+}

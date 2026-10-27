@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Oversite V2026 Mobile API",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

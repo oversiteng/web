@@ -1,0 +1,15 @@
+meta {
+  name: 5. Get Pending Chats
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/admin/chats/pending?limit=20&page=1
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{adminToken}}
+}

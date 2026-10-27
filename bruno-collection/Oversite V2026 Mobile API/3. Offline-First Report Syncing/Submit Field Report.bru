@@ -1,0 +1,41 @@
+meta {
+  name: Submit Field Report
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/tasks/{{taskId}}/reports
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "summary": "Completed physical perimeter and beacon inspection.",
+    "findings": "Perimeter fencing is fully secure, all boundary pillars intact.",
+    "severity": "NONE",
+    "completionPct": 100,
+    "checklist": [
+      { "item": "Inspect front gate", "completed": true },
+      { "item": "Verify 4 corner beacons", "completed": true }
+    ],
+    "measurements": [
+      { "metric": "Fence Height", "value": "2.8", "unit": "meters" }
+    ],
+    "media": [
+      {
+        "url": "https://s3.us-east-1.amazonaws.com/oversite-evidence/beacon-front.jpg",
+        "type": "image/jpeg",
+        "lat": 6.4475,
+        "lng": 3.4725,
+        "caption": "North-West Corner Beacon"
+      }
+    ]
+  }
+}

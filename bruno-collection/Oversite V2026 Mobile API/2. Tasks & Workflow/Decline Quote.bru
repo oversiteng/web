@@ -1,0 +1,22 @@
+meta {
+  name: Decline Quote
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/tasks/{{taskId}}/quote/decline
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "reason": "Price exceeds budget"
+  }
+}

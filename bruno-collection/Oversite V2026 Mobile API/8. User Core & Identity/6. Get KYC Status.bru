@@ -1,0 +1,15 @@
+meta {
+  name: 6. Get KYC Status
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/kyc/status
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}

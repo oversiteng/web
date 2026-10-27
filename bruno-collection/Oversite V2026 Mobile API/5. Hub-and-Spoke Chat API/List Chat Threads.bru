@@ -1,0 +1,15 @@
+meta {
+  name: List Chat Threads
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/chat
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}

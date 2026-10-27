@@ -1,0 +1,22 @@
+meta {
+  name: 4. Verify NBA (Legal Agent)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/kyc/verify/nba
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "nbaNumber": "SCN/12345/2020"
+  }
+}

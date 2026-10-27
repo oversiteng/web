@@ -1,0 +1,24 @@
+meta {
+  name: Geofenced Site Arrival
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/tasks/{{taskId}}/arrive
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "latitude": 6.4531,
+    "longitude": 3.4357,
+    "accuracy": 10.5
+  }
+}

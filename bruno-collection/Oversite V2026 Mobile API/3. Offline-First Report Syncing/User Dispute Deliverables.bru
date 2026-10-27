@@ -1,0 +1,22 @@
+meta {
+  name: User Dispute Deliverables
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/tasks/{{taskId}}/reports/{{reportId}}/reject
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "reason": "Photographic evidence is blurry on corner beacon 3. Please request sharper recapture."
+  }
+}

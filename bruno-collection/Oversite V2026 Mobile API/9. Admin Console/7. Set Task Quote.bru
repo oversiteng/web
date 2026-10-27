@@ -1,0 +1,29 @@
+meta {
+  name: 7. Set Task Quote
+  type: http
+  seq: 7
+}
+
+patch {
+  url: {{baseUrl}}/admin/tasks/{{taskId}}/quote
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{adminToken}}
+}
+
+body:json {
+  {
+    "priceNgn": 45000,
+    "agentTargetHours": 4,
+    "pricingBreakdown": {
+      "baseFee": 25000,
+      "logistics": 15000,
+      "statutoryDocumentation": 5000
+    },
+    "adminNotes": "Official quote prepared by Central Operations Desk."
+  }
+}
