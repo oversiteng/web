@@ -73,11 +73,26 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
+    const fullErrorStr = `${error?.message || ""} ${error?.cause?.message || ""} ${error?.cause?.detail || ""}`;
+    const errCode = error?.code || error?.cause?.code;
+
+    if (errCode === "23503" || fullErrorStr.includes("foreign key constraint") || fullErrorStr.includes("tasks_user_id_users_id_fk")) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "User account associated with this session no longer exists in database. Please re-authenticate.",
+          },
+        },
+        { status: 401 }
+      );
+    }
     return NextResponse.json(
       {
         success: false,
-        error: { code: "INTERNAL_ERROR", message: (error as Error).message },
+        error: { code: "INTERNAL_ERROR", message: error?.message || String(error) },
       },
       { status: 500 }
     );

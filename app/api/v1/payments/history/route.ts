@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { PaginatedResponse } from "@/lib/types/api";
-import { getDb } from "@/lib/db/client";
+import { getDbReady } from "@/lib/db/client";
 import { payments, tasks } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
-
-const db = getDb();
 
 export interface PaymentHistoryItem {
   id: string;
@@ -23,6 +21,8 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
     const searchParams = req.nextUrl.searchParams;
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const page = parseInt(searchParams.get("page") || "1", 10);
+
+    const db = await getDbReady();
 
     const userPayments = await db
       .select({
@@ -48,7 +48,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
       currency: "NGN",
       gateway: p.gateway,
       status: p.status,
-      taskTitle: p.taskTitle || "Oversite Escrow Service",
+      taskTitle: p.taskTitle || "Oversite Secured Service",
       createdAt: p.createdAt.toISOString(),
     }));
 

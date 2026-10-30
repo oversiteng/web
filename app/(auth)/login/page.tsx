@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { EyeOff, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
+  const { setSession } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -33,12 +35,19 @@ export default function LoginPage() {
         return;
       }
 
-      // Store in localStorage for mobile/client components
-      if (data.data?.token) {
+      if (data.data?.user) {
+        await setSession(data.data.user, data.data.token);
+      } else if (data.data?.token) {
         localStorage.setItem("oversite_token", data.data.token);
       }
 
-      router.push("/dashboard");
+      if (data.data?.user?.role === "AGENT") {
+        router.push("/agent/dashboard");
+      } else if (data.data?.user?.role === "ADMIN" || data.data?.user?.role === "SUPER_ADMIN") {
+        router.push("/admin/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err) {
       setErrorMessage("Network error. Please try again.");
       setLoading(false);

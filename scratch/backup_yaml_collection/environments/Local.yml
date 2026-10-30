@@ -1,0 +1,11 @@
+name: Local
+variables:
+  - name: baseUrl
+    value: http://localhost:3000/api/v1
+    enabled: true
+  - name: token
+    value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MWEzZTkxMS0xYTk2LTQ2Y2UtOTg5Zi1jNGMyMTJkZTRkYjciLCJlbWFpbCI6InVzZXJAZXhhbXBsZS5jb20iLCJyb2xlIjoiVVNFUiIsIm5hbWUiOiJUdW5kZSBDLiIsImlhdCI6MTc5MzA3MjEyMCwiZXhwIjoxNzkzNjc2OTIwfQ.oVO9r491zDZWPshJDdLmCHS9ughbYLASXQf_O2KVlgI
+    enabled: true
+  - name: taskId
+    value: de9cb8a7-5c36-49f8-a2d0-9d5174e09124
+    enabled: true

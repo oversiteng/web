@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Plus, X } from "lucide-react";
+import { Check, Plus, X } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 function PaystackIcon({ className = "w-6 h-6" }: { className?: string }) {
   return (
@@ -38,7 +39,7 @@ export default function BillingPage() {
   };
 
   return (
-    <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-16 select-none">
+    <div className="relative w-full text-[var(--text-heading)] pb-16 select-none">
       {/* ── Toast Notification Banner ── */}
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
@@ -53,27 +54,18 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* ── Top Header ── */}
-      <div className="relative flex items-center justify-center py-3 mb-6">
-        <button
-          type="button"
-          onClick={() => {
-            if (window.history.length > 1) {
-              router.back();
-            } else {
-              router.push("/more");
-            }
-          }}
-          aria-label="Go back"
-          className="absolute left-0 w-9 h-9 flex items-center justify-center text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer -ml-1"
-        >
-          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
-
-        <h1 className="text-[17px] sm:text-[18px] font-semibold text-[var(--text-heading)]">
-          Billing & Payment
-        </h1>
-      </div>
+      {/* ── Unified Page Header ── */}
+      <PageHeader
+        title="Billing & Payment"
+        showBack={true}
+        onBack={() => {
+          if (window.history.length > 1) {
+            router.back();
+          } else {
+            router.push("/more");
+          }
+        }}
+      />
 
       {/* ── Current Plan Section ── */}
       <div className="mb-10">

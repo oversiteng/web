@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 import {
   BellBoldDuotoneIcon as Bell,
   ChecklistLinearIcon as Checklist,
@@ -12,6 +13,62 @@ import {
 
 import { PieChartIcon, BoltIcon, AddIcon, ChandelierIcon, DocumentsMinimalisticIcon, BellIcon, BookIcon, DocumentIcon, ShieldCheckIcon, ObjectScanIcon, MapPointSearchIcon } from '@solar-icons/react/outline'
 import Image from "next/image";
+import { Task } from "@/lib/types/task";
+import { formatTimeAgo, getModuleName } from "@/lib/utils";
+import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
+import { EmptyState } from "@/components/ui/EmptyState";
+
+function getActivityStatusConfig(status?: string | null) {
+  switch (status) {
+    case "COMPLETED":
+      return {
+        label: "Completed",
+        dot: "bg-slate-500",
+        text: "text-slate-600 dark:text-slate-400",
+        bg: "bg-slate-500/10",
+      };
+    case "REPORT_SUBMITTED":
+    case "READY":
+      return {
+        label: "Ready",
+        dot: "bg-[var(--primary)]",
+        text: "text-[var(--primary)]",
+        bg: "bg-[var(--primary)]/10",
+      };
+    case "IN_PROGRESS":
+    case "AGENT_ON_SITE":
+    case "AGENT_EN_ROUTE":
+      return {
+        label: "In progress",
+        dot: "bg-amber-500",
+        text: "text-amber-500",
+        bg: "bg-amber-500/10",
+      };
+    case "UNDER_REVIEW":
+      return {
+        label: "Review",
+        dot: "bg-purple-500",
+        text: "text-purple-600 dark:text-purple-400",
+        bg: "bg-purple-500/10",
+      };
+    case "MATCHED":
+      return {
+        label: "Assigned",
+        dot: "bg-sky-500",
+        text: "text-sky-600 dark:text-sky-400",
+        bg: "bg-sky-500/10",
+      };
+    case "PENDING":
+    case "DRAFT":
+    default:
+      return {
+        label: "Pending",
+        dot: "bg-blue-500",
+        text: "text-blue-600 dark:text-blue-400",
+        bg: "bg-blue-500/10",
+      };
+  }
+}
 
 const SERVICES = [
   { label: "Quick Errands", icon: BoltIcon, color: "text-amber-500", bg: "bg-amber-500/10", module: "QUICK_ERRANDS", href: "/errands" },
@@ -31,9 +88,11 @@ const CAROUSEL_IMAGES = [
 ];
 
 export default function UserDashboard() {
+  const { user } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
-  const [userName, setUserName] = useState<string>("User");
+  const [recentTasks, setRecentTasks] = useState<Task[] | null>(null);
+  const [loadingTasks, setLoadingTasks] = useState(true);
   const [summary, setSummary] = useState<{
     activeRequests: number;
     pendingReports: number;
@@ -43,6 +102,9 @@ export default function UserDashboard() {
     pendingReports: 1,
     monitoredProperties: 3,
   });
+
+  const rawName = user?.name || user?.fullName || "";
+  const displayName = rawName.trim().split(" ")[0] || "User";
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -60,14 +122,6 @@ export default function UserDashboard() {
             : null;
         const headers: Record<string, string> = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
-
-        // Load profile
-        const userRes = await fetch("/api/v1/auth/me", { headers });
-        const userJson = await userRes.json();
-        if (userJson.success && userJson.data?.fullName) {
-          const firstName = userJson.data.fullName.split(" ")[0];
-          setUserName(firstName);
-        }
 
         // Load dashboard stats
         const summaryRes = await fetch("/api/v1/dashboard/summary", { credentials: "include", headers });
@@ -87,8 +141,25 @@ export default function UserDashboard() {
             });
           }
         }
+
+        // Load recent activities
+        try {
+          const tasksRes = await fetch("/api/v1/tasks?limit=5", { headers });
+          const tasksJson = await tasksRes.json();
+          if (tasksJson.success && Array.isArray(tasksJson.data)) {
+            setRecentTasks(tasksJson.data);
+          } else {
+            setRecentTasks([]);
+          }
+        } catch (tasksErr) {
+          console.error("Failed to load recent activities:", tasksErr);
+          setRecentTasks([]);
+        } finally {
+          setLoadingTasks(false);
+        }
       } catch (err) {
         console.error("Failed to load dashboard live stats:", err);
+        setLoadingTasks(false);
       }
     }
 
@@ -99,7 +170,7 @@ export default function UserDashboard() {
     <div className="space-y-6 relative pb-8">
       {/* Top Bar */}
       <div className="flex items-center justify-between pt-2">
-        <h1 className="text-[18px] sm:text-2xl font-bold text-[var(--text-heading)]">Good day! {userName}</h1>
+        <h1 className="text-[18px] sm:text-2xl font-bold text-[var(--text-heading)]">Good day! {displayName}</h1>
         <Link href="/notifications" className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex items-center justify-center hover:bg-(--bg-secondary) transition-colors">
           <BellIcon className="w-6 h-6 sm:w-8 sm:h-8 text-[var(--text-heading)]" />
           <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-[var(--primary)] text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-[var(--bg-body)]">
@@ -110,34 +181,46 @@ export default function UserDashboard() {
 
       {/* Stats Row */}
       <div className="grid grid-cols-4 gap-2 sm:gap-3 pb-2">
-        <div className="p-3 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5">
+        <Link
+          href="/dashboard/tasks"
+          className="p-3 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer group"
+        >
           <div className="flex items-center justify-between w-full gap-1">
-            <Checklist className="w-6 h-6 sm:w-8 sm:h-8 text-[var(--primary)] shrink-0" />
+            <Checklist className="w-6 h-6 sm:w-8 sm:h-8 text-[var(--primary)] shrink-0 group-hover:scale-105 transition-transform" />
             <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">{summary.activeRequests}</span>
           </div>
           <span className="text-[11px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">Task</span>
-        </div>
-        <div className="p-3 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5">
+        </Link>
+        <Link
+          href="/dashboard/tasks?filter=pending"
+          className="p-3 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer group"
+        >
           <div className="flex items-center justify-between w-full gap-1">
-            <History className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500 shrink-0" />
+            <History className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500 shrink-0 group-hover:scale-105 transition-transform" />
             <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">{summary.pendingReports}</span>
           </div>
           <span className="text-[11px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">Pending</span>
-        </div>
-        <div className="p-3 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5">
+        </Link>
+        <Link
+          href="/dashboard/tasks?filter=this-month"
+          className="p-3 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer group"
+        >
           <div className="flex items-center justify-between w-full gap-1">
-            <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-slate-500 shrink-0" />
-            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">{summary.monitoredProperties}</span>
+            <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-slate-500 shrink-0 group-hover:scale-105 transition-transform" />
+            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">{summary.monitoredProperties || 2}</span>
           </div>
-          <span className="text-[11px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">Properties</span>
-        </div>
-        <div className="p-3 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5">
+          <span className="text-[11px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">This Month</span>
+        </Link>
+        <Link
+          href="/dashboard/tasks?filter=flagged"
+          className="p-3 sm:p-3.5 rounded-[16px] sm:rounded-[20px] bg-[var(--bg-card)] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex flex-col gap-1.5 sm:gap-2.5 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer group"
+        >
           <div className="flex items-center justify-between w-full gap-1">
-            <Flag className="w-6 h-6 sm:w-8 sm:h-8 text-red-500 shrink-0" />
-            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">0</span>
+            <Flag className="w-6 h-6 sm:w-8 sm:h-8 text-red-500 shrink-0 group-hover:scale-105 transition-transform" />
+            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">1</span>
           </div>
-          <span className="text-[13px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">Flag</span>
-        </div>
+          <span className="text-[11px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">Flag</span>
+        </Link>
       </div>
 
       {/* Live Status Card */}
@@ -212,46 +295,59 @@ export default function UserDashboard() {
           </Link>
         </div>
 
-        <div className="bg-[var(--bg-card)] rounded-[24px] p-2 space-y-1 shadow-[0_0_10px_rgba(0,0,0,0.03)]">
-          {/* Task 1 */}
-          <div className="flex items-center justify-between p-3 rounded-2xl hover:bg-[var(--bg-secondary)] transition-colors">
-            <div>
-              <h3 className="text-[13px] font-bold text-[var(--text-heading)]">CAC certified copy</h3>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Property Oversite · Tunde C. · 2h ago</p>
+        <div className="bg-[var(--bg-card)] rounded-[24px] p-2 space-y-1 shadow-[0_0_10px_rgba(0,0,0,0.03)] border border-[var(--border-color)]/60">
+          {loadingTasks ? (
+            <div className="p-2">
+              <DynamicLoadingState variant="generic" count={3} />
             </div>
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-[var(--primary)]/10 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />
-              <span className="text-[10px] font-bold text-[var(--primary)]">Ready</span>
-            </div>
-          </div>
+          ) : recentTasks && recentTasks.length > 0 ? (
+            recentTasks.map((task, idx) => {
+              const statusConfig = getActivityStatusConfig(task.status);
+              const moduleLabel = getModuleName(task.moduleType);
+              const agentLabel = task.agentName || (task.formData?.tier ? `Tier ${task.formData.tier}` : "Oversite Team");
+              const timeAgoLabel = formatTimeAgo(task.createdAt);
+              const subtitle = `${moduleLabel} · ${agentLabel} · ${timeAgoLabel}`;
 
-          <hr className="border-t border-[var(--border-color)] mx-3" />
+              const targetLink =
+                task.status === "COMPLETED" || task.status === "REPORT_SUBMITTED"
+                  ? `/dashboard/tasks/${task.id}/report`
+                  : `/dashboard/tasks/${task.id}`;
 
-          {/* Task 2 */}
-          <div className="flex items-center justify-between p-3 rounded-2xl hover:bg-[var(--bg-secondary)] transition-colors">
-            <div>
-              <h3 className="text-[13px] font-bold text-[var(--text-heading)]">CAC certified copy</h3>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Document Processing · Folake A. · today</p>
-            </div>
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-500/10 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              <span className="text-[10px] font-bold text-amber-500">In progress</span>
-            </div>
-          </div>
-
-          <hr className="border-t border-[var(--border-color)] mx-3" />
-
-          {/* Task 3 */}
-          <div className="flex items-center justify-between p-3 rounded-2xl hover:bg-[var(--bg-secondary)] transition-colors">
-            <div>
-              <h3 className="text-[13px] font-bold text-[var(--text-heading)]">Vendor background check</h3>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Due Diligence · Tier 2 · yesterday</p>
-            </div>
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-500/10 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">Completed</span>
-            </div>
-          </div>
+              return (
+                <div key={task.id}>
+                  {idx > 0 && <hr className="border-t border-[var(--border-color)]/60 mx-3 my-0.5" />}
+                  <Link
+                    href={targetLink}
+                    className="flex items-center justify-between p-3 rounded-2xl hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer group"
+                  >
+                    <div className="min-w-0 pr-3 flex-1">
+                      <h3 className="text-[13px] font-bold text-[var(--text-heading)] truncate group-hover:text-[var(--primary)] transition-colors">
+                        {task.title}
+                      </h3>
+                      <p className="text-[11px] text-[var(--text-muted)] mt-0.5 truncate">
+                        {subtitle}
+                      </p>
+                    </div>
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full shrink-0 ${statusConfig.bg}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
+                      <span className={`text-[10px] font-bold ${statusConfig.text}`}>
+                        {statusConfig.label}
+                      </span>
+                    </div>
+                  </Link>
+                </div>
+              );
+            })
+          ) : (
+            <EmptyState
+              preset="tasks"
+              compact={true}
+              action={{
+                label: "Request your first service",
+                onClick: () => setQuickActionsOpen(true),
+              }}
+            />
+          )}
         </div>
       </div>
 

@@ -7,30 +7,86 @@ import { tasks } from "@/db/schema";
 
 const db = getDb();
 
+function isValidUuid(id?: string | null): boolean {
+  if (!id) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+}
+
 export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
     const body = await req.json();
-    const { legalDomain, serviceType, caseSummary, title, priceNgn, propertyId, formData } = body;
+    const {
+      legalDomain,
+      legalType,
+      serviceType,
+      caseSummary,
+      title,
+      priceNgn,
+      propertyId,
+      formData,
+    } = body;
 
-    const taskTitle = title || (legalDomain && serviceType ? `${legalDomain} - ${serviceType}` : "Legal Advisory Consultation");
+    const domain = legalDomain || formData?.legalDomain || "Property & Land Law";
+    const service = serviceType || formData?.serviceType || "Advice/opinion";
+    const entityType = legalType || formData?.legalType || "Individual";
+    const summary = caseSummary || formData?.caseSummary || null;
+
+    const taskTitle =
+      title || (domain && service ? `${domain} - ${service}` : "Legal Advisory Consultation");
+
+    // Optional parse for scheduled consultation date
+    const dateInput = formData?.consultationDate || formData?.consultationDateRaw;
+    let scheduledDate: Date | null = null;
+    if (dateInput) {
+      const parsed = new Date(dateInput);
+      if (!isNaN(parsed.getTime())) {
+        scheduledDate = parsed;
+      }
+    }
+
+    const consentData = formData?.consent || formData?.declaration || null;
+
+    const workloadUnits = formData?.workloadUnits ?? 2;
+    const serviceFee = workloadUnits * 11000;
+    const documentReviewBase = 4000;
+    const charge = 100;
+    const calculatedTotal = serviceFee + documentReviewBase + charge;
+    const finalPrice = priceNgn || calculatedTotal;
+
+    const breakdown = formData?.pricingBreakdown || {
+      serviceFee,
+      workloadUnits,
+      documentReviewBase,
+      charge,
+      totalAmount: finalPrice,
+    };
 
     const [newTask] = await db
       .insert(tasks)
       .values({
         userId: user.sub,
-        propertyId: propertyId || null,
+        propertyId: isValidUuid(propertyId) ? propertyId : null,
         moduleType: "LEGAL_ADVISORY",
         status: "PENDING",
         priority: "high",
         title: taskTitle,
-        description: caseSummary || null,
+        description: summary,
+        scheduledAt: scheduledDate,
         formData: {
-          legalDomain,
-          serviceType,
-          caseSummary,
+          legalDomain: domain,
+          legalType: entityType,
+          serviceType: service,
+          caseSummary: summary,
+          consultationDate: formData?.consultationDate || null,
+          fileName: formData?.fileName || null,
+          workloadUnits,
+          pricingBreakdown: breakdown,
+          consent: consentData,
+          declaration: consentData,
           ...(formData || {}),
         },
-        priceNgn: priceNgn || 15000,
+        pricingBreakdown: breakdown,
+        priceNgn: finalPrice,
       })
       .returning();
 
@@ -56,11 +112,26 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
+    const fullErrorStr = `${error?.message || ""} ${error?.cause?.message || ""} ${error?.cause?.detail || ""}`;
+    const errCode = error?.code || error?.cause?.code;
+
+    if (errCode === "23503" || fullErrorStr.includes("foreign key constraint") || fullErrorStr.includes("tasks_user_id_users_id_fk")) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "User account associated with this session no longer exists in database. Please re-authenticate.",
+          },
+        },
+        { status: 401 }
+      );
+    }
     return NextResponse.json(
       {
         success: false,
-        error: { code: "INTERNAL_ERROR", message: (error as Error).message },
+        error: { code: "INTERNAL_ERROR", message: error?.message || String(error) },
       },
       { status: 500 }
     );

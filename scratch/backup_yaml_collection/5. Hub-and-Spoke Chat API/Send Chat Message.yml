@@ -1,0 +1,25 @@
+info:
+  name: Send Chat Message
+  type: http
+  seq: 1
+http:
+  method: POST
+  url: '{{baseUrl}}/chat/{{taskId}}/messages'
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "message": "Can you check the survey beacons along the rear boundary?",
+        "receiverId": "{{agentId}}"
+      }
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

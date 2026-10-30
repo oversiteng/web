@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
 
 import { useAuth } from "@/context/AuthContext";
 
@@ -17,7 +18,25 @@ const NAV_ITEMS = [
 
 export default function UserLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, isLoading, isAuthenticated, logout } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      window.location.href = "/login";
+    }
+  }, [isLoading, isAuthenticated]);
+
+  if (isLoading && !user) {
+    return (
+      <div className="min-h-screen bg-[#F4F6F4] dark:bg-[var(--bg-body)] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated && !user) {
+    return null;
+  }
 
   const displayName = user?.name || user?.fullName || "Oversite User";
   const initials = displayName
@@ -163,8 +182,8 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
         {/* Main Content Area (Centered Feed Column) */}
         <div className="flex-1 flex flex-col min-h-screen min-w-0 md:border-r md:border-[var(--border-color)] max-w-full md:max-w-[600px] xl:max-w-[650px]">
           {/* Page Content Container */}
-          <main className="flex-1 p-4 sm:p-6 md:p-8 w-full mx-auto pb-24 md:pb-8">
-            <React.Suspense fallback={<div className="p-8 text-center text-sm text-[var(--text-muted)]">Loading...</div>}>
+          <main className="flex-1 w-full max-w-[650px] mx-auto px-4 sm:px-6 py-4 sm:py-6 pb-28 md:pb-12">
+            <React.Suspense fallback={<DynamicLoadingState variant="generic" />}>
               {children}
             </React.Suspense>
           </main>

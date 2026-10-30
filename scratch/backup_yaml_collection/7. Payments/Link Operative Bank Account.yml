@@ -1,0 +1,26 @@
+info:
+  name: Link Operative Bank Account
+  type: http
+  seq: 8
+http:
+  method: POST
+  url: '{{baseUrl}}/agent/bank-accounts'
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "bankCode": "058",
+        "bankAccountNumber": "0123456789",
+        "bankAccountName": "OVERSITE ACCREDITED OPERATIVE"
+      }
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

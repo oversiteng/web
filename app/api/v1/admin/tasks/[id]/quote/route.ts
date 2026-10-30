@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
-import { getDb } from "@/lib/db/client";
+import { getDbReady } from "@/lib/db/client";
 import { tasks, notifications } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { calculateClientBufferedHours } from "@/lib/services/pricing";
-
-const db = getDb();
 
 // PATCH /api/v1/admin/tasks/:id/quote
 // Admin concierge sets manual pricing, items, and delivery SLA for tasks awaiting quote
@@ -34,6 +32,8 @@ export const PATCH = withAuth<{ id: string }>(
         );
       }
 
+      const db = await getDbReady();
+
       const existingTasks = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
       if (existingTasks.length === 0) {
         return NextResponse.json(
@@ -51,7 +51,8 @@ export const PATCH = withAuth<{ id: string }>(
         .update(tasks)
         .set({
           priceNgn: String(priceNgn),
-          quoteStatus: "PRICED",
+          quoteStatus: "OFFICIALLY_QUOTED",
+          pricingMode: "ADMIN_MANUAL",
           agentTargetHours: targetHours,
           clientPromisedHours: clientHours,
           clientPromisedDeliveryDate: deliveryDate,
@@ -67,12 +68,12 @@ export const PATCH = withAuth<{ id: string }>(
         .where(eq(tasks.id, taskId))
         .returning();
 
-      // Send notification to the client that their quote is ready
+      // Send notification to the user that their official quote is ready
       await db.insert(notifications).values({
         userId: task.userId,
         type: "TASK_UPDATE",
-        title: "Service Quote Ready",
-        body: `Your quote of ₦${Number(priceNgn).toLocaleString()} for "${task.title}" is ready for approval.`,
+        title: "Official Service Quote Ready",
+        body: `Your official quote of ₦${Number(priceNgn).toLocaleString()} for "${task.title}" is ready for approval.`,
         taskId: task.id,
       });
 
@@ -89,11 +90,11 @@ export const PATCH = withAuth<{ id: string }>(
         success: true,
         data: {
           taskId: updatedTask.id,
-          quoteStatus: updatedTask.quoteStatus || "PRICED",
+          quoteStatus: updatedTask.quoteStatus || "OFFICIALLY_QUOTED",
           priceNgn: parseFloat(updatedTask.priceNgn || "0"),
           clientPromisedHours: updatedTask.clientPromisedHours || clientHours,
           clientPromisedDeliveryDate: updatedTask.clientPromisedDeliveryDate?.toISOString() || deliveryDate.toISOString(),
-          message: "Task has been quoted and client notified.",
+          message: "Task has been officially quoted and user notified.",
         },
       });
     } catch (error) {
@@ -106,5 +107,5 @@ export const PATCH = withAuth<{ id: string }>(
       );
     }
   },
-  { roles: ["ADMIN"] }
+  { roles: ["ADMIN", "SUPER_ADMIN"] }
 );

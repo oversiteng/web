@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
-import { getDb } from "@/lib/db/client";
+import { getDbReady } from "@/lib/db/client";
 import { tasks, payments, agentWallets } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
-const db = getDb();
-
 // POST /api/v1/payments/disburse
-// Authorizes the release of escrowed funds to the assigned Agent upon milestone approval.
+// Authorizes the release of secured funds to the assigned Agent upon task completion or milestone approval.
 export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
     const body = await req.json();
@@ -24,7 +22,9 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       );
     }
 
-    // Verify task belongs to user (or user is admin)
+    const db = await getDbReady();
+
+    // Verify task belongs to user (or caller is admin)
     const existingTasks = await db
       .select()
       .from(tasks)
@@ -42,7 +42,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     }
 
     const task = existingTasks[0];
-    if (task.userId !== user.sub && user.role !== "ADMIN") {
+    const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(user.role);
+    if (task.userId !== user.sub && !isAdmin) {
       return NextResponse.json(
         {
           success: false,
@@ -62,7 +63,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       );
     }
 
-    // Find escrowed or captured payment for this task
+    // Find captured payment for this task
     const taskPayments = await db
       .select()
       .from(payments)
@@ -124,7 +125,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
         milestoneId,
         disbursedAmount: amountNgn,
         status: "RELEASED",
-        message: "Escrow funds released to agent successfully.",
+        message: "Service payment disbursed to agent successfully.",
       },
     });
   } catch (error) {

@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const event = JSON.parse(rawBody);
 
     // TODO: Handle event 'charge.success'
-    // - Update payment status to 'CAPTURED' or 'ESCROWED'
+    // - Update payment status to 'CAPTURED' or 'AUTHORIZED'
     // - Update corresponding task status to 'PENDING' / 'MATCHED'
     // - Notify user and admin
 

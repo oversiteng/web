@@ -149,5 +149,5 @@ export const POST = withAuth<{ id: string }>(
       );
     }
   },
-  { roles: ["ADMIN"] }
+  { roles: ["ADMIN", "SUPER_ADMIN"] }
 );

@@ -1,0 +1,27 @@
+info:
+  name: 2. Update Profile
+  type: http
+  seq: 2
+http:
+  method: PATCH
+  url: '{{baseUrl}}/users/me'
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Chidi Chukwuemeka",
+        "phone": "08012345678",
+        "location": "Lekki Phase 1, Lagos",
+        "occupation": "Property Developer"
+      }
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

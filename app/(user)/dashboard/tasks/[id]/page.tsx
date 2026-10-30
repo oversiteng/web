@@ -3,6 +3,7 @@
 import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PageHeader } from "@/components/ui/PageHeader";
 import {
   ArrowLeft,
   ArrowLeftRight,
@@ -113,10 +114,10 @@ export default function TaskDetailPage({
   useEffect(() => {
     async function fetchTaskData() {
       // If it's a mock identifier, load predefined mock flows
-      if (taskId === "task-6") {
+      if (taskId === "task-6" || taskId === "task-3") {
         setTask({
           ...DEFAULT_TASK,
-          id: "task-6",
+          id: taskId,
           title: "Vendor background check",
           projectName: "Vendor Background Check - Plot 12 Lekki",
           subtitle: "Due Diligence · Price Proposal from Oversite Admin · 1h ago",
@@ -131,6 +132,20 @@ export default function TaskDetailPage({
           },
         });
         setViewMode("proposal");
+        return;
+      }
+      if (taskId === "task-2") {
+        setTask({
+          ...DEFAULT_TASK,
+          id: "task-2",
+          title: "CAC certified copy",
+          projectName: "Property Oversite - CAC Filing",
+          subtitle: "Property Oversite · Tunde C. · 2h ago",
+          status: "ready",
+          totalCharged: "₦25,000",
+          managerNote: "CAC status certified and corporate search report completed with certified true copy attached.",
+        });
+        setViewMode("completed");
         return;
       }
       if (taskId === "task-4" || taskId === "task-5") {
@@ -209,35 +224,26 @@ export default function TaskDetailPage({
   };
 
   return (
-    <div className="bg-(--bg-body) min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-(--text-heading) transition-colors duration-150 animate-in fade-in duration-200 -m-4 sm:-m-6 md:-m-8">
-      <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between px-4 sm:px-6 py-4">
+    <div className="relative w-full text-[var(--text-heading)] transition-colors duration-150">
+      <div className="w-full flex flex-col justify-between">
         <div>
-          {/* ── Top Header ── */}
-          <div className="relative flex items-center justify-between py-3 mb-3">
-            <button
-              type="button"
-              onClick={() => router.push("/dashboard/tasks")}
-              className="p-2 -ml-2 text-(--text-heading) hover:opacity-75 transition-opacity cursor-pointer"
-              aria-label="Back to tasks"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-
-            <h1 className="text-[17px] sm:text-[18px] font-bold text-(--text-heading) tracking-tight text-center truncate px-2 flex-1">
-              {task.title}
-            </h1>
-
-            {/* View Mode Toggle (⇄) icon */}
-            <button
-              type="button"
-              onClick={toggleViewMode}
-              title="Toggle between Awaiting state and Completed Report state"
-              className="p-2 -mr-2 text-(--text-muted) hover:text-(--primary) transition-colors cursor-pointer"
-              aria-label="Toggle state view"
-            >
-              <ArrowLeftRight className="w-5 h-5" />
-            </button>
-          </div>
+          {/* ── Unified Page Header ── */}
+          <PageHeader
+            title={task.title}
+            showBack={true}
+            onBack={() => router.push("/dashboard/tasks")}
+            rightSlot={
+              <button
+                type="button"
+                onClick={toggleViewMode}
+                title="Toggle between Awaiting state and Completed Report state"
+                className="w-10 h-10 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors cursor-pointer"
+                aria-label="Toggle state view"
+              >
+                <ArrowLeftRight className="w-4 h-4 stroke-[2]" />
+              </button>
+            }
+          />
 
           {/* ── Task Subheader Block ── */}
           <div className="flex items-start justify-between gap-3 mb-5">

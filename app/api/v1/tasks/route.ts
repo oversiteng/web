@@ -3,14 +3,16 @@ import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse, PaginatedResponse } from "@/lib/types/api";
 import { Task, TaskModule, TaskStatus } from "@/lib/types/task";
 import { getDb } from "@/lib/db/client";
-import { tasks, properties } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { tasks, properties, users } from "@/db/schema";
+import { eq, and, sql, desc } from "drizzle-orm";
 
 import { calculateTaskPricing } from "@/lib/services/pricing";
 
 const db = getDb();
 
 export const GET = withAuth(async (req: NextRequest, { user }) => {
+  console.log("helle")
+
   const searchParams = req.nextUrl.searchParams;
   const moduleType = searchParams.get("module") as TaskModule | null;
   const status = searchParams.get("status");
@@ -46,9 +48,19 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-  const dbTasks = await db.select().from(tasks).where(whereClause).limit(limit).offset((page - 1) * limit);
+  const dbTasks = await db
+    .select({
+      task: tasks,
+      agentName: users.name,
+    })
+    .from(tasks)
+    .leftJoin(users, eq(tasks.agentId, users.id))
+    .where(whereClause)
+    .orderBy(desc(tasks.createdAt))
+    .limit(limit)
+    .offset((page - 1) * limit);
 
-  const mappedTasks: Task[] = dbTasks.map((t) => ({
+  const mappedTasks: Task[] = dbTasks.map(({ task: t, agentName }) => ({
     ...t,
     moduleType: t.moduleType as TaskModule,
     status: t.status as TaskStatus,
@@ -61,6 +73,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
     completedAt: t.completedAt ? t.completedAt.toISOString() : null,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt ? t.updatedAt.toISOString() : undefined,
+    agentName: agentName || null,
   }));
 
   return NextResponse.json<PaginatedResponse<Task>>({
@@ -94,7 +107,6 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       requestedHours,
       formData,
     } = body;
-
     if (!moduleType || !title) {
       return NextResponse.json(
         {
@@ -117,6 +129,39 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
         finalLat = linkedProps[0].latitude;
         finalLng = linkedProps[0].longitude;
       }
+    }
+
+    // Verify user exists and is active in database
+    const [existingUser] = await db
+      .select({ id: users.id, isActive: users.isActive })
+      .from(users)
+      .where(eq(users.id, user.sub))
+      .limit(1);
+
+    if (!existingUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "User account associated with this session no longer exists in database. Please re-authenticate.",
+          },
+        },
+        { status: 401 }
+      );
+    }
+
+    if (!existingUser.isActive) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "This account has been deactivated. Please contact support.",
+          },
+        },
+        { status: 403 }
+      );
     }
 
     // Automatically compute pricing and SLA parameters
@@ -179,11 +224,26 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
+    const fullErrorStr = `${error?.message || ""} ${error?.cause?.message || ""} ${error?.cause?.detail || ""}`;
+    const errCode = error?.code || error?.cause?.code;
+
+    if (errCode === "23503" || fullErrorStr.includes("foreign key constraint") || fullErrorStr.includes("tasks_user_id_users_id_fk")) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "User account associated with this session no longer exists in database. Please re-authenticate.",
+          },
+        },
+        { status: 401 }
+      );
+    }
     return NextResponse.json(
       {
         success: false,
-        error: { code: "INTERNAL_ERROR", message: (error as Error).message },
+        error: { code: "INTERNAL_ERROR", message: error?.message || String(error) },
       },
       { status: 500 }
     );

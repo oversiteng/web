@@ -7,8 +7,6 @@ import { Maximize2, Minimize2, Navigation, Layers } from "lucide-react";
 
 export type OpenFreeMapStyle = "streets" | "dark" | "osm" | "liberty" | "bright" | "positron";
 
-// 100% Free, NO-API-KEY Public Tile Providers:
-// 1. Esri World Street Map: Clean streets, roads, highways, towns, and terrain shading without 3D house clutter.
 export const ESRI_STREETS_STYLE: any = {
   version: 8,
   sources: {

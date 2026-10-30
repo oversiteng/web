@@ -94,10 +94,23 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       { status: 201 }
     );
   } catch (error) {
+    const errMessage = (error as Error).message || "";
+    if (errMessage.includes("violates foreign key constraint") && errMessage.includes("user_id")) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "User account associated with this session no longer exists in database. Please re-authenticate.",
+          },
+        },
+        { status: 401 }
+      );
+    }
     return NextResponse.json(
       {
         success: false,
-        error: { code: "INTERNAL_ERROR", message: (error as Error).message },
+        error: { code: "INTERNAL_ERROR", message: errMessage },
       },
       { status: 500 }
     );

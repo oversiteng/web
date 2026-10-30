@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import { PageHeader } from "@/components/ui/PageHeader";
 import {
   ArrowLeft,
   User,
@@ -102,27 +103,19 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-12 select-none">
-      {/* ── Top Header ── */}
-      <div className="relative flex items-center justify-center py-3 mb-6">
-        <button
-          type="button"
-          onClick={() => {
-            if (window.history.length > 1) {
-              router.back();
-            } else {
-              router.push("/more");
-            }
-          }}
-          aria-label="Go back"
-          className="absolute left-0 w-9 h-9 flex items-center justify-center text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer"
-        >
-          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
-        <h1 className="text-[17px] sm:text-[18px] font-semibold text-[var(--text-heading)]">
-          Settings
-        </h1>
-      </div>
+    <div className="relative w-full text-[var(--text-heading)] pb-12 select-none">
+      {/* ── Unified Page Header ── */}
+      <PageHeader
+        title="Settings"
+        showBack={true}
+        onBack={() => {
+          if (window.history.length > 1) {
+            router.back();
+          } else {
+            router.push("/more");
+          }
+        }}
+      />
 
       {/* ── Main List Container ── */}
       <div className="space-y-1">

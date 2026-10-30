@@ -1,0 +1,16 @@
+info:
+  name: List Nigerian Banks
+  type: http
+  seq: 6
+http:
+  method: GET
+  url: '{{baseUrl}}/banks'
+  headers:
+    - name: Authorization
+      value: Bearer {{token}}
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

@@ -17,7 +17,7 @@ function secureEquals(input: string, expected: string) {
 }
 
 export function authenticateExternalKey(request: Request) {
-  const key = request.headers.get("x-api-key");
+  const key = request.headers.get("");
   const configured =
     process.env.EXTERNAL_API_KEYS?.split(",")
       .map((value) => value.trim())

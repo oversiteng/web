@@ -43,8 +43,10 @@ export default function ProjectReviewFormPage() {
   const router = useRouter();
 
   // Form State
-  const [projectName, setProjectName] = useState("");
-  const [buildingType, setBuildingType] = useState("");
+  const [projectTitle, setProjectTitle] = useState("");
+  const [describeProject, setDescribeProject] = useState("");
+  const [keyOutcomes, setKeyOutcomes] = useState("");
+  const [buildingType, setBuildingType] = useState("Residential");
   const [targetCompletion, setTargetCompletion] = useState("");
   const [targetCompletionRaw, setTargetCompletionRaw] = useState("");
   const [reviewScope, setReviewScope] = useState("");
@@ -62,7 +64,6 @@ export default function ProjectReviewFormPage() {
   const [newMilestoneDateRaw, setNewMilestoneDateRaw] = useState("");
 
   // Refs for native calendar pickers
-  const targetDateRef = useRef<HTMLInputElement>(null);
   const milestoneDateRef = useRef<HTMLInputElement>(null);
 
   // Minimum date for pickers (today)
@@ -76,11 +77,6 @@ export default function ProjectReviewFormPage() {
       return `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
     return val;
-  };
-
-  const handleTargetDateChange = (val: string) => {
-    setTargetCompletionRaw(val);
-    setTargetCompletion(formatDateToDDMMYYYY(val));
   };
 
   const handleMilestoneDateChange = (val: string) => {
@@ -114,8 +110,7 @@ export default function ProjectReviewFormPage() {
 
   // Validation
   const canProceed =
-    projectName.trim().length >= 2 &&
-    buildingType &&
+    (projectTitle.trim().length >= 2 || describeProject.trim().length >= 2) &&
     reviewScope &&
     supervisorExpertise;
 
@@ -123,9 +118,14 @@ export default function ProjectReviewFormPage() {
   const handleReview = () => {
     if (!canProceed) return;
 
+    const titleValue = projectTitle.trim() || describeProject.trim().slice(0, 40) || "Construction Project";
+
     // Save draft to sessionStorage for /projects/review to read
     const draft = {
-      projectName: projectName.trim(),
+      projectTitle: titleValue,
+      projectName: titleValue,
+      describeProject: describeProject.trim(),
+      keyOutcomes: keyOutcomes.trim(),
       buildingType,
       targetCompletion: targetCompletion || "DD/MM/YYYY",
       targetCompletionRaw,
@@ -138,11 +138,10 @@ export default function ProjectReviewFormPage() {
 
     // Also pass primary query parameters for direct linkability
     const query = new URLSearchParams({
-      name: projectName.trim(),
-      type: buildingType,
+      title: titleValue,
+      name: titleValue,
       scope: reviewScope,
       expert: supervisorExpertise,
-      date: targetCompletion || "",
     });
 
     router.push(`/projects/review?${query.toString()}`);
@@ -163,88 +162,52 @@ export default function ProjectReviewFormPage() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-[17px] sm:text-[18px] font-bold text-[var(--text-heading)] tracking-tight">
-              Project review
+              Project Monitor
             </h1>
           </div>
 
           {/* ── Form Fields ── */}
           <div className="space-y-4">
-            {/* Field 1: Project Name */}
+            {/* Field 1: Project Title */}
             <div>
               <label className="block text-[13.5px] font-semibold text-[var(--text-heading)] mb-2">
-                Project name
+                Project title
               </label>
               <input
                 type="text"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                placeholder=""
+                value={projectTitle}
+                onChange={(e) => setProjectTitle(e.target.value)}
+                placeholder="e.g. 4-Bedroom Duplex Construction"
                 className="w-full bg-[var(--bg-card)] rounded-[18px] px-4 py-3.5 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] border border-[var(--border-color)] focus:border-[var(--primary)] focus:outline-none transition-all shadow-xs"
               />
             </div>
 
-            {/* Field 2: Building Type */}
+            {/* Field 2: Describe Project */}
             <div>
               <label className="block text-[13.5px] font-semibold text-[var(--text-heading)] mb-2">
-                Building type
+                Describe Project
               </label>
-              <button
-                type="button"
-                onClick={() => setActiveDrawer("building")}
-                className="w-full bg-[var(--bg-card)] rounded-[18px] px-4 py-3.5 flex items-center justify-between text-[14px] text-left cursor-pointer border border-[var(--border-color)] focus:border-[var(--primary)] transition-all shadow-xs"
-              >
-                <span
-                  className={
-                    buildingType
-                      ? "text-[var(--text-heading)] font-medium truncate pr-2"
-                      : "text-[var(--text-muted)]"
-                  }
-                >
-                  {buildingType || ""}
-                </span>
-                <ChevronDown className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
-              </button>
+              <textarea
+                rows={3}
+                value={describeProject}
+                onChange={(e) => setDescribeProject(e.target.value)}
+                placeholder="Provide overview of the project, site location, and current progress..."
+                className="w-full bg-[var(--bg-card)] rounded-[18px] p-4 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] border border-[var(--border-color)] focus:border-[var(--primary)] focus:outline-none transition-all shadow-xs resize-none"
+              />
             </div>
 
-            {/* Field 3: Target Completion (Calendar Picker matching Legal Page) */}
+            {/* Field 3: Key Outcomes of interest */}
             <div>
               <label className="block text-[13.5px] font-semibold text-[var(--text-heading)] mb-2">
-                Target completion
+                Key Outcomes of interest
               </label>
-              <div
-                onClick={() => {
-                  try {
-                    targetDateRef.current?.showPicker?.();
-                  } catch {
-                    targetDateRef.current?.focus();
-                  }
-                }}
-                className="relative w-full bg-[var(--bg-card)] rounded-[18px] px-4 py-3.5 flex items-center justify-between border border-[var(--border-color)] hover:border-[var(--text-muted)] focus-within:border-[var(--primary)] transition-colors shadow-xs cursor-pointer text-left"
-              >
-                <span
-                  className={`text-[14px] ${
-                    targetCompletion
-                      ? "text-[var(--text-heading)] font-medium"
-                      : "text-[var(--text-muted)]"
-                  }`}
-                >
-                  {targetCompletion || "DD/MM/YYYY"}
-                </span>
-                <div className="flex items-center gap-1.5 text-[var(--text-muted)] pointer-events-none">
-                  <Calendar className="w-4 h-4" />
-                  <ChevronDown className="w-4 h-4" />
-                </div>
-
-                <input
-                  ref={targetDateRef}
-                  type="date"
-                  min={minDate}
-                  value={targetCompletionRaw}
-                  onChange={(e) => handleTargetDateChange(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full [color-scheme:dark_light]"
-                  aria-label="Select target completion date"
-                />
-              </div>
+              <textarea
+                rows={3}
+                value={keyOutcomes}
+                onChange={(e) => setKeyOutcomes(e.target.value)}
+                placeholder="e.g. Structural stability, quality of materials, plumbing/electrical compliance..."
+                className="w-full bg-[var(--bg-card)] rounded-[18px] p-4 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] border border-[var(--border-color)] focus:border-[var(--primary)] focus:outline-none transition-all shadow-xs resize-none"
+              />
             </div>
 
             {/* Section 4: Milestones */}
@@ -254,7 +217,7 @@ export default function ProjectReviewFormPage() {
                   Milestones
                 </h2>
                 <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-                  Add the stages you want to be checked
+                  Project Milestone vs Target date
                 </p>
               </div>
 
@@ -317,7 +280,7 @@ export default function ProjectReviewFormPage() {
                       : "text-[var(--text-muted)]"
                   }
                 >
-                  {reviewScope || "select"}
+                  {reviewScope || "Select"}
                 </span>
                 <ChevronDown className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
               </button>
@@ -340,7 +303,7 @@ export default function ProjectReviewFormPage() {
                       : "text-[var(--text-muted)]"
                   }
                 >
-                  {supervisorExpertise || "select"}
+                  {supervisorExpertise || "Select"}
                 </span>
                 <ChevronDown className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
               </button>
@@ -363,7 +326,7 @@ export default function ProjectReviewFormPage() {
             type="button"
             disabled={!canProceed}
             onClick={handleReview}
-            className="w-full py-3.5 sm:py-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.98] text-white font-bold text-[16px] transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-3.5 sm:py-4 rounded-full bg-[#85e19e] hover:bg-[#74d38e] active:scale-[0.98] text-zinc-950 font-bold text-[16px] transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Review
           </button>
@@ -400,13 +363,13 @@ export default function ProjectReviewFormPage() {
               {/* Field 1: Milestone Name */}
               <div>
                 <label className="block text-[13px] font-semibold text-[var(--text-heading)] mb-2">
-                  Project name
+                  Milestone title
                 </label>
                 <input
                   type="text"
                   value={newMilestoneName}
                   onChange={(e) => setNewMilestoneName(e.target.value)}
-                  placeholder=""
+                  placeholder="e.g. Foundation & Substructure Inspection"
                   className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-[18px] px-4 py-3.5 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-xs"
                 />
               </div>

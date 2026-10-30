@@ -1,0 +1,24 @@
+info:
+  name: 11. Compile Official Dossier
+  type: http
+  seq: 11
+http:
+  method: POST
+  url: '{{baseUrl}}/admin/tasks/{{taskId}}/reports/{{reportId}}/compile'
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{adminToken}}
+  body:
+    type: json
+    data: |-
+      {
+        "officialNotes": "Perimeter boundaries and beacon coordinates verified against state survey cadastral data. Quality review approved by Mission Control."
+      }
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

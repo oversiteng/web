@@ -3,34 +3,48 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, CheckCircle2, ChevronRight } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronRight, FileCheck } from "lucide-react";
+
+interface LegalConsent {
+  accurateConfirmed?: boolean;
+  noRelationshipConfirmed?: boolean;
+  conflictCheckConfirmed?: boolean;
+  ndpaConsentConfirmed?: boolean;
+  signature?: string;
+  consentDate?: string;
+}
 
 interface LegalConsultationDraft {
   legalDomain?: string;
+  legalType?: string;
+  serviceType?: string;
   summary?: string;
-  language?: string;
   consultationDate?: string;
-  consultationDateRaw?: string;
   propertyId?: string;
   propertyTitle?: string;
   fileName?: string | null;
+  priceNgn?: number;
+  workloadUnits?: number;
+  consent?: LegalConsent;
 }
 
 function formatTimeWindow(dateStr?: string) {
-  if (!dateStr) return "Consultation · Tue 22 Sep, 4:00 PM";
+  if (!dateStr) return "Schedule pending";
   try {
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return "Consultation · Tue 22 Sep, 4:00 PM";
-    const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
-    const day = d.getDate();
-    const month = d.toLocaleDateString("en-US", { month: "short" });
-    let hours = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, "0");
-    const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12 || 12;
-    return `Consultation · ${weekday} ${day} ${month}, ${hours}:${minutes} ${ampm}`;
+    if (!isNaN(d.getTime())) {
+      const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
+      const day = d.getDate();
+      const month = d.toLocaleDateString("en-US", { month: "short" });
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12 || 12;
+      return `${weekday} ${day} ${month}, ${hours}:${minutes} ${ampm}`;
+    }
+    return dateStr;
   } catch {
-    return "Consultation · Tue 22 Sep, 4:00 PM";
+    return dateStr || "Schedule pending";
   }
 }
 
@@ -57,21 +71,35 @@ export default function LegalOrderReviewPage() {
 
     // Fallback to URL search parameters
     const domain = searchParams.get("domain") || "Property & Land Law";
+    const type = searchParams.get("type") || "Individual";
+    const service = searchParams.get("service") || "Advice/opinion";
     const date = searchParams.get("date") || "";
     const propTitle = searchParams.get("propTitle") || "";
     const propId = searchParams.get("propertyId") || "";
 
     setDraft({
       legalDomain: domain,
-      consultationDateRaw: date,
+      legalType: type,
+      serviceType: service,
+      consultationDate: date,
       propertyTitle: propTitle,
       propertyId: propId,
+      priceNgn: 26100,
+      workloadUnits: 2,
     });
   }, [searchParams]);
 
-  const taskName = draft?.legalDomain || "Property & Land Law";
+  const legalDomain = draft?.legalDomain || "Property & Land Law";
+  const serviceType = draft?.serviceType || "Advice/opinion";
+  const entityType = draft?.legalType || "Individual";
+  const consentDateDisplay = draft?.consent?.consentDate;
   const locationName = draft?.propertyTitle || "Remote consultation";
-  const timeWindow = formatTimeWindow(draft?.consultationDateRaw || draft?.consultationDate);
+  const timeWindow = formatTimeWindow(draft?.consultationDate);
+  const workloadUnits = draft?.workloadUnits || 2;
+  const serviceFee = workloadUnits * 11000;
+  const documentReviewBase = 4000;
+  const charge = 100;
+  const totalAmount = serviceFee + documentReviewBase + charge;
 
   const handlePay = async () => {
     setIsSubmitting(true);
@@ -84,15 +112,28 @@ export default function LegalOrderReviewPage() {
         method: "POST",
         headers,
         body: JSON.stringify({
-          legalDomain: taskName,
-          serviceType: "Advisory Consultation",
-          caseSummary: draft?.summary || "Legal consultation booking",
-          priceNgn: 26100,
+          legalDomain,
+          legalType: entityType,
+          serviceType,
+          caseSummary: draft?.summary || "Legal advisory consultation",
+          priceNgn: totalAmount,
           propertyId: draft?.propertyId || undefined,
           formData: {
-            language: draft?.language || "English",
-            consultationDate: draft?.consultationDate || timeWindow,
+            legalDomain,
+            legalType: entityType,
+            serviceType,
+            caseSummary: draft?.summary,
+            consultationDate: draft?.consultationDate || null,
             fileName: draft?.fileName || null,
+            workloadUnits,
+            pricingBreakdown: {
+              serviceFee,
+              workloadUnits,
+              documentReviewBase,
+              charge,
+              totalAmount,
+            },
+            consent: draft?.consent || null,
           },
         }),
       });
@@ -132,19 +173,79 @@ export default function LegalOrderReviewPage() {
           </h1>
         </div>
 
-        {/* Card 1: Details Card */}
-        <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-xs">
-          {/* Row 1: Task */}
+        {/* Details Card */}
+        <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-xs space-y-3.5">
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
             <span className="text-[var(--text-muted)]">Task</span>
             <span className="font-semibold text-[var(--text-heading)] text-right">
-              {taskName}
+              Legal advisory · {serviceType}
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
+          <div className="border-b border-[var(--border-color)]/60" />
 
-          {/* Row 2: Where */}
+          <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
+            <span className="text-[var(--text-muted)]">Workload Weight</span>
+            <span className="font-semibold text-[var(--primary)]">{workloadUnits} units</span>
+          </div>
+
+          <div className="border-b border-[var(--border-color)]/60" />
+
+          <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
+            <span className="text-[var(--text-muted)]">Entity type</span>
+            <span className="font-semibold text-[var(--text-heading)] text-right">
+              {entityType}
+            </span>
+          </div>
+
+          <div className="border-b border-[var(--border-color)]/60" />
+
+          <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
+            <span className="text-[var(--text-muted)]">Legal domain</span>
+            <span className="font-semibold text-[var(--text-heading)] text-right">
+              {legalDomain}
+            </span>
+          </div>
+
+          <div className="border-b border-[var(--border-color)]/60" />
+
+          <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
+            <span className="text-[var(--text-muted)]">Service type</span>
+            <span className="font-semibold text-[var(--text-heading)] text-right truncate max-w-[220px]">
+              {serviceType}
+            </span>
+          </div>
+
+          {/* Digital Signature */}
+          {draft?.consent?.signature && (
+            <>
+              <div className="border-b border-[var(--border-color)]/60" />
+              <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
+                <span className="text-[var(--text-muted)] flex items-center gap-1.5">
+                  <FileCheck className="w-4 h-4 text-[var(--primary)]" />
+                  Digital signature
+                </span>
+                <span suppressHydrationWarning className="font-semibold text-[var(--text-heading)] text-right">
+                  {draft.consent.signature} {draft.consent.consentDate ? `(${draft.consent.consentDate})` : ""}
+                </span>
+              </div>
+            </>
+          )}
+
+          {consentDateDisplay && (
+            <>
+              <div className="border-b border-[var(--border-color)]/60" />
+              <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
+                <span className="text-[var(--text-muted)]">Consent date</span>
+                <span className="font-semibold text-[var(--text-heading)] text-right truncate max-w-[220px]">
+                  {consentDateDisplay}
+                </span>
+              </div>
+            </>
+          )}
+
+          <div className="border-b border-[var(--border-color)]/60" />
+
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
             <span className="text-[var(--text-muted)]">Where</span>
             <span className="font-semibold text-[var(--text-heading)] text-right truncate max-w-[220px]">
@@ -152,49 +253,47 @@ export default function LegalOrderReviewPage() {
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
+          <div className="border-b border-[var(--border-color)]/60" />
 
-          {/* Row 3: Time window */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
             <span className="text-[var(--text-muted)]">Time window</span>
-            <span className="font-semibold text-[var(--text-heading)] text-right">
+            <span suppressHydrationWarning className="font-semibold text-[var(--text-heading)] text-right">
               {timeWindow}
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
+          <div className="border-b border-[var(--border-color)]/60" />
 
-          {/* Row 4: Report */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
             <span className="text-[var(--text-muted)]">Report</span>
             <span className="font-semibold text-[var(--text-heading)] text-right">
-              Document vault & email
+              Document vault &amp; email
             </span>
           </div>
         </div>
 
-        {/* Card 2: Fee Breakdown Card */}
+        {/* Fee Card */}
         <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 mt-4 shadow-xs">
-          {/* Row 1: Service fee */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Service fee</span>
-            <span className="font-semibold text-[var(--text-heading)]">₦22,000</span>
+            <span className="text-[var(--text-muted)]">Service fee ({workloadUnits} units)</span>
+            <span className="font-semibold text-[var(--text-heading)]">₦{serviceFee.toLocaleString()}</span>
           </div>
 
           <div className="border-b border-[var(--border-color)]/60 my-3.5" />
 
-          {/* Row 2: Document handling */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Document handling</span>
-            <span className="font-semibold text-[var(--text-heading)]">₦4,000</span>
+            <div>
+              <span className="text-[var(--text-muted)] block">Document review</span>
+              <span className="text-[12px] text-[var(--text-muted)] block mt-0.5">base</span>
+            </div>
+            <span className="font-semibold text-[var(--text-heading)]">₦{documentReviewBase.toLocaleString()}</span>
           </div>
 
           <div className="border-b border-[var(--border-color)]/60 my-3.5" />
 
-          {/* Row 3: Charge */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
             <span className="text-[var(--text-muted)]">Charge</span>
-            <span className="font-semibold text-[var(--text-heading)]">₦100</span>
+            <span className="font-semibold text-[var(--text-heading)]">₦{charge.toLocaleString()}</span>
           </div>
         </div>
       </div>
@@ -205,9 +304,9 @@ export default function LegalOrderReviewPage() {
           type="button"
           disabled={isSubmitting}
           onClick={handlePay}
-          className="w-full py-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-[16px] tracking-wide transition-all duration-200 shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-50"
+          className="w-full py-4 rounded-full bg-[#85e19e] hover:bg-[#74d38e] text-zinc-950 font-semibold text-[16px] tracking-wide transition-all duration-200 shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-50"
         >
-          {isSubmitting ? "Processing payment..." : "Pay ₦26,100"}
+          {isSubmitting ? "Processing booking..." : `Pay ₦${totalAmount.toLocaleString()}`}
         </button>
       </div>
 
@@ -232,7 +331,7 @@ export default function LegalOrderReviewPage() {
 
             <div className="mt-6 space-y-2">
               <Link
-                href="/dashboard/tasks"
+                href={`/dashboard/tasks${createdTaskId ? `?id=${createdTaskId}` : ""}`}
                 className="w-full py-3.5 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-[14px] flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer active:scale-95"
               >
                 <span>View Consultation Task</span>

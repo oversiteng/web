@@ -1,0 +1,24 @@
+info:
+  name: Withdraw Funds
+  type: http
+  seq: 9
+http:
+  method: POST
+  url: '{{baseUrl}}/agent/wallet/withdraw'
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "amountNgn": 25000
+      }
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

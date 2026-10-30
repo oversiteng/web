@@ -3,6 +3,8 @@
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ArrowLeft, SlidersHorizontal } from "lucide-react";
 
 type FilterStatus = "All" | "Paid" | "Pending" | "Failed";
@@ -110,37 +112,29 @@ export default function PaymentHistoryPage() {
   };
 
   return (
-    <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-16 select-none">
-      {/* ── Top Header ── */}
-      <div className="relative flex items-center justify-between py-3 mb-6">
-        <button
-          type="button"
-          onClick={() => {
-            if (window.history.length > 1) {
-              router.back();
-            } else {
-              router.push("/billing");
-            }
-          }}
-          aria-label="Go back"
-          className="w-9 h-9 flex items-center justify-center text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer -ml-1"
-        >
-          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
-
-        <h1 className="text-[17px] sm:text-[18px] font-semibold text-[var(--text-heading)]">
-          Payment History
-        </h1>
-
-        <button
-          type="button"
-          onClick={handleOpenFilter}
-          aria-label="Filter payment history"
-          className="w-10 h-10 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer -mr-1 shadow-xs"
-        >
-          <SlidersHorizontal className="w-4 h-4 stroke-[2]" />
-        </button>
-      </div>
+    <div className="relative w-full text-[var(--text-heading)] pb-16 select-none">
+      {/* ── Unified Page Header ── */}
+      <PageHeader
+        title="Payment History"
+        showBack={true}
+        onBack={() => {
+          if (window.history.length > 1) {
+            router.back();
+          } else {
+            router.push("/billing");
+          }
+        }}
+        rightSlot={
+          <button
+            type="button"
+            onClick={handleOpenFilter}
+            aria-label="Filter payment history"
+            className="w-10 h-10 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer"
+          >
+            <SlidersHorizontal className="w-4 h-4 stroke-[2]" />
+          </button>
+        }
+      />
 
       {/* ── Grouped Payment Items matching Screenshot 4 ── */}
       <div className="space-y-8">
@@ -219,11 +213,23 @@ export default function PaymentHistoryPage() {
         })}
 
         {filteredHistory.length === 0 && (
-          <div className="py-16 text-center">
-            <p className="text-[14px] text-[var(--text-muted)]">
-              No payment records found for &quot;{activeFilter}&quot;.
-            </p>
-          </div>
+          activeFilter !== "All" ? (
+            <EmptyState
+              preset="filter"
+              action={{
+                label: "Show All Transactions",
+                onClick: () => setActiveFilter("All"),
+              }}
+            />
+          ) : (
+            <EmptyState
+              preset="billing"
+              action={{
+                label: "Browse Services",
+                href: "/dashboard",
+              }}
+            />
+          )
         )}
       </div>
 

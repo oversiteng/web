@@ -1,0 +1,25 @@
+info:
+  name: 7. Upload Accreditation Document
+  type: http
+  seq: 7
+http:
+  method: POST
+  url: '{{baseUrl}}/kyc/documents'
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "documentType": "UTILITY_BILL",
+        "s3ObjectKey": "accreditation/utility_bill_lagos.pdf"
+      }
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

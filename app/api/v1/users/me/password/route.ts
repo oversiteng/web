@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
-import { getDb } from "@/lib/db/client";
+import { getDbReady } from "@/lib/db/client";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
-const db = getDb();
-
 export const PUT = withAuth(async (req: NextRequest, { user }) => {
   try {
+    const db = await getDbReady();
     const body = await req.json();
     const { currentPassword, newPassword } = body;
 

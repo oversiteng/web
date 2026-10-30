@@ -17,6 +17,9 @@ import {
   MinimizeIcon
 } from "@solar-icons/react/outline";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
+import { EmptyState } from "@/components/ui/EmptyState";
 import dynamic from "next/dynamic";
 import { PropertyWithCurrentTask, PropertyCurrentTask } from "@/lib/types/task";
 
@@ -336,22 +339,22 @@ export default function PropertiesPage() {
         </div>
       )}
 
-      {/* ── Top Bar Header ── */}
-      <div className="flex items-center justify-between pb-4">
-        <ThemeToggle className="w-8 h-8 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-heading)] hover:bg-[var(--bg-card)] flex items-center justify-center transition-colors shadow-xs" />
-
-        <h1 className="text-[17px] font-semibold text-[var(--text-heading)] tracking-wide">
-          Property Portfolio
-        </h1>
-
-        <Link
-          href="/properties/new"
-          className="w-8 h-8 rounded-full bg-[var(--bg-secondary)] hover:bg-[var(--border-color)]/60 border border-[var(--border-color)] text-[var(--text-heading)] flex items-center justify-center transition-all active:scale-95 shadow-xs"
-          aria-label="Register new property"
-        >
-          <AddIcon size={18} />
-        </Link>
-      </div>
+      {/* ── Unified Page Header ── */}
+      <PageHeader
+        title="Property Portfolio"
+        leftSlot={
+          <ThemeToggle className="w-10 h-10 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] flex items-center justify-center transition-colors shadow-xs" />
+        }
+        rightSlot={
+          <Link
+            href="/properties/new"
+            className="w-10 h-10 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white flex items-center justify-center transition-all active:scale-95 shadow-sm shadow-[var(--primary)]/20"
+            aria-label="Register new property"
+          >
+            <AddIcon size={20} />
+          </Link>
+        }
+      />
 
       {/* ── Search Input ── */}
       <div className="relative mb-4">
@@ -393,31 +396,30 @@ export default function PropertiesPage() {
         </div>
 
         {loading ? (
-          <div className="p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] text-center text-xs text-[var(--text-muted)]">
-            Loading properties...
-          </div>
+          <DynamicLoadingState variant="properties" />
         ) : filteredProperties.length > 0 ? (
-          <div className="bg-[var(--bg-card)] rounded-md divide-y divide-[var(--border-color)] shadow-xs overflow-hidden">
+          <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] divide-y divide-[var(--border-color)] shadow-xs overflow-hidden">
             {filteredProperties.map((prop) => (
               <PropertyCard key={prop.id} property={prop} />
             ))}
           </div>
+        ) : searchQuery ? (
+          <EmptyState
+            preset="search"
+            query={searchQuery}
+            action={{
+              label: "Clear Search",
+              onClick: () => setSearchQuery(""),
+            }}
+          />
         ) : (
-          <div className="p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] text-center space-y-3">
-            <p className="text-sm font-semibold text-[var(--text-heading)]">No properties found</p>
-            <p className="text-xs text-[var(--text-muted)] max-w-xs mx-auto">
-              {searchQuery ? "No properties matched your search." : "You have not registered any properties to monitor yet."}
-            </p>
-            {!searchQuery && (
-              <Link
-                href="/properties/new"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--primary)] text-white text-xs font-semibold hover:bg-[var(--primary-hover)] transition-colors"
-              >
-                <AddIcon size={16} />
-                <span>Register your first plot</span>
-              </Link>
-            )}
-          </div>
+          <EmptyState
+            preset="properties"
+            action={{
+              label: "Register Property Plot",
+              href: "/properties/new",
+            }}
+          />
         )}
       </section>
     </div>

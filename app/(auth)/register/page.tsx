@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { Eye, ArrowLeft, EyeClosed } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 export default function RegisterPage() {
+  const { setSession } = useAuth();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -46,7 +48,9 @@ export default function RegisterPage() {
         return;
       }
 
-      if (data.data?.token) {
+      if (data.data?.user) {
+        await setSession(data.data.user, data.data.token);
+      } else if (data.data?.token) {
         localStorage.setItem("oversite_token", data.data.token);
       }
 

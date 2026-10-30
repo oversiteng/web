@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
+import { EmptyState } from "@/components/ui/EmptyState";
 import {
   Search,
   Filter,
@@ -30,9 +33,9 @@ export interface TaskItem {
   agent?: string;
   priceNgn?: number;
   propertyAddress?: string;
+  isFlagged?: boolean;
+  period?: "this-month" | "earlier";
 }
-
-
 
 const STATUS_CONFIG: Record<
   TaskStatus,
@@ -40,33 +43,33 @@ const STATUS_CONFIG: Record<
 > = {
   in_progress: {
     label: "In progress",
-    dot: "bg-(--warning)",
-    text: "text-(--warning)",
-    bg: "bg-(--warning-light)",
+    dot: "bg-[var(--warning)]",
+    text: "text-[var(--warning)]",
+    bg: "bg-[var(--warning-light)]",
   },
   ready: {
     label: "Ready",
-    dot: "bg-(--primary)",
-    text: "text-(--primary)",
-    bg: "bg-(--primary-light)",
+    dot: "bg-[var(--primary)]",
+    text: "text-[var(--primary)]",
+    bg: "bg-[var(--primary-light)]",
   },
   review: {
     label: "Review",
-    dot: "bg-(--info)",
-    text: "text-(--info)",
-    bg: "bg-(--info-light)",
+    dot: "bg-[var(--info)]",
+    text: "text-[var(--info)]",
+    bg: "bg-[var(--info-light)]",
   },
   completed: {
     label: "Completed",
-    dot: "bg-(--text-muted)",
-    text: "text-(--text-muted)",
-    bg: "bg-(--bg-secondary)",
+    dot: "bg-[var(--text-muted)]",
+    text: "text-[var(--text-muted)]",
+    bg: "bg-[var(--bg-secondary)]",
   },
   pending: {
     label: "Pending",
-    dot: "bg-(--info)",
-    text: "text-(--info)",
-    bg: "bg-(--info-light)",
+    dot: "bg-[var(--warning)]",
+    text: "text-[var(--warning)]",
+    bg: "bg-[var(--warning-light)]",
   },
 };
 
@@ -77,21 +80,78 @@ const FILTER_CHIPS: TaskCategory[] = [
   "Due Diligence",
 ];
 
-export default function TasksPage() {
-  const router = useRouter();
+const FILTER_LABELS: Record<string, string> = {
+  pending: "Pending",
+  "this-month": "This Month",
+  this_month: "This Month",
+  month: "This Month",
+  flagged: "Flagged",
+  flag: "Flagged",
+};
 
-  const [tasksList, setTasksList] = useState<TaskItem[]>();
+const DEFAULT_TASKS: TaskItem[] = [
+  {
+    id: "task-1",
+    title: "Project review",
+    subtitle: "Lekki duplex - Block B · In progress · by Tunde C...",
+    category: "Property",
+    status: "in_progress",
+    agent: "Tunde C.",
+    time: "2h ago",
+    propertyAddress: "Lekki duplex - Block B",
+    isFlagged: false,
+    period: "this-month",
+  },
+  {
+    id: "task-2",
+    title: "CAC certified copy",
+    subtitle: "Property Oversite · Tunde C. · 2h ago",
+    category: "Documents",
+    status: "ready",
+    agent: "Tunde C.",
+    time: "2h ago",
+    propertyAddress: "Property Oversite",
+    isFlagged: false,
+    period: "this-month",
+  },
+  {
+    id: "task-3",
+    title: "Vendor background check",
+    subtitle: "Due Diligence · Tier 2 · yesterday",
+    category: "Due Diligence",
+    status: "review",
+    agent: "Legal Partner",
+    time: "yesterday",
+    isFlagged: true,
+    period: "earlier",
+  },
+];
+
+function TasksPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const filterParam = searchParams.get("filter");
+
+  const [tasksList, setTasksList] = useState<TaskItem[]>(DEFAULT_TASKS);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
   const [activeChip, setActiveChip] = useState<TaskCategory>("All");
+  const [activeFilter, setActiveFilter] = useState<string | null>(filterParam || null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchActive, setSearchActive] = useState(false);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("all");
   const [createActionOpen, setCreateActionOpen] = useState(false);
 
+  // Sync activeFilter with URL parameter
+  useEffect(() => {
+    setActiveFilter(filterParam || null);
+  }, [filterParam]);
+
   // Sync API tasks if available
   useEffect(() => {
     async function loadApiTasks() {
       try {
+        setIsLoadingTasks(true);
         const token =
           typeof window !== "undefined"
             ? localStorage.getItem("oversite_token")
@@ -122,31 +182,60 @@ export default function TasksPage() {
               time: "recent",
               priceNgn: t.priceNgn,
               propertyAddress: t.locationAddress,
+              isFlagged: t.status === "UNDER_REVIEW" || t.status === "DRAFT",
+              period: "this-month" as const,
             };
           });
 
-          // Merge without losing initial screenshot tasks
-          setTasksList(apiTasks);
+          // Merge: prepend API tasks that aren't duplicate IDs
+          setTasksList((prev) => {
+            const existingIds = new Set(apiTasks.map((a) => a.id));
+            const uniqueDefaults = prev.filter((d) => !existingIds.has(d.id));
+            return [...apiTasks, ...uniqueDefaults];
+          });
         }
       } catch (e) {
         console.error("Failed to load tasks from API:", e);
+      } finally {
+        setIsLoadingTasks(false);
       }
     }
 
     loadApiTasks();
   }, []);
 
-  // Filter tasks
-  const filtered = (tasksList || []).filter((task) => {
+  const handleClearFilter = () => {
+    setActiveFilter(null);
+    router.replace("/dashboard/tasks", { scroll: false });
+  };
+
+  // Filter tasks based on category, search, drawer status, and metric query filter
+  const filtered = tasksList.filter((task) => {
+    // 1. Category chip match
     const chipMatch = activeChip === "All" || task.category === activeChip;
+
+    // 2. Search match
     const searchMatch =
       !searchQuery.trim() ||
       task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.subtitle.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // 3. Status filter from drawer
     const statusMatch =
       selectedStatusFilter === "all" || task.status === selectedStatusFilter;
 
-    return chipMatch && searchMatch && statusMatch;
+    // 4. Active metric filter
+    let activeFilterMatch = true;
+    if (activeFilter === "pending") {
+      activeFilterMatch =
+        task.status === "pending" || task.status === "in_progress";
+    } else if (activeFilter === "flagged" || activeFilter === "flag") {
+      activeFilterMatch = Boolean(task.isFlagged) || task.status === "review";
+    } else if (activeFilter === "this-month" || activeFilter === "this_month" || activeFilter === "month") {
+      activeFilterMatch = task.period === "this-month";
+    }
+
+    return chipMatch && searchMatch && statusMatch && activeFilterMatch;
   });
 
   const handleTaskClick = (task: TaskItem) => {
@@ -154,73 +243,43 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150 -m-4 sm:-m-6 md:-m-8">
-      <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between px-4 sm:px-6 py-4 relative">
-        <div>
-          {/* ── Top Header (Matches Screenshot 1 Exactly) ── */}
-          <div className="relative flex items-center justify-between py-3 mb-4">
-            {searchActive ? (
-              <div className="flex items-center gap-2 flex-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchActive(false);
-                    setSearchQuery("");
-                  }}
-                  className="p-2 -ml-2 text-zinc-800 dark:text-zinc-200"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div className="flex-1 relative flex items-center">
-                  <input
-                    type="text"
-                    autoFocus
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search tasks..."
-                    className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-full px-4 py-2.5 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none shadow-xs focus:border-[var(--primary)]"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-3 text-zinc-400 hover:text-zinc-600"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="w-10" />
-                <h1 className="text-[19px] sm:text-[20px] font-bold text-zinc-900 dark:text-white tracking-tight text-center">
-                  Tasks
-                </h1>
-                <div className="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setSearchActive(true)}
-                    className="w-10 h-10 rounded-full bg-(--bg-card) border border-(--border-color) shadow-xs flex items-center justify-center text-(--text-heading) hover:bg-(--bg-secondary) transition-colors cursor-pointer"
-                    aria-label="Search tasks"
-                  >
-                    <Search className="w-5 h-5 stroke-[2.2]" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFilterDrawerOpen(true)}
-                    className="w-10 h-10 rounded-full bg-(--bg-card) border border-(--border-color) shadow-xs flex items-center justify-center text-(--text-heading) hover:bg-(--bg-secondary) transition-colors cursor-pointer"
-                    aria-label="Filter tasks"
-                  >
-                    <Filter className="w-5 h-5 stroke-[2.2]" />
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+    <div className="relative w-full text-[var(--text-heading)] transition-colors duration-150">
+      <div>
+        {/* ── Unified Page Header ── */}
+        <PageHeader
+          title="Tasks"
+          showBack={false}
+          searchConfig={{
+            active: searchActive,
+            onActiveChange: setSearchActive,
+            query: searchQuery,
+            onQueryChange: setSearchQuery,
+            placeholder: "Search tasks...",
+          }}
+          rightSlot={
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSearchActive(true)}
+                className="w-10 h-10 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer"
+                aria-label="Search tasks"
+              >
+                <Search className="w-4 h-4 stroke-[2.2]" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterDrawerOpen(true)}
+                className="w-10 h-10 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer"
+                aria-label="Filter tasks"
+              >
+                <Filter className="w-4 h-4 stroke-[2.2]" />
+              </button>
+            </div>
+          }
+        />
 
-          {/* ── Filter Chips ── */}
-          <div className="flex items-center gap-2.5 overflow-x-auto scrollbar-hide pb-2 mb-4 -mx-1 px-1">
+          {/* ── Category Chips ── */}
+          <div className="flex items-center gap-2.5 overflow-x-auto scrollbar-hide pb-2 mb-3 -mx-1 px-1">
             {FILTER_CHIPS.map((chip) => {
               const isSelected = activeChip === chip;
               return (
@@ -240,12 +299,55 @@ export default function TasksPage() {
             })}
           </div>
 
-          {/* ── Task List ── */}
-          <div className="space-y-4 pt-1">
-            {filtered.length === 0 ? (
-              <div className="text-center py-16 text-(--text-muted) text-[14px]">
-                No tasks found
-              </div>
+          {activeFilter && (
+            <div className="flex items-center mb-4">
+              <button
+                type="button"
+                onClick={handleClearFilter}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--primary-light)] hover:bg-[var(--primary-border)] text-[var(--primary)] border border-[var(--primary-border)] text-[13px] font-semibold transition-all cursor-pointer group active:scale-95 shadow-xs"
+                title="Clear filter"
+              >
+                <span>Filter: {FILTER_LABELS[activeFilter] || activeFilter}</span>
+                <X className="w-3.5 h-3.5 stroke-[2.5] text-[var(--primary)] group-hover:opacity-80 transition-opacity" />
+              </button>
+            </div>
+          )}
+
+          {/* ── Task List (Carded matching Screenshots) ── */}
+          <div className="space-y-3.5 pt-1">
+            {isLoadingTasks ? (
+              <DynamicLoadingState variant="tasks" />
+            ) : filtered.length === 0 ? (
+              searchQuery ? (
+                <EmptyState
+                  preset="search"
+                  query={searchQuery}
+                  action={{
+                    label: "Clear Search",
+                    onClick: () => setSearchQuery(""),
+                  }}
+                />
+              ) : activeFilter || selectedStatusFilter !== "all" || activeChip !== "All" ? (
+                <EmptyState
+                  preset="filter"
+                  action={{
+                    label: "Reset All Filters",
+                    onClick: () => {
+                      handleClearFilter();
+                      setSelectedStatusFilter("all");
+                      setActiveChip("All");
+                    },
+                  }}
+                />
+              ) : (
+                <EmptyState
+                  preset="tasks"
+                  action={{
+                    label: "Request a Service",
+                    onClick: () => setCreateActionOpen(true),
+                  }}
+                />
+              )
             ) : (
               filtered.map((task) => {
                 const st = STATUS_CONFIG[task.status] || STATUS_CONFIG.in_progress;
@@ -254,27 +356,27 @@ export default function TasksPage() {
                     key={task.id}
                     type="button"
                     onClick={() => handleTaskClick(task)}
-                    className="w-full flex items-center justify-between py-2 text-left hover:opacity-85 active:scale-[0.99] transition-all cursor-pointer group"
+                    className="w-full p-4 sm:p-4.5 rounded-[20px] bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--primary)]/40 shadow-xs text-left transition-all cursor-pointer group active:scale-[0.99]"
                   >
-                    {/* Left: Title & Subtitle */}
-                    <div className="min-w-0 pr-3 flex-1">
-                      <h3 className="text-[13px] sm:text-[16px] text-(--text-heading) truncate group-hover:text-(--primary) transition-colors">
+                    {/* Top Row: Title & Status Pill */}
+                    <div className="flex items-center justify-between gap-3 mb-1.5">
+                      <h3 className="text-[14.5px] sm:text-[15.5px] font-semibold text-[var(--text-heading)] truncate group-hover:text-[var(--primary)] transition-colors">
                         {task.title}
                       </h3>
-                      <p className="text-[12.5px] text-(--text-muted) mt-0.5 truncate leading-snug">
-                        {task.subtitle}
-                      </p>
+                      <div
+                        className={`flex items-center gap-1.5 px-3 py-1 rounded-full shrink-0 ${st.bg} shadow-2xs`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${st.dot}`} />
+                        <span className={`text-[11.5px] font-semibold ${st.text}`}>
+                          {st.label}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Right: Status Pill */}
-                    <div
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full shrink-0 ${st.bg} shadow-2xs`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${st.dot}`} />
-                      <span className={`text-[11px] font-semibold ${st.text}`}>
-                        {st.label}
-                      </span>
-                    </div>
+                    {/* Bottom Row: Subtitle */}
+                    <p className="text-[12.5px] sm:text-[13px] text-[var(--text-muted)] truncate leading-snug">
+                      {task.subtitle}
+                    </p>
                   </button>
                 );
               })
@@ -294,7 +396,6 @@ export default function TasksPage() {
         >
           <Plus className="w-7 h-7 stroke-[2.5]" />
         </button>
-      </div>
 
       {/* ── Status Filter Bottom Sheet ── */}
       {filterDrawerOpen && (
@@ -326,10 +427,11 @@ export default function TasksPage() {
                     setSelectedStatusFilter(opt.id);
                     setFilterDrawerOpen(false);
                   }}
-                  className={`w-full py-3.5 px-4 rounded-2xl text-left font-semibold text-[14.5px] cursor-pointer transition-all ${selectedStatusFilter === opt.id
+                  className={`w-full py-3.5 px-4 rounded-2xl text-left font-semibold text-[14.5px] cursor-pointer transition-all ${
+                    selectedStatusFilter === opt.id
                       ? "bg-[var(--primary-light)] text-[var(--primary)]"
                       : "text-[var(--text-heading)] hover:bg-[var(--bg-secondary)]"
-                    }`}
+                  }`}
                 >
                   {opt.label}
                 </button>
@@ -443,5 +545,13 @@ export default function TasksPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TasksPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-(--text-muted)">Loading tasks...</div>}>
+      <TasksPageContent />
+    </Suspense>
   );
 }

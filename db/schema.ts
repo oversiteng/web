@@ -119,6 +119,13 @@ export const payoutStatusEnum = pgEnum("payout_status", [
   "FAILED",
 ]);
 
+export const chatModerationStatusEnum = pgEnum("chat_moderation_status", [
+  "PENDING_REVIEW",
+  "APPROVED_AS_IS",
+  "REFINED_BY_ADMIN",
+  "REJECTED",
+]);
+
 export const notificationTypeEnum = pgEnum("notification_type", [
   "TASK_UPDATE",
   "PAYMENT",
@@ -155,6 +162,9 @@ export const users = pgTable(
     kycStatus: kycStatusEnum("kyc_status").notNull().default("PENDING"),
     ninVerificationStatus: varchar("nin_verification_status", { length: 20 }).notNull().default("pending"),
     nbaVerificationStatus: varchar("nba_verification_status", { length: 20 }).notNull().default("pending"),
+    addressVerificationStatus: varchar("address_verification_status", { length: 20 }).notNull().default("pending"),
+    accreditationDocuments: jsonb("accreditation_documents"),
+    consentSignedAt: timestamp("consent_signed_at", { withTimezone: true }),
     avatarUrl: text("avatar_url"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -281,7 +291,7 @@ export const tasks = pgTable(
   ],
 );
 
-// Task Milestones — for ProWatch project timeline tracking
+// Task Milestones — operational directives, sequence tracking, and deliverables
 export const taskMilestones = pgTable(
   "task_milestones",
   {
@@ -290,15 +300,23 @@ export const taskMilestones = pgTable(
       .notNull()
       .references(() => tasks.id),
     title: varchar("title", { length: 255 }).notNull(),
+    description: text("description"),
+    orderIndex: integer("order_index").notNull().default(0),
+    deliverableType: varchar("deliverable_type", { length: 50 }).notNull().default("INSPECTION_CHECKLIST"),
+    checklist: jsonb("checklist"),
     targetDate: timestamp("target_date", { withTimezone: true }),
     status: milestoneStatusEnum("status").notNull().default("PENDING"),
     completionPct: integer("completion_pct").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (table) => [
     index("task_milestones_task_idx").on(table.taskId),
+    index("task_milestones_order_idx").on(table.taskId, table.orderIndex),
   ],
 );
 
@@ -315,10 +333,20 @@ export const taskReports = pgTable(
       .references(() => users.id),
     summary: text("summary"),
     findings: text("findings"),
+    checklist: jsonb("checklist"),
+    measurements: jsonb("measurements"),
+    severity: varchar("severity", { length: 20 }).default("NONE"),
+    incidentalExpenses: jsonb("incidental_expenses"),
+    metadata: jsonb("metadata"),
     pdfS3Key: text("pdf_s3_key"),
     watermarkCode: varchar("watermark_code", { length: 32 }),
     status: reportStatusEnum("status").notNull().default("DRAFT"),
     completionPct: integer("completion_pct").notNull().default(0),
+    officialNotes: text("official_notes"),
+    compiledAt: timestamp("compiled_at", { withTimezone: true }),
+    compiledBy: uuid("compiled_by").references(() => users.id),
+    userReviewedAt: timestamp("user_reviewed_at", { withTimezone: true }),
+    userRejectionReason: text("user_rejection_reason"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -345,6 +373,7 @@ export const reportMedia = pgTable(
     mediaType: varchar("media_type", { length: 20 }).notNull(),
     latitude: numeric("latitude", { precision: 10, scale: 7 }),
     longitude: numeric("longitude", { precision: 10, scale: 7 }),
+    caption: text("caption"),
     capturedAt: timestamp("captured_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -355,7 +384,7 @@ export const reportMedia = pgTable(
   ],
 );
 
-// Task Chats — encrypted in-app messaging
+// Task Chats — hub-and-spoke in-app messaging with Mission Control moderation
 export const taskChats = pgTable(
   "task_chats",
   {
@@ -370,9 +399,15 @@ export const taskChats = pgTable(
       .notNull()
       .references(() => users.id),
     message: text("message"),
+    rawMessage: text("raw_message"),
+    moderatedMessage: text("moderated_message"),
     fileUrl: text("file_url"),
+    messageType: varchar("message_type", { length: 20 }).default("TEXT"),
     isModerated: boolean("is_moderated").notNull().default(false),
+    moderationStatus: chatModerationStatusEnum("moderation_status").notNull().default("PENDING_REVIEW"),
     moderatedBy: uuid("moderated_by").references(() => users.id),
+    moderatedAt: timestamp("moderated_at", { withTimezone: true }),
+    rejectionReason: text("rejection_reason"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -382,6 +417,7 @@ export const taskChats = pgTable(
     index("task_chats_task_created_idx").on(table.taskId, table.createdAt),
     index("task_chats_sender_idx").on(table.senderId),
     index("task_chats_receiver_idx").on(table.receiverId),
+    index("task_chats_moderation_idx").on(table.moderationStatus),
   ],
 );
 
@@ -415,6 +451,34 @@ export const payments = pgTable(
     index("payments_user_created_idx").on(table.userId, table.createdAt),
     index("payments_status_idx").on(table.status),
     index("payments_gateway_ref_idx").on(table.gatewayRef),
+  ],
+);
+
+// User Payment Methods — PCI-DSS tokenized gateway authorizations (Paystack / Flutterwave)
+export const userPaymentMethods = pgTable(
+  "user_payment_methods",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    authorizationCode: varchar("authorization_code", { length: 255 }).notNull(),
+    cardType: varchar("card_type", { length: 50 }).notNull().default("card"),
+    brand: varchar("brand", { length: 50 }).notNull(),
+    last4: varchar("last4", { length: 4 }).notNull(),
+    expiryMonth: varchar("expiry_month", { length: 4 }).notNull(),
+    expiryYear: varchar("expiry_year", { length: 4 }).notNull(),
+    bank: varchar("bank", { length: 120 }),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("user_payment_methods_user_idx").on(table.userId),
   ],
 );
 

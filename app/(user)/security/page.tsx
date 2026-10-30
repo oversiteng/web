@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronRight, Check } from "lucide-react";
+import { ChevronRight, Check } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface SecuritySwitchProps {
   checked: boolean;
@@ -63,7 +64,7 @@ export default function SecurityPage() {
   };
 
   return (
-    <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-16 select-none">
+    <div className="relative w-full text-[var(--text-heading)] pb-16 select-none">
       {/* ── Toast Notification Banner ── */}
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
@@ -78,27 +79,18 @@ export default function SecurityPage() {
         </div>
       )}
 
-      {/* ── Top Header matching Screenshot 2 ── */}
-      <div className="flex items-center gap-4 py-3 mb-6">
-        <button
-          type="button"
-          onClick={() => {
-            if (window.history.length > 1) {
-              router.back();
-            } else {
-              router.push("/more");
-            }
-          }}
-          aria-label="Go back"
-          className="w-9 h-9 flex items-center justify-center text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer -ml-1"
-        >
-          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
-
-        <h1 className="text-[17px] sm:text-[18px] font-semibold text-[var(--text-heading)]">
-          Security
-        </h1>
-      </div>
+      {/* ── Unified Page Header ── */}
+      <PageHeader
+        title="Security"
+        showBack={true}
+        onBack={() => {
+          if (window.history.length > 1) {
+            router.back();
+          } else {
+            router.push("/more");
+          }
+        }}
+      />
 
       {/* ── Card 1: Account Security Options ── */}
       <div className="rounded-[28px] bg-[var(--bg-card)] border border-[var(--border-color)] p-6 shadow-xs space-y-6 transition-colors">

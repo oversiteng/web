@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, ArrowLeft, Send, Paperclip } from "lucide-react";
+import { Search, Send, Paperclip } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 interface Message {
   id: string;
@@ -182,27 +185,16 @@ export default function MessagesPage() {
   // ─── Active Chat Thread View ───
   if (activeConv) {
     return (
-      <div className="bg-(--bg-body) min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-(--text-heading) transition-colors duration-150 flex flex-col justify-between -m-4 sm:-m-6 md:-m-8 p-4 sm:p-6">
-        <div className="max-w-xl mx-auto w-full flex-1 flex flex-col justify-between">
+      <div className="relative w-full text-[var(--text-heading)] transition-colors duration-150 flex flex-col justify-between min-h-[calc(100dvh-180px)]">
+        <div className="w-full flex-1 flex flex-col justify-between">
           <div>
-            {/* Header */}
-            <div className="relative flex items-center justify-between py-3 mb-4 border-b border-(--border-color) pb-3">
-              <button
-                type="button"
-                onClick={() => setActiveConv(null)}
-                className="p-2 -ml-2 text-(--text-heading) hover:opacity-75 transition-opacity cursor-pointer flex items-center gap-1.5"
-                aria-label="Back to messages"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-
-              <div className="text-center flex-1 pr-6">
-                <h1 className="text-[17px] font-bold text-(--text-heading)">
-                  {activeConv.name}
-                </h1>
-                <p className="text-[11.5px] text-(--primary) font-medium">Online</p>
-              </div>
-            </div>
+            {/* Unified Page Header */}
+            <PageHeader
+              title={activeConv.name}
+              subtitle="Online · Accredited Field Agent"
+              showBack={true}
+              onBack={() => setActiveConv(null)}
+            />
 
             {/* Messages Stream */}
             <div className="space-y-3.5 overflow-y-auto pb-4 pt-1 max-h-[calc(100dvh-280px)]">
@@ -261,15 +253,10 @@ export default function MessagesPage() {
 
   // ─── Main Messages List ───
   return (
-    <div className="bg-(--bg-body) min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-(--text-heading) transition-colors duration-150">
-      <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between px-4 sm:px-6 py-4">
-        <div>
-          {/* ── Top Header: Centered "Messages" ── */}
-          <div className="relative flex items-center justify-center py-3 mb-4">
-            <h1 className="text-[18px] sm:text-[19px] font-bold text-(--text-heading) tracking-tight">
-              Messages
-            </h1>
-          </div>
+    <div className="relative w-full text-[var(--text-heading)] transition-colors duration-150">
+      <div>
+        {/* Unified Page Header */}
+        <PageHeader title="Messages" />
 
           {/* ── Search Input: Rounded Pill ── */}
           <div className="mb-6">
@@ -288,9 +275,24 @@ export default function MessagesPage() {
           {/* ── Conversation List ── */}
           <div className="space-y-4">
             {filtered.length === 0 ? (
-              <div className="text-center py-12 text-(--text-muted) text-[14px]">
-                No messages found matching &quot;{searchQuery}&quot;
-              </div>
+              searchQuery ? (
+                <EmptyState
+                  preset="search"
+                  query={searchQuery}
+                  action={{
+                    label: "Clear Search",
+                    onClick: () => setSearchQuery(""),
+                  }}
+                />
+              ) : (
+                <EmptyState
+                  preset="messages"
+                  action={{
+                    label: "View Tasks to Chat",
+                    href: "/dashboard/tasks",
+                  }}
+                />
+              )
             ) : (
               filtered.map((conv) => (
                 <button
@@ -336,6 +338,5 @@ export default function MessagesPage() {
         {/* Space above bottom nav */}
         <div className="pb-8" />
       </div>
-    </div>
   );
 }

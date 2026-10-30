@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
-import { getDb } from "@/lib/db/client";
+import { getDbReady } from "@/lib/db/client";
 import { tasks, taskChats } from "@/db/schema";
-import { eq, or, desc } from "drizzle-orm";
-
-const db = getDb();
+import { eq, or, desc, and, inArray } from "drizzle-orm";
 
 export interface ChatThread {
   taskId: string;
@@ -18,7 +16,10 @@ export interface ChatThread {
 
 export const GET = withAuth(async (req: NextRequest, { user }) => {
   try {
-    // 1. Fetch tasks where user is either client or assigned agent
+    const db = await getDbReady();
+    const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(user.role);
+
+    // 1. Fetch tasks where user is either client or assigned agent (or all tasks for admin)
     const userTasks = await db
       .select({
         id: tasks.id,
@@ -28,27 +29,45 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
         createdAt: tasks.createdAt,
       })
       .from(tasks)
-      .where(or(eq(tasks.userId, user.sub), eq(tasks.agentId, user.sub)))
+      .where(isAdmin ? undefined : or(eq(tasks.userId, user.sub), eq(tasks.agentId, user.sub)))
       .orderBy(desc(tasks.updatedAt));
 
     const threads: ChatThread[] = [];
 
-    // 2. Fetch last message for each task
+    // 2. Fetch last message for each task respecting role visibility
     for (const task of userTasks) {
       const messages = await db
         .select()
         .from(taskChats)
-        .where(eq(taskChats.taskId, task.id))
+        .where(
+          and(
+            eq(taskChats.taskId, task.id),
+            isAdmin
+              ? undefined
+              : or(
+                  eq(taskChats.senderId, user.sub),
+                  and(
+                    eq(taskChats.receiverId, user.sub),
+                    inArray(taskChats.moderationStatus, ["APPROVED_AS_IS", "REFINED_BY_ADMIN"])
+                  )
+                )
+          )
+        )
         .orderBy(desc(taskChats.createdAt))
         .limit(1);
 
       if (messages.length > 0) {
         const lastMsg = messages[0];
+        const display =
+          lastMsg.receiverId === user.sub && lastMsg.moderatedMessage
+            ? lastMsg.moderatedMessage
+            : lastMsg.moderatedMessage || lastMsg.message || (lastMsg.fileUrl ? "[Attachment]" : "Active task thread");
+
         threads.push({
           taskId: task.id,
           taskTitle: task.title,
           moduleType: task.moduleType,
-          lastMessage: lastMsg.message || (lastMsg.fileUrl ? "[Attachment]" : "Active task thread"),
+          lastMessage: display,
           lastMessageAt: lastMsg.createdAt.toISOString(),
           unreadCount: 0,
         });

@@ -1,54 +1,54 @@
-import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db/client";
+import { NextRequest, NextResponse } from "next/server";
+import { withAuth } from "@/lib/auth/middleware";
+import { ApiResponse } from "@/lib/types/api";
+import { getDbReady } from "@/lib/db/client";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-// Utility to mock admin authorization check
-function isAdmin(request: Request) {
-  const role = request.headers.get("x-user-role");
-  return role === "ADMIN" || true; // Bypass for development
-}
+export const POST = withAuth<{ id: string }>(
+  async (req: NextRequest, { params }) => {
+    try {
+      const { id: targetUserId } = await params;
+      const db = await getDbReady();
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    if (!isAdmin(request)) return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+      const [suspendedUser] = await db
+        .update(users)
+        .set({
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, targetUserId))
+        .returning({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          isActive: users.isActive,
+          updatedAt: users.updatedAt,
+        });
 
-    // Await params since Next.js treats params as a Promise in App Router dynamic routes
-    const { id: targetUserId } = await params;
+      if (!suspendedUser) {
+        return NextResponse.json(
+          { success: false, error: { code: "NOT_FOUND", message: "User not found" } },
+          { status: 404 }
+        );
+      }
 
-    const db = getDb();
-    
-    // Suspend the user by setting isActive to false
-    const suspendedUser = await db.update(users)
-      .set({ 
-        isActive: false, 
-        updatedAt: new Date() 
-      })
-      .where(eq(users.id, targetUserId))
-      .returning({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        isActive: users.isActive,
+      return NextResponse.json<ApiResponse<{ id: string; email: string; isActive: boolean }>>({
+        success: true,
+        data: {
+          id: suspendedUser.id,
+          email: suspendedUser.email,
+          isActive: suspendedUser.isActive,
+        },
+        message: `Account for ${suspendedUser.email} has been suspended`,
       });
-
-    if (suspendedUser.length === 0) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    } catch (error) {
+      console.error("Admin Suspend User Error:", error);
+      return NextResponse.json(
+        { success: false, error: { code: "INTERNAL_ERROR", message: (error as Error).message } },
+        { status: 500 }
+      );
     }
-
-    // (In the future, trigger SES email worker here: "Your account has been suspended")
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: `Account for ${suspendedUser[0].email} has been suspended`,
-      user: suspendedUser[0] 
-    });
-
-  } catch (error) {
-    console.error("Admin Suspend User Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-  }
-}
+  },
+  { roles: ["ADMIN", "SUPER_ADMIN"] }
+);

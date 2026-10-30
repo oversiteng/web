@@ -2,7 +2,10 @@
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Search, Download, Check, X } from "lucide-react";
+import { Download, Check, Search } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type DocCategory = "all" | "property" | "documents" | "diligence";
 
@@ -134,7 +137,7 @@ export default function DocumentVaultPage() {
   };
 
   return (
-    <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-16 select-none">
+    <div className="relative w-full text-[var(--text-heading)] pb-16 select-none">
       {/* ── Toast Notification Banner ── */}
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
@@ -149,75 +152,35 @@ export default function DocumentVaultPage() {
         </div>
       )}
 
-      {/* ── Top Header ── */}
-      {isSearching ? (
-        /* Search Active Header (Screenshot 2) */
-        <div className="flex items-center gap-3 py-2.5 mb-6">
-          <button
-            type="button"
-            onClick={() => {
-              setIsSearching(false);
-              setSearchQuery("");
-            }}
-            aria-label="Close search"
-            className="w-9 h-9 flex items-center justify-center text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer shrink-0 -ml-1"
-          >
-            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-          </button>
-
-          <div className="flex-1 flex items-center gap-2.5 rounded-full border-2 border-[var(--primary)] bg-[var(--bg-card)] px-4 py-2 transition-all">
-            <Search className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search documents..."
-              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="text-[var(--text-muted)] hover:text-[var(--text-heading)]"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
-        /* Default Header (Screenshot 1) */
-        <div className="relative flex items-center justify-between py-3 mb-6">
-          <button
-            type="button"
-            onClick={() => {
-              if (window.history.length > 1) {
-                router.back();
-              } else {
-                router.push("/more");
-              }
-            }}
-            aria-label="Go back"
-            className="w-9 h-9 flex items-center justify-center text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer -ml-1"
-          >
-            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-          </button>
-
-          <h1 className="text-[17px] sm:text-[18px] font-semibold text-[var(--text-heading)]">
-            Document vault
-          </h1>
-
+      {/* ── Unified Page Header ── */}
+      <PageHeader
+        title="Document Vault"
+        showBack={true}
+        onBack={() => {
+          if (window.history.length > 1) {
+            router.back();
+          } else {
+            router.push("/more");
+          }
+        }}
+        searchConfig={{
+          active: isSearching,
+          onActiveChange: setIsSearching,
+          query: searchQuery,
+          onQueryChange: setSearchQuery,
+          placeholder: "Search documents by name...",
+        }}
+        rightSlot={
           <button
             type="button"
             onClick={() => setIsSearching(true)}
             aria-label="Search documents"
-            className="w-9 h-9 flex items-center justify-center text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer -mr-1"
+            className="w-10 h-10 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer"
           >
-            <Search className="w-5 h-5" />
+            <Search className="w-4 h-4 stroke-[2.2]" />
           </button>
-        </div>
-      )}
+        }
+      />
 
       {/* ── Category Filter Tabs ── */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-6 pt-1">
@@ -243,11 +206,32 @@ export default function DocumentVaultPage() {
       {/* ── Document List ── */}
       <div className="space-y-4">
         {filteredDocs.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-[14px] text-[var(--text-muted)]">
-              No documents found
-            </p>
-          </div>
+          searchQuery ? (
+            <EmptyState
+              preset="search"
+              query={searchQuery}
+              action={{
+                label: "Clear Search",
+                onClick: () => setSearchQuery(""),
+              }}
+            />
+          ) : activeCategory !== "all" ? (
+            <EmptyState
+              preset="filter"
+              action={{
+                label: "View All Documents",
+                onClick: () => setActiveCategory("all"),
+              }}
+            />
+          ) : (
+            <EmptyState
+              preset="vault"
+              action={{
+                label: "Process a Document",
+                href: "/dashboard",
+              }}
+            />
+          )
         ) : (
           filteredDocs.map((doc) => (
             <div

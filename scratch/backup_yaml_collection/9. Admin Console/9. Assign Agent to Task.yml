@@ -1,0 +1,24 @@
+info:
+  name: 9. Assign Agent to Task
+  type: http
+  seq: 9
+http:
+  method: POST
+  url: '{{baseUrl}}/admin/tasks/{{taskId}}/assign'
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{adminToken}}
+  body:
+    type: json
+    data: |-
+      {
+        "agentId": "{{agentId}}"
+      }
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

@@ -153,11 +153,10 @@ export default function DueDiligenceFormPage() {
                 <button
                   type="button"
                   onClick={() => setSubjectType("individual")}
-                  className={`w-1/2 py-2.5 rounded-full text-[13.5px] font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer ${
-                    subjectType === "individual"
+                  className={`w-1/2 py-2.5 rounded-full text-[13.5px] font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer ${subjectType === "individual"
                       ? "bg-(--primary) text-white shadow-xs"
                       : "text-(--text-muted) hover:text-(--text-heading)"
-                  }`}
+                    }`}
                 >
                   {subjectType === "individual" && <Check className="w-4 h-4 stroke-[2.5]" />}
                   <span>Individual</span>
@@ -166,11 +165,10 @@ export default function DueDiligenceFormPage() {
                 <button
                   type="button"
                   onClick={() => setSubjectType("business")}
-                  className={`w-1/2 py-2.5 rounded-full text-[13.5px] font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer ${
-                    subjectType === "business"
+                  className={`w-1/2 py-2.5 rounded-full text-[13.5px] font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer ${subjectType === "business"
                       ? "bg-(--primary) text-white shadow-xs"
                       : "text-(--text-muted) hover:text-(--text-heading)"
-                  }`}
+                    }`}
                 >
                   {subjectType === "business" && <Check className="w-4 h-4 stroke-[2.5]" />}
                   <span>Business</span>
@@ -181,7 +179,7 @@ export default function DueDiligenceFormPage() {
             {/* Field 2: Business name / Individual Name */}
             <div>
               <label className="block text-[13.5px] font-semibold text-(--text-heading) mb-2">
-                {subjectType === "business" ? "Business name" : "Business name"}
+                {subjectType === "business" ? "Business name" : "Individual name"}
               </label>
               <input
                 type="text"
@@ -195,7 +193,7 @@ export default function DueDiligenceFormPage() {
             {/* Field 3: RC/NIN */}
             <div>
               <label className="block text-[13.5px] font-semibold text-(--text-heading) mb-2">
-                RC/NIN
+                {subjectType === "business" ? "RC Number" : "NIN"}
               </label>
               <input
                 type="text"
@@ -255,20 +253,18 @@ export default function DueDiligenceFormPage() {
                     <div
                       key={tier.id}
                       onClick={() => setSelectedTierId(tier.id)}
-                      className={`w-full p-4 sm:p-5 rounded-[20px] cursor-pointer transition-all duration-150 flex items-start gap-3.5 shadow-xs bg-(--bg-card) ${
-                        isSelected
+                      className={`w-full p-4 sm:p-5 rounded-[20px] cursor-pointer transition-all duration-150 flex items-start gap-3.5 shadow-xs bg-(--bg-card) ${isSelected
                           ? "border-2 border-(--primary) shadow-sm"
                           : "border border-(--border-color) hover:border-(--border-color)/80"
-                      }`}
+                        }`}
                     >
                       {/* Radio Circle */}
                       <div className="mt-0.5 shrink-0">
                         <div
-                          className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
-                            isSelected
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${isSelected
                               ? "border-(--primary) bg-transparent"
                               : "border-(--border-color) bg-transparent"
-                          }`}
+                            }`}
                         >
                           {isSelected && (
                             <div className="w-2.5 h-2.5 rounded-full bg-(--primary)" />

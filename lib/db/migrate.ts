@@ -51,6 +51,7 @@ export async function ensureDatabaseMigrated(): Promise<void> {
       max: 1,
       ssl: isLocal ? false : "require",
       connect_timeout: 10,
+      onnotice: () => {}, // Silence "already exists, skipping" notices from flooding the console
     });
 
     const runSafetyPatches = async () => {
@@ -58,6 +59,9 @@ export async function ensureDatabaseMigrated(): Promise<void> {
       const columns = [
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "nin_verification_status" varchar(20) DEFAULT 'pending' NOT NULL;`,
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "nba_verification_status" varchar(20) DEFAULT 'pending' NOT NULL;`,
+        `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "address_verification_status" varchar(20) DEFAULT 'pending' NOT NULL;`,
+        `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "accreditation_documents" jsonb;`,
+        `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "consent_signed_at" timestamp with time zone;`,
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "title" varchar(50);`,
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "address" text;`,
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "location" varchar(150);`,
@@ -66,6 +70,49 @@ export async function ensureDatabaseMigrated(): Promise<void> {
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "country" varchar(80);`,
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "residence" varchar(150);`,
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "avatar_url" text;`,
+        `CREATE TABLE IF NOT EXISTS "user_payment_methods" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+          "authorization_code" varchar(255) NOT NULL,
+          "card_type" varchar(50) DEFAULT 'card' NOT NULL,
+          "brand" varchar(50) NOT NULL,
+          "last4" varchar(4) NOT NULL,
+          "expiry_month" varchar(4) NOT NULL,
+          "expiry_year" varchar(4) NOT NULL,
+          "bank" varchar(120),
+          "is_default" boolean DEFAULT false NOT NULL,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+          "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+        );`,
+        `CREATE INDEX IF NOT EXISTS "user_payment_methods_user_idx" ON "user_payment_methods"("user_id");`,
+        `DO $$ BEGIN
+          CREATE TYPE chat_moderation_status AS ENUM ('PENDING_REVIEW', 'APPROVED_AS_IS', 'REFINED_BY_ADMIN', 'REJECTED');
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$;`,
+        `ALTER TABLE "task_chats" ADD COLUMN IF NOT EXISTS "raw_message" text;`,
+        `ALTER TABLE "task_chats" ADD COLUMN IF NOT EXISTS "moderated_message" text;`,
+        `ALTER TABLE "task_chats" ADD COLUMN IF NOT EXISTS "message_type" varchar(20) DEFAULT 'TEXT';`,
+        `ALTER TABLE "task_chats" ADD COLUMN IF NOT EXISTS "moderation_status" varchar(30) DEFAULT 'PENDING_REVIEW';`,
+        `ALTER TABLE "task_chats" ADD COLUMN IF NOT EXISTS "moderated_at" timestamp with time zone;`,
+        `ALTER TABLE "task_chats" ADD COLUMN IF NOT EXISTS "rejection_reason" text;`,
+        `CREATE INDEX IF NOT EXISTS "task_chats_moderation_idx" ON "task_chats"("moderation_status");`,
+        `ALTER TABLE "task_milestones" ADD COLUMN IF NOT EXISTS "description" text;`,
+        `ALTER TABLE "task_milestones" ADD COLUMN IF NOT EXISTS "order_index" integer DEFAULT 0 NOT NULL;`,
+        `ALTER TABLE "task_milestones" ADD COLUMN IF NOT EXISTS "deliverable_type" varchar(50) DEFAULT 'INSPECTION_CHECKLIST' NOT NULL;`,
+        `ALTER TABLE "task_milestones" ADD COLUMN IF NOT EXISTS "checklist" jsonb;`,
+        `ALTER TABLE "task_milestones" ADD COLUMN IF NOT EXISTS "updated_at" timestamp with time zone DEFAULT now() NOT NULL;`,
+        `ALTER TABLE "task_reports" ADD COLUMN IF NOT EXISTS "checklist" jsonb;`,
+        `ALTER TABLE "task_reports" ADD COLUMN IF NOT EXISTS "measurements" jsonb;`,
+        `ALTER TABLE "task_reports" ADD COLUMN IF NOT EXISTS "severity" varchar(20) DEFAULT 'NONE';`,
+        `ALTER TABLE "task_reports" ADD COLUMN IF NOT EXISTS "incidental_expenses" jsonb;`,
+        `ALTER TABLE "task_reports" ADD COLUMN IF NOT EXISTS "metadata" jsonb;`,
+        `ALTER TABLE "task_reports" ADD COLUMN IF NOT EXISTS "official_notes" text;`,
+        `ALTER TABLE "task_reports" ADD COLUMN IF NOT EXISTS "compiled_at" timestamp with time zone;`,
+        `ALTER TABLE "task_reports" ADD COLUMN IF NOT EXISTS "compiled_by" uuid REFERENCES "users"("id");`,
+        `ALTER TABLE "task_reports" ADD COLUMN IF NOT EXISTS "user_reviewed_at" timestamp with time zone;`,
+        `ALTER TABLE "task_reports" ADD COLUMN IF NOT EXISTS "user_rejection_reason" text;`,
+        `ALTER TABLE "report_media" ADD COLUMN IF NOT EXISTS "caption" text;`,
       ];
 
       for (const query of columns) {

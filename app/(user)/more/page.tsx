@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function MorePage() {
   const router = useRouter();
@@ -35,7 +36,7 @@ export default function MorePage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const displayName = user?.name || "Oversite User";
+  const displayName = user?.name || user?.fullName || "Oversite User";
   const displayEmail = user?.email || "";
   const initials =
     displayName
@@ -87,7 +88,7 @@ export default function MorePage() {
   };
 
   return (
-    <div className="bg-(--bg-body) min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-(--text-heading) transition-colors duration-150 -m-4 sm:-m-6 md:-m-8">
+    <div className="relative w-full text-[var(--text-heading)] transition-colors duration-150">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-[90] flex justify-center pointer-events-none transition-all duration-300">
@@ -100,14 +101,9 @@ export default function MorePage() {
         </div>
       )}
 
-      <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between px-4 sm:px-6 py-4 relative">
-        <div>
-          {/* ── Top Header ── */}
-          <div className="flex items-center justify-center py-3 mb-3">
-            <h1 className="text-[19px] sm:text-[20px] font-bold text-(--text-heading) tracking-tight">
-              More
-            </h1>
-          </div>
+      <div>
+        {/* Unified Page Header */}
+        <PageHeader title="More" />
 
           {/* ── Profile Card ── */}
           <Link
@@ -304,7 +300,6 @@ export default function MorePage() {
 
         {/* Space above mobile bottom nav */}
         <div className="pb-32" />
-      </div>
 
       {/* ── Logout Confirmation Modal ── */}
       {isLogoutModalOpen && (

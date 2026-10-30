@@ -1,0 +1,16 @@
+info:
+  name: 1. Get Users List
+  type: http
+  seq: 1
+http:
+  method: GET
+  url: '{{baseUrl}}/admin/users?limit=50&page=1&role=USER'
+  headers:
+    - name: Authorization
+      value: Bearer {{token}}
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

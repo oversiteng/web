@@ -12,7 +12,10 @@ interface Milestone {
 }
 
 interface ProjectDraft {
+  projectTitle?: string;
   projectName?: string;
+  describeProject?: string;
+  keyOutcomes?: string;
   buildingType?: string;
   targetCompletion?: string;
   targetCompletionRaw?: string;
@@ -32,7 +35,6 @@ export default function ProjectOrderReviewPage() {
   const [createdTaskId, setCreatedTaskId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Read from sessionStorage or query parameters
     try {
       const stored = sessionStorage.getItem("oversite_project_draft");
       if (stored) {
@@ -44,14 +46,15 @@ export default function ProjectOrderReviewPage() {
     }
 
     // Fallback to URL search parameters
-    const name = searchParams.get("name") || "Construction Project";
+    const title = searchParams.get("title") || searchParams.get("name") || "Construction Project";
     const type = searchParams.get("type") || "Residential";
     const scope = searchParams.get("scope") || "Full Project Lifecycle";
     const expert = searchParams.get("expert") || "Structural Engineer";
     const date = searchParams.get("date") || "TBD";
 
     setDraft({
-      projectName: name,
+      projectTitle: title,
+      projectName: title,
       buildingType: type,
       reviewScope: scope,
       supervisorExpertise: expert,
@@ -61,10 +64,17 @@ export default function ProjectOrderReviewPage() {
     });
   }, [searchParams]);
 
-  const projectName = draft?.projectName || "Construction Project";
+  const projectTitle =
+    draft?.projectTitle ||
+    draft?.projectName ||
+    searchParams.get("title") ||
+    searchParams.get("name") ||
+    "Construction Project";
+  const describeProject = draft?.describeProject || "";
+  const keyOutcomes = draft?.keyOutcomes || "";
   const buildingType = draft?.buildingType || "Residential";
-  const reviewScope = draft?.reviewScope || "Full Project Lifecycle";
-  const supervisorExpertise = draft?.supervisorExpertise || "Structural Engineer";
+  const reviewScope = draft?.reviewScope || searchParams.get("scope") || "Full Project Lifecycle";
+  const supervisorExpertise = draft?.supervisorExpertise || searchParams.get("expert") || "Structural Engineer";
   const targetCompletion = draft?.targetCompletion || "TBD";
   const milestonesCount = draft?.milestones?.length || 0;
   const priceNgn = draft?.priceNgn || 12000;
@@ -85,13 +95,25 @@ export default function ProjectOrderReviewPage() {
         method: "POST",
         headers,
         body: JSON.stringify({
-          moduleType: "PROJECT_MONITORING",
-          title: `Project Review: ${projectName}`,
-          description: `Building Type: ${buildingType}\nScope: ${reviewScope}\nExpertise: ${supervisorExpertise}\nTarget: ${targetCompletion}\nMilestones: ${
-            draft?.milestones?.map((m) => `${m.name} (${m.date})`).join(", ") ||
-            "None specified"
-          }`,
+          moduleType: "PROJECT_WATCH",
+          title: `Project: ${projectTitle}`,
+          description: describeProject
+            ? `${describeProject}\n\nKey Outcomes: ${keyOutcomes || "General compliance"}\nScope: ${reviewScope}\nExpertise: ${supervisorExpertise}`
+            : `Building Type: ${buildingType}\nScope: ${reviewScope}\nExpertise: ${supervisorExpertise}\nTarget: ${targetCompletion}\nMilestones: ${draft?.milestones?.map((m) => `${m.name} (${m.date})`).join(", ") ||
+            "Standard lifecycle"
+            }`,
           priceNgn,
+          formData: {
+            projectTitle,
+            describeProject,
+            keyOutcomes,
+            buildingType,
+            reviewScope,
+            supervisorExpertise,
+            targetCompletion,
+            milestones: draft?.milestones || [],
+            serviceFee: priceNgn,
+          },
         }),
       });
 
@@ -131,7 +153,7 @@ export default function ProjectOrderReviewPage() {
         </div>
 
         {/* Card 1: Project Details Card */}
-        <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-xs">
+        <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-xs space-y-3.5">
           {/* Row 1: Task */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
             <span className="text-[var(--text-muted)]">Task</span>
@@ -140,39 +162,27 @@ export default function ProjectOrderReviewPage() {
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
+          <div className="border-b border-[var(--border-color)]/60" />
 
-          {/* Row 2: Project Name */}
+          {/* Row 2: Project Title */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Project</span>
+            <span className="text-[var(--text-muted)]">Project title</span>
             <span className="font-semibold text-[var(--text-heading)] text-right truncate max-w-[220px]">
-              {projectName}
+              {projectTitle}
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
+          <div className="border-b border-[var(--border-color)]/60" />
 
-          {/* Row 3: Building Type */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Building type</span>
-            <span className="font-semibold text-[var(--text-heading)] text-right truncate max-w-[220px]">
-              {buildingType}
-            </span>
-          </div>
-
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
-
-          {/* Row 4: Scope */}
-          <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Review scope</span>
+            <span className="text-[var(--text-muted)]">Scope</span>
             <span className="font-semibold text-[var(--text-heading)] text-right">
               {reviewScope}
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
+          <div className="border-b border-[var(--border-color)]/60" />
 
-          {/* Row 5: Supervisor */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
             <span className="text-[var(--text-muted)]">Supervisor expertise</span>
             <span className="font-semibold text-[var(--text-heading)] text-right">
@@ -180,19 +190,8 @@ export default function ProjectOrderReviewPage() {
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
+          <div className="border-b border-[var(--border-color)]/60" />
 
-          {/* Row 6: Target Completion */}
-          <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Target completion</span>
-            <span className="font-semibold text-[var(--text-heading)] text-right">
-              {targetCompletion}
-            </span>
-          </div>
-
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
-
-          {/* Row 7: Milestones */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
             <span className="text-[var(--text-muted)]">Milestones</span>
             <span className="font-semibold text-[var(--text-heading)] text-right">
@@ -200,31 +199,24 @@ export default function ProjectOrderReviewPage() {
             </span>
           </div>
 
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
-
-          {/* Row 8: Report Delivery */}
-          <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
-            <span className="text-[var(--text-muted)]">Report delivery</span>
-            <span className="font-semibold text-[var(--text-heading)] text-right">
-              Live Feed & Document Vault
-            </span>
-          </div>
+          {keyOutcomes && (
+            <>
+              <div className="border-b border-[var(--border-color)]/60" />
+              <div className="flex items-start justify-between text-[13.5px] sm:text-[14px] gap-3">
+                <span className="text-[var(--text-muted)] shrink-0">Key outcomes</span>
+                <span className="font-semibold text-[var(--text-heading)] text-right line-clamp-2 max-w-[240px]">
+                  {keyOutcomes}
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Card 2: Fee Breakdown Card */}
         <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 mt-4 shadow-xs">
-          {/* Row 1: Service fee */}
           <div className="flex items-center justify-between text-[13.5px] sm:text-[14px]">
             <span className="text-[var(--text-muted)]">Service fee</span>
-            <span className="font-semibold text-[var(--text-heading)]">₦12,000</span>
-          </div>
-
-          <div className="border-b border-[var(--border-color)]/60 my-3.5" />
-
-          {/* Row 2: Total */}
-          <div className="flex items-center justify-between text-[14px] sm:text-[15px]">
-            <span className="font-bold text-[var(--text-heading)]">Total Amount</span>
-            <span className="font-bold text-[var(--primary)] text-[16px]">₦12,000</span>
+            <span className="font-semibold text-[var(--text-heading)]">₦{priceNgn.toLocaleString()}</span>
           </div>
         </div>
       </div>
@@ -235,9 +227,9 @@ export default function ProjectOrderReviewPage() {
           type="button"
           disabled={isSubmitting}
           onClick={handlePay}
-          className="w-full py-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-[16px] tracking-wide transition-all duration-200 shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-50"
+          className="w-full py-4 rounded-full bg-[#85e19e] hover:bg-[#74d38e] text-zinc-950 font-semibold text-[16px] tracking-wide transition-all duration-200 shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-50"
         >
-          {isSubmitting ? "Commissioning review..." : "Confirm & Pay ₦12,000"}
+          {isSubmitting ? "Commissioning review..." : `Pay ₦${priceNgn.toLocaleString()}`}
         </button>
       </div>
 
@@ -259,7 +251,7 @@ export default function ProjectOrderReviewPage() {
             <p className="text-[12.5px] text-[var(--text-muted)] mt-2 leading-relaxed">
               Your supervisor inspection for{" "}
               <span className="font-semibold text-[var(--text-heading)]">
-                {projectName}
+                {projectTitle}
               </span>{" "}
               has been commissioned and scheduled.
             </p>

@@ -54,9 +54,14 @@ export default function PropertyOversiteDetailsPage() {
 
         const res = await fetch("/api/v1/properties", { headers });
         const json = await res.json();
+        const propIdParam = searchParams.get("propertyId");
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           setProperties(json.data);
-          setSelectedProperty(json.data[0]);
+          const found = json.data.find((p: PropertyOption) => p.id === propIdParam);
+          setSelectedProperty(found || json.data[0]);
+        } else if (propIdParam) {
+          const defaultFound = DEFAULT_PROPERTIES.find((p) => p.id === propIdParam);
+          if (defaultFound) setSelectedProperty(defaultFound);
         }
       } catch (err) {
         console.error("Failed to load properties:", err);
