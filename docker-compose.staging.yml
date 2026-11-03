@@ -15,6 +15,11 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgres://oversite_user:oversite_password@postgres:5432/oversitedb_staging
       - REDIS_URL=redis://redis:6379
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_S3_MEDIA_BUCKET=${AWS_S3_MEDIA_BUCKET:-}
+      - AWS_SES_FROM_EMAIL=${AWS_SES_FROM_EMAIL:-noreply@oversite.ng}
     restart: always
     depends_on:
       postgres:
