@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
   const { setSession } = useAuth();
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -25,7 +25,7 @@ export default function LoginPage() {
       const res = await fetch("/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: phoneNumber, password }),
+        body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
 
@@ -72,16 +72,16 @@ export default function LoginPage() {
       )}
 
       <form onSubmit={handleSubmit} className="w-full space-y-3">
-        {/* Email / Phone Number Input */}
+        {/* Email Input */}
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-(--text-heading) block">
-            Email / Phone Number
+            Email
           </label>
           <div className="flex items-center bg-(--bg-card) rounded-3xl overflow-hidden border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-(--primary) focus-within:border-[var(--primary)] transition-all">
             <input
               type="text"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
+              value={email}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               placeholder="e.g. mailali@gmail.com"
               className="w-full py-3 px-6 bg-transparent text-(--text-heading) placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium"
               required

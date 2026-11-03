@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { ApiResponse } from "@/lib/types/api";
 import { User, UserRole, AgentTier } from "@/lib/types/user";
 import bcrypt from "bcryptjs";
-import { eq, or } from "drizzle-orm";
+import { eq, or , ilike} from "drizzle-orm";
 import { getDbReady } from "@/lib/db/client";
 import { users, agentProfiles } from "@/db/schema";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
-
 export interface RegisterResponseData {
   user: Partial<User> & {
     fullName?: string | null;
@@ -66,7 +65,7 @@ export async function POST(
     }
 
     // Check if email or phone already registered
-    const existingConditions = [eq(users.email, rawEmail)];
+    const existingConditions = [ilike(users.email, rawEmail)];
     if (phone) {
       existingConditions.push(eq(users.phone, phone));
     }
@@ -78,7 +77,7 @@ export async function POST(
       .limit(1);
 
     if (existingUser.length > 0) {
-      const isEmailMatch = existingUser[0].email === rawEmail;
+      const isEmailMatch = existingUser[0].email?.toLowerCase() === rawEmail.toLowerCase();
       return NextResponse.json(
         {
           success: false,

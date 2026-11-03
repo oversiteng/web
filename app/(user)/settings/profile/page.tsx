@@ -167,13 +167,14 @@ export default function EditProfilePage() {
     });
 
     if (!presignRes.ok) {
-      throw new Error("Could not acquire S3 upload credentials");
+      const errData = await presignRes.json().catch(() => ({}));
+      throw new Error(errData?.error || "Could not acquire AWS S3 upload credentials");
     }
 
     const { data } = await presignRes.json();
     const { url, publicUrl } = data;
 
-    // Direct PUT to S3
+    // Direct PUT to AWS S3
     const uploadRes = await fetch(url, {
       method: "PUT",
       headers: {
@@ -183,7 +184,7 @@ export default function EditProfilePage() {
     });
 
     if (!uploadRes.ok) {
-      throw new Error("Failed to upload avatar to S3 bucket");
+      throw new Error("Failed to upload avatar to AWS S3 bucket");
     }
 
     return publicUrl;
@@ -204,13 +205,15 @@ export default function EditProfilePage() {
 
       let finalAvatarUrl = avatarPreview;
 
-      // If user selected a new image file, upload to S3 first
+      // If user selected a new image file, upload to AWS S3
       if (selectedAvatarFile) {
         try {
           finalAvatarUrl = await uploadAvatarToS3(selectedAvatarFile, token);
-        } catch (s3Err) {
-          console.warn("S3 upload failed, falling back to base64 preview:", s3Err);
-          // Fall back to avatarPreview (base64) so user upload still succeeds
+        } catch (s3Err: any) {
+          console.error("AWS S3 upload failed:", s3Err);
+          setIsSaving(false);
+          setToastMessage(s3Err?.message || "Failed to upload avatar to AWS S3");
+          return;
         }
       }
 

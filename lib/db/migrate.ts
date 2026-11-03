@@ -113,6 +113,17 @@ export async function ensureDatabaseMigrated(): Promise<void> {
         `ALTER TABLE "task_reports" ADD COLUMN IF NOT EXISTS "user_reviewed_at" timestamp with time zone;`,
         `ALTER TABLE "task_reports" ADD COLUMN IF NOT EXISTS "user_rejection_reason" text;`,
         `ALTER TABLE "report_media" ADD COLUMN IF NOT EXISTS "caption" text;`,
+        `DO $$ BEGIN
+          DELETE FROM "agent_profiles" WHERE "user_id" IN (
+            SELECT a.id FROM "users" a JOIN "users" b ON LOWER(a.email) = LOWER(b.email) AND a.created_at < b.created_at
+          );
+          DELETE FROM "users" a USING "users" b WHERE LOWER(a.email) = LOWER(b.email) AND a.created_at < b.created_at;
+          UPDATE "users" SET "email" = LOWER("email") WHERE "email" != LOWER("email");
+          DROP INDEX IF EXISTS "users_email_unique";
+          CREATE UNIQUE INDEX IF NOT EXISTS "users_email_unique" ON "users" (LOWER("email"));
+        EXCEPTION WHEN OTHERS THEN
+          NULL;
+        END $$;`,
       ];
 
       for (const query of columns) {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ApiResponse } from "@/lib/types/api";
 import { User } from "@/lib/types/user";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
-import { eq, or } from "drizzle-orm";
+import { eq, or, ilike } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { getDbReady } from "@/lib/db/client";
 import { users } from "@/db/schema";
@@ -24,7 +24,7 @@ export async function POST(
   try {
     const db = await getDbReady();
     const body = await req.json();
-    const identifier = (body.email || body.phone || body.phoneNumber || "").trim().toLowerCase();
+    const identifier = (body.email).trim().toLowerCase();
     const password = typeof body.password === "string" ? body.password : "";
 
     if (!identifier || !password) {
@@ -54,7 +54,7 @@ export async function POST(
         isActive: users.isActive,
       })
       .from(users)
-      .where(or(eq(users.email, identifier), eq(users.phone, identifier)))
+      .where(or(ilike(users.email, identifier), eq(users.phone, identifier)))
       .limit(1);
 
     if (foundUsers.length === 0) {
@@ -63,7 +63,7 @@ export async function POST(
           success: false,
           error: {
             code: "UNAUTHORIZED",
-            message: "Invalid email/phone or password",
+            message: "Invalid email or password",
           },
         },
         { status: 401 }
@@ -92,7 +92,7 @@ export async function POST(
           success: false,
           error: {
             code: "UNAUTHORIZED",
-            message: "Invalid email/phone or password",
+            message: "Invalid email or password",
           },
         },
         { status: 401 }
@@ -106,7 +106,7 @@ export async function POST(
           success: false,
           error: {
             code: "UNAUTHORIZED",
-            message: "Invalid email/phone or password",
+            message: "Invalid email or password",
           },
         },
         { status: 401 }

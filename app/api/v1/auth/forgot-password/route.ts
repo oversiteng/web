@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDbReady } from "@/lib/db/client";
 import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, ilike } from "drizzle-orm";
 import { generateOtpCode, storeOtp } from "@/lib/auth/otp";
 import { ApiResponse } from "@/lib/types/api";
 
@@ -29,7 +29,7 @@ export async function POST(
     const foundUsers = await db
       .select({ id: users.id, email: users.email })
       .from(users)
-      .where(eq(users.email, email))
+      .where(ilike(users.email, email))
       .limit(1);
 
     if (foundUsers.length === 0) {

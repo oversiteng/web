@@ -12,6 +12,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
@@ -175,7 +176,7 @@ export const users = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("users_email_unique").on(table.email),
+    uniqueIndex("users_email_unique").on(sql`lower(${table.email})`),
     index("users_phone_idx").on(table.phone),
     index("users_role_idx").on(table.role),
   ],
