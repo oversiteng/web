@@ -13,7 +13,7 @@ export function getDb() {
     throw new Error("DATABASE_URL is required to initialize Drizzle.");
   }
 
-  // Only require SSL for remote databases (like Neon/RDS) or when explicitly requested
+  // Only require SSL for remote databases (like AWS RDS/Aurora) or when explicitly requested
   const isLocal =
     connectionString.includes("@postgres:") ||
     (connectionString.includes("localhost") && !connectionString.includes("sslmode=require"));
