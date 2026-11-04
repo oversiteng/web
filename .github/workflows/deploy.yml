@@ -37,19 +37,18 @@ jobs:
           fi
 
       - name: Create Env File
+        env:
+          DEV_ENV: ${{ secrets.DEV_ENV_FILE }}
+          STAGING_ENV: ${{ secrets.STAGING_ENV_FILE }}
+          PROD_ENV: ${{ secrets.PRODUCTION_ENV_FILE }}
+          ENV_SECRET: ${{ steps.env.outputs.env_secret }}
         run: |
-          ENV_SECRET="${{ steps.env.outputs.env_secret }}"
-          CONTENT=""
-          if [ "$ENV_SECRET" = "DEV_ENV_FILE" ] && [ -n "${{ secrets.DEV_ENV_FILE }}" ]; then
-            CONTENT="${{ secrets.DEV_ENV_FILE }}"
-          elif [ "$ENV_SECRET" = "STAGING_ENV_FILE" ] && [ -n "${{ secrets.STAGING_ENV_FILE }}" ]; then
-            CONTENT="${{ secrets.STAGING_ENV_FILE }}"
-          else
-            CONTENT="${{ secrets.PRODUCTION_ENV_FILE }}"
-          fi
-
-          if [ -n "$CONTENT" ]; then
-            echo "$CONTENT" > .env.local
+          if [ "$ENV_SECRET" = "DEV_ENV_FILE" ] && [ -n "$DEV_ENV" ]; then
+            printf "%s\n" "$DEV_ENV" > .env.local
+          elif [ "$ENV_SECRET" = "STAGING_ENV_FILE" ] && [ -n "$STAGING_ENV" ]; then
+            printf "%s\n" "$STAGING_ENV" > .env.local
+          elif [ -n "$PROD_ENV" ]; then
+            printf "%s\n" "$PROD_ENV" > .env.local
           else
             touch .env.local
           fi
@@ -72,6 +71,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 30m
           script: |
             cd ${{ steps.env.outputs.deploy_dir }}
 
