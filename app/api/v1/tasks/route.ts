@@ -11,7 +11,6 @@ import { calculateTaskPricing } from "@/lib/services/pricing";
 const db = getDb();
 
 export const GET = withAuth(async (req: NextRequest, { user }) => {
-  console.log("helle")
 
   const searchParams = req.nextUrl.searchParams;
   const moduleType = searchParams.get("module") as TaskModule | null;

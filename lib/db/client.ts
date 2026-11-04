@@ -16,7 +16,9 @@ export function getDb() {
   // Only require SSL for remote databases (like AWS RDS/Aurora) or when explicitly requested
   const isLocal =
     connectionString.includes("@postgres:") ||
-    (connectionString.includes("localhost") && !connectionString.includes("sslmode=require"));
+    connectionString.includes("127.0.0.1") ||
+    (connectionString.includes("localhost") && !connectionString.includes("sslmode=require")) ||
+    connectionString.includes("sslmode=disable");
 
   const client = postgres(connectionString, {
     max: 10,

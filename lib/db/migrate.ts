@@ -30,7 +30,9 @@ export async function ensureDatabaseMigrated(): Promise<void> {
 
     const isLocal =
       connectionString.includes("@postgres:") ||
-      (connectionString.includes("localhost") && !connectionString.includes("sslmode=require"));
+      connectionString.includes("127.0.0.1") ||
+      (connectionString.includes("localhost") && !connectionString.includes("sslmode=require")) ||
+      connectionString.includes("sslmode=disable");
 
     // Find drizzle migrations folder
     const possibleFolders = [
@@ -150,7 +152,12 @@ export async function ensureDatabaseMigrated(): Promise<void> {
         console.warn("⚠️ Drizzle migrations folder not found, but safety columns were applied.");
       }
     } catch (err: any) {
-      console.warn("⚠️ Standard migration error:", err?.message || err);
+      const msg = err?.message || String(err);
+      if (msg.includes("already exists")) {
+        console.log("ℹ️ Database schema types or tables already initialized; skipping duplicate Drizzle execution.");
+      } else {
+        console.warn("⚠️ Standard migration warning:", msg);
+      }
     } finally {
       await migrationClient.end({ timeout: 5 }).catch(() => {});
     }

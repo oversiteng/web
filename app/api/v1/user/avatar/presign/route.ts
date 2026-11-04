@@ -24,7 +24,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       : contentType.split("/")[1] || "jpg";
 
     const timestamp = Date.now();
-    const objectKey = `avatars/${user.sub}-${timestamp}.${ext}`;
+    const objectKey = `profiles/${user.sub}-${timestamp}.${ext}`;
 
     const presignedData = await createUploadUrl(objectKey, contentType);
 
