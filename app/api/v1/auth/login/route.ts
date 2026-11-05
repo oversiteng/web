@@ -10,6 +10,14 @@ import { users } from "@/db/schema";
 export interface LoginResponseData {
   user: Partial<User> & {
     fullName?: string | null;
+    title?: string | null;
+    address?: string | null;
+    location?: string | null;
+    occupation?: string | null;
+    state?: string | null;
+    country?: string | null;
+    residence?: string | null;
+    avatarUrl?: string | null;
     ninVerificationStatus?: string;
     nbaVerificationStatus?: string;
   };
@@ -23,8 +31,9 @@ export async function POST(
 ): Promise<NextResponse<ApiResponse<LoginResponseData>>> {
   try {
     const db = await getDbReady();
-    const body = await req.json();
-    const identifier = (body.email).trim().toLowerCase();
+    const body = await req.json().catch(() => ({}));
+    const rawIdentifier = body.email || body.phone || body.phoneNumber || body.identifier || "";
+    const identifier = String(rawIdentifier).trim().toLowerCase();
     const password = typeof body.password === "string" ? body.password : "";
 
     if (!identifier || !password) {
@@ -46,12 +55,21 @@ export async function POST(
         email: users.email,
         phone: users.phone,
         name: users.name,
+        title: users.title,
+        address: users.address,
+        location: users.location,
+        occupation: users.occupation,
+        state: users.state,
+        country: users.country,
+        residence: users.residence,
+        avatarUrl: users.avatarUrl,
         role: users.role,
         kycStatus: users.kycStatus,
         ninVerificationStatus: users.ninVerificationStatus,
         nbaVerificationStatus: users.nbaVerificationStatus,
         passwordHash: users.passwordHash,
         isActive: users.isActive,
+        createdAt: users.createdAt,
       })
       .from(users)
       .where(or(ilike(users.email, identifier), eq(users.phone, identifier)))
@@ -132,11 +150,20 @@ export async function POST(
           name: user.name,
           fullName: user.name,
           phone: user.phone,
+          title: user.title,
+          address: user.address,
+          location: user.location,
+          occupation: user.occupation,
+          state: user.state,
+          country: user.country,
+          residence: user.residence,
+          avatarUrl: user.avatarUrl,
           role: user.role,
           kycStatus: user.kycStatus,
           ninVerificationStatus: user.ninVerificationStatus,
           nbaVerificationStatus: user.nbaVerificationStatus,
           isActive: user.isActive,
+          createdAt: user.createdAt ? user.createdAt.toISOString() : undefined,
         },
         token,
         accessToken: token,

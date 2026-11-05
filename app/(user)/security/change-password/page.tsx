@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, AlertCircle } from "lucide-react";
 
 function TargetEyeIcon({ active = false }: { active?: boolean }) {
   return (
@@ -25,25 +25,65 @@ function TargetEyeIcon({ active = false }: { active?: boolean }) {
 export default function ChangePasswordPage() {
   const router = useRouter();
 
-  const [currentPassword, setCurrentPassword] = useState("•••••••••••••");
-  const [newPassword, setNewPassword] = useState("•••••••••••••");
-  const [confirmPassword, setConfirmPassword] = useState("•••••••••••••");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setToastMessage("Password updated successfully!");
+    setErrorMessage(null);
 
-    setTimeout(() => {
-      router.push("/security");
-    }, 1200);
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setErrorMessage("All password fields are required");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setErrorMessage("New password must be at least 6 characters");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setErrorMessage("New password and confirm password do not match");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch("/api/v1/users/me/password", {
+        method: "PUT",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setToastMessage("Password updated successfully!");
+        setTimeout(() => {
+          router.push("/security");
+        }, 1200);
+      } else {
+        setErrorMessage(json.error?.message || "Failed to update password");
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "Network error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -62,7 +102,7 @@ export default function ChangePasswordPage() {
         </div>
       )}
 
-      {/* ── Top Header matching Screenshot 1 ── */}
+      {/* ── Top Header ── */}
       <div className="flex items-center gap-4 py-3 mb-8">
         <button
           type="button"
@@ -70,97 +110,107 @@ export default function ChangePasswordPage() {
           aria-label="Go back"
           className="w-9 h-9 flex items-center justify-center text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer -ml-1"
         >
-          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+          <ArrowLeft className="w-5 h-5" />
         </button>
 
-        <h1 className="text-[17px] sm:text-[18px] font-semibold text-[var(--text-heading)]">
+        <h1 className="text-[18px] sm:text-[19px] font-semibold text-[var(--text-heading)] tracking-tight">
           Change password
         </h1>
       </div>
 
-      {/* ── Password Form matching Screenshot 1 ── */}
+      {/* ── Error Banner ── */}
+      {errorMessage && (
+        <div className="mb-6 p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {/* ── Change Password Form ── */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Current Password */}
+        {/* Field 1: Current Password */}
         <div>
-          <label className="block text-[13px] font-semibold text-[var(--text-heading)] mb-2">
-            Current Password
+          <label className="block text-[13px] font-medium text-[var(--text-heading)] mb-2">
+            Current password
           </label>
-          <div className="flex items-center justify-between gap-3 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-6 py-4 transition-all shadow-xs">
+          <div className="relative flex items-center">
             <input
               type={showCurrent ? "text" : "password"}
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="Enter current password"
-              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none font-medium tracking-wider"
+              required
+              className="w-full h-12 px-4 pr-12 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-colors"
             />
             <button
               type="button"
               onClick={() => setShowCurrent(!showCurrent)}
-              aria-label={showCurrent ? "Hide password" : "Show password"}
+              aria-label={showCurrent ? "Hide current password" : "Show current password"}
+              className="absolute right-4 focus:outline-none"
             >
               <TargetEyeIcon active={showCurrent} />
             </button>
           </div>
         </div>
 
-        {/* New Password */}
+        {/* Field 2: New Password */}
         <div>
-          <label className="block text-[13px] font-semibold text-[var(--text-heading)] mb-2">
-            New Password
+          <label className="block text-[13px] font-medium text-[var(--text-heading)] mb-2">
+            New password
           </label>
-          <div className="flex items-center justify-between gap-3 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-6 py-4 transition-all shadow-xs">
+          <div className="relative flex items-center">
             <input
               type={showNew ? "text" : "password"}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Enter new password"
-              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none font-medium tracking-wider"
+              placeholder="Enter new password (min. 6 characters)"
+              required
+              className="w-full h-12 px-4 pr-12 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-colors"
             />
             <button
               type="button"
               onClick={() => setShowNew(!showNew)}
-              aria-label={showNew ? "Hide password" : "Show password"}
+              aria-label={showNew ? "Hide new password" : "Show new password"}
+              className="absolute right-4 focus:outline-none"
             >
               <TargetEyeIcon active={showNew} />
             </button>
           </div>
         </div>
 
-        {/* Confirm Password */}
+        {/* Field 3: Confirm New Password */}
         <div>
-          <label className="block text-[13px] font-semibold text-[var(--text-heading)] mb-2">
-            Confirm Password
+          <label className="block text-[13px] font-medium text-[var(--text-heading)] mb-2">
+            Confirm new password
           </label>
-          <div className="flex items-center justify-between gap-3 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-6 py-4 transition-all shadow-xs">
+          <div className="relative flex items-center">
             <input
               type={showConfirm ? "text" : "password"}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm new password"
-              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none font-medium tracking-wider"
+              required
+              className="w-full h-12 px-4 pr-12 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-colors"
             />
             <button
               type="button"
               onClick={() => setShowConfirm(!showConfirm)}
-              aria-label={showConfirm ? "Hide password" : "Show password"}
+              aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+              className="absolute right-4 focus:outline-none"
             >
               <TargetEyeIcon active={showConfirm} />
             </button>
           </div>
         </div>
 
-        {/* Change Password Button */}
-        <div className="pt-12">
+        {/* Submit Button */}
+        <div className="pt-6">
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold text-[14px] shadow-sm active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full h-13 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.99] text-white font-semibold text-[15px] transition-all cursor-pointer shadow-xs disabled:opacity-50 flex items-center justify-center"
           >
-            {isSubmitting ? (
-              <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              "Change password"
-            )}
+            {isSubmitting ? "Updating..." : "Update password"}
           </button>
         </div>
       </form>

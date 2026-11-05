@@ -1,105 +1,111 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Filter, Check, X } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ArrowLeft, SlidersHorizontal } from "lucide-react";
 
 type FilterStatus = "All" | "Paid" | "Pending" | "Failed";
 
-interface PaymentRecord {
+interface PaymentHistoryItem {
   id: string;
-  title: string;
-  meta: string;
-  amount: string;
-  status: "Paid" | "Pending" | "Failed";
-  dateGroup: "July 17" | "August 1" | "August 10";
+  reference: string;
+  amount: number;
+  currency: string;
+  gateway: string;
+  status: string;
+  taskTitle: string;
+  createdAt: string;
 }
-
-const HISTORY_DATA: PaymentRecord[] = [
-  {
-    id: "tx-1",
-    title: "Pro subscription",
-    meta: "Jul 19 • Paystack •••• 4471",
-    amount: "₦5,000",
-    status: "Paid",
-    dateGroup: "July 17",
-  },
-  {
-    id: "tx-2",
-    title: "CAC certified copy",
-    meta: "Jun 18 • Paystack •••• 4471",
-    amount: "₦5,000",
-    status: "Paid",
-    dateGroup: "July 17",
-  },
-  {
-    id: "tx-3",
-    title: "Ikoyi site visit",
-    meta: "Jun 18 • Paystack •••• 4471",
-    amount: "₦5,000",
-    status: "Paid",
-    dateGroup: "July 17",
-  },
-  {
-    id: "tx-4",
-    title: "Business registration",
-    meta: "Jul 30 • Paystack •••• 5678",
-    amount: "₦3,000",
-    status: "Pending",
-    dateGroup: "August 1",
-  },
-  {
-    id: "tx-5",
-    title: "Lagos site visit",
-    meta: "Jul 29 • Flutterwave •••• 1234",
-    amount: "₦4,000",
-    status: "Paid",
-    dateGroup: "August 1",
-  },
-  {
-    id: "tx-6",
-    title: "Trademark registration",
-    meta: "Aug 9 • Flutterwave •••• 3456",
-    amount: "₦7,000",
-    status: "Paid",
-    dateGroup: "August 10",
-  },
-  {
-    id: "tx-7",
-    title: "Abuja site visit",
-    meta: "Aug 8 • Paystack •••• 8910",
-    amount: "₦6,000",
-    status: "Pending",
-    dateGroup: "August 10",
-  },
-];
 
 const FILTER_OPTIONS: { id: FilterStatus; label: string }[] = [
   { id: "All", label: "All transactions" },
-  { id: "Paid", label: "Paid / Success" },
+  { id: "Paid", label: "Paid / Captured" },
   { id: "Pending", label: "Pending" },
   { id: "Failed", label: "Failed" },
 ];
 
+function getStatusBadge(status: string) {
+  const norm = status.toUpperCase();
+  if (norm === "CAPTURED" || norm === "RELEASED" || norm === "AUTHORIZED" || norm === "PAID") {
+    return {
+      label: "Paid",
+      dot: "bg-[var(--primary)]",
+      text: "text-[var(--primary)]",
+    };
+  }
+  if (norm === "PENDING" || norm === "ESCROWED") {
+    return {
+      label: "Pending",
+      dot: "bg-amber-500",
+      text: "text-amber-500",
+    };
+  }
+  return {
+    label: "Failed",
+    dot: "bg-red-500",
+    text: "text-red-500",
+  };
+}
+
 export default function PaymentHistoryPage() {
   const router = useRouter();
+  const [payments, setPayments] = useState<PaymentHistoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterStatus>("All");
   const [pendingFilter, setPendingFilter] = useState<FilterStatus>("All");
 
-  const filteredHistory = useMemo(() => {
-    if (activeFilter === "All") return HISTORY_DATA;
-    return HISTORY_DATA.filter((item) => item.status === activeFilter);
-  }, [activeFilter]);
+  useEffect(() => {
+    async function loadPaymentHistory() {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const groups: ("July 17" | "August 1" | "August 10")[] = [
-    "July 17",
-    "August 1",
-    "August 10",
-  ];
+        const res = await fetch("/api/v1/payments/history?limit=100", {
+          credentials: "include",
+          headers,
+        });
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setPayments(json.data);
+        } else {
+          setPayments([]);
+        }
+      } catch (err) {
+        console.error("Failed to load payments history:", err);
+        setPayments([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadPaymentHistory();
+  }, []);
+
+  const filteredHistory = useMemo(() => {
+    if (activeFilter === "All") return payments;
+    return payments.filter((item) => {
+      const badge = getStatusBadge(item.status);
+      return badge.label.toLowerCase() === activeFilter.toLowerCase();
+    });
+  }, [payments, activeFilter]);
+
+  // Group by date (e.g. Month Year or Date)
+  const groupedPayments = useMemo(() => {
+    const groups: Record<string, PaymentHistoryItem[]> = {};
+    filteredHistory.forEach((item) => {
+      const d = new Date(item.createdAt);
+      const groupName = d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+      if (!groups[groupName]) groups[groupName] = [];
+      groups[groupName].push(item);
+    });
+    return groups;
+  }, [filteredHistory]);
 
   const handleOpenFilter = () => {
     setPendingFilter(activeFilter);
@@ -128,131 +134,120 @@ export default function PaymentHistoryPage() {
           <button
             type="button"
             onClick={handleOpenFilter}
-            aria-label="Filter payment history"
+            aria-label="Filter transactions"
             className="w-10 h-10 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer"
           >
-            <SlidersHorizontal className="w-4 h-4 stroke-[2]" />
+            <Filter className="w-4 h-4 stroke-[2]" />
           </button>
         }
       />
 
-      {/* ── Grouped Payment Items matching Screenshot 4 ── */}
-      <div className="space-y-8">
-        {groups.map((group) => {
-          const items = filteredHistory.filter((i) => i.dateGroup === group);
-          if (items.length === 0) return null;
+      {/* ── Active Filter Pill (if not All) ── */}
+      {activeFilter !== "All" && (
+        <div className="flex items-center gap-2 mb-6">
+          <span className="text-[12px] text-[var(--text-muted)]">Filtered by:</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-[12px] font-medium text-[var(--text-heading)]">
+            <span>{activeFilter}</span>
+            <button
+              type="button"
+              onClick={() => setActiveFilter("All")}
+              className="text-[var(--text-muted)] hover:text-[var(--text-heading)] cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
-          return (
-            <div key={group} className="space-y-3">
-              {/* Group Title */}
-              <h2 className="text-[14px] font-semibold text-[var(--text-heading)] px-1">
-                {group}
+      {/* ── Content ── */}
+      {isLoading ? (
+        <DynamicLoadingState variant="documents" count={4} />
+      ) : Object.keys(groupedPayments).length === 0 ? (
+        <EmptyState
+          preset="filter"
+          action={{
+            label: "Clear Filter",
+            onClick: () => setActiveFilter("All"),
+          }}
+        />
+      ) : (
+        <div className="space-y-8">
+          {Object.entries(groupedPayments).map(([dateGroup, items]) => (
+            <div key={dateGroup}>
+              <h2 className="text-[12.5px] font-medium text-[var(--text-muted)] uppercase tracking-wider mb-3">
+                {dateGroup}
               </h2>
-
-              {/* Card Container around date group items */}
-              <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] divide-y divide-[var(--border-color)] overflow-hidden shadow-xs">
+              <div className="space-y-1">
                 {items.map((item) => {
-                  const isPaid = item.status === "Paid";
-                  const isPending = item.status === "Pending";
-                  const receiptUrl = `/billing/receipt?service=${encodeURIComponent(
-                    item.title
-                  )}&amount=${encodeURIComponent(
-                    item.amount
-                  )}&txn=T83746192048591&date=${encodeURIComponent(
-                    item.meta
-                  )}&status=${encodeURIComponent(item.status)}`;
+                  const badge = getStatusBadge(item.status);
+                  const formattedDate = new Date(item.createdAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  });
+                  const formattedAmount = `₦${item.amount.toLocaleString()}`;
 
                   return (
                     <Link
                       key={item.id}
-                      href={receiptUrl}
-                      className="block p-4 hover:bg-[var(--bg-secondary)] transition-colors group cursor-pointer"
+                      href={`/billing/receipt?service=${encodeURIComponent(
+                        item.taskTitle
+                      )}&amount=${encodeURIComponent(formattedAmount)}&txn=${encodeURIComponent(
+                        item.reference
+                      )}&date=${encodeURIComponent(formattedDate)}`}
+                      className="flex items-center justify-between py-3 px-2 hover:bg-[var(--bg-secondary)]/50 rounded-xl transition-colors cursor-pointer group"
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[14px] font-medium text-[var(--text-heading)] group-hover:text-[var(--primary)] transition-colors">
-                            {item.title}
-                          </p>
-                          <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-                            {item.meta}
-                          </p>
-                        </div>
+                      <div className="min-w-0 pr-4">
+                        <p className="text-[14px] font-semibold text-[var(--text-heading)] group-hover:text-[var(--primary)] transition-colors truncate">
+                          {item.taskTitle}
+                        </p>
+                        <p className="text-[12px] text-[var(--text-muted)] mt-0.5 truncate">
+                          {formattedDate} • {item.gateway} • {item.reference.slice(0, 14)}
+                        </p>
+                      </div>
 
-                        <div className="text-right">
-                          <p className="text-[14px] font-semibold text-[var(--text-heading)]">
-                            {item.amount}
-                          </p>
-                          <p
-                            className={`text-[11px] font-medium flex items-center justify-end gap-1.5 mt-0.5 ${
-                              isPaid
-                                ? "text-emerald-500 dark:text-emerald-400"
-                                : isPending
-                                ? "text-amber-500 dark:text-amber-400"
-                                : "text-red-500"
-                            }`}
-                          >
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                isPaid
-                                  ? "bg-emerald-500"
-                                  : isPending
-                                  ? "bg-amber-500"
-                                  : "bg-red-500"
-                              }`}
-                            />
-                            {item.status}
-                          </p>
-                        </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-[14px] font-bold text-[var(--text-heading)]">
+                          {formattedAmount}
+                        </p>
+                        <p
+                          className={`text-[11.5px] font-semibold flex items-center justify-end gap-1.5 mt-0.5 ${badge.text}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                          {badge.label}
+                        </p>
                       </div>
                     </Link>
                   );
                 })}
               </div>
             </div>
-          );
-        })}
+          ))}
+        </div>
+      )}
 
-        {filteredHistory.length === 0 && (
-          activeFilter !== "All" ? (
-            <EmptyState
-              preset="filter"
-              action={{
-                label: "Show All Transactions",
-                onClick: () => setActiveFilter("All"),
-              }}
-            />
-          ) : (
-            <EmptyState
-              preset="billing"
-              action={{
-                label: "Browse Services",
-                href: "/dashboard",
-              }}
-            />
-          )
-        )}
-      </div>
-
-      {/* ── Filter Bottom Sheet Modal matching Screenshot 4 ── */}
+      {/* ── Filter Modal / Bottom Sheet ── */}
       {filterModalOpen && (
-        <div
-          className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs transition-opacity flex items-end justify-center"
-          onClick={() => setFilterModalOpen(false)}
-        >
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div
-            className="w-full max-w-full md:max-w-[600px] xl:max-w-[650px] bg-[var(--bg-card)] rounded-t-[32px] border-t border-[var(--border-color)] p-6 sm:p-8 shadow-2xl animate-in slide-in-from-bottom-6 transition-all"
+            className="w-full sm:max-w-md bg-[var(--bg-card)] rounded-t-[28px] sm:rounded-2xl p-6 border border-[var(--border-color)] shadow-2xl animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-300"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Grab Handle */}
-            <div className="w-10 h-1 bg-[var(--border-color)] rounded-full mx-auto -mt-2 mb-4" />
+            <div className="w-12 h-1.5 bg-[var(--border-color)] rounded-full mx-auto mb-4 sm:hidden" />
 
-            {/* Title */}
-            <h3 className="text-center text-[17px] sm:text-[18px] font-bold text-[var(--text-heading)] mb-6">
-              Filter status
-            </h3>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-[16px] font-bold text-[var(--text-heading)]">
+                Filter by Status
+              </h3>
+              <button
+                type="button"
+                onClick={() => setFilterModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-            {/* Radio Options List */}
-            <div className="space-y-4 mb-8">
+            <div className="space-y-2 mb-6">
               {FILTER_OPTIONS.map((opt) => {
                 const isSelected = pendingFilter === opt.id;
                 return (
@@ -260,44 +255,35 @@ export default function PaymentHistoryPage() {
                     key={opt.id}
                     type="button"
                     onClick={() => setPendingFilter(opt.id)}
-                    className="w-full flex items-center gap-3.5 py-2 cursor-pointer text-left group"
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? "border-[var(--primary)] bg-[var(--primary-light)] text-[var(--primary)] font-semibold"
+                        : "border-[var(--border-color)] hover:bg-[var(--bg-secondary)] text-[var(--text-heading)] font-normal"
+                    }`}
                   >
-                    {/* Radio Circle */}
-                    <div
-                      className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                        isSelected
-                          ? "border-2 border-[var(--primary)]"
-                          : "border-2 border-[var(--border-color)] group-hover:border-[var(--text-muted)]"
-                      }`}
-                    >
-                      {isSelected && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-[var(--primary)]" />
-                      )}
-                    </div>
-
-                    {/* Label */}
-                    <span
-                      className={`text-[15px] font-medium transition-colors ${
-                        isSelected
-                          ? "text-[var(--text-heading)] font-semibold"
-                          : "text-[var(--text-body)] group-hover:text-[var(--text-heading)]"
-                      }`}
-                    >
-                      {opt.label}
-                    </span>
+                    <span className="text-[13.5px]">{opt.label}</span>
+                    {isSelected && (
+                      <Check className="w-4 h-4 text-[var(--primary)] stroke-[3]" />
+                    )}
                   </button>
                 );
               })}
             </div>
 
-            {/* Apply Filter Button */}
-            <div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setFilterModalOpen(false)}
+                className="flex-1 py-3 px-4 rounded-full border border-[var(--border-color)] text-[var(--text-muted)] font-semibold text-[13.5px] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
               <button
                 type="button"
                 onClick={handleApplyFilter}
-                className="py-3 px-7 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold text-[14px] shadow-sm active:scale-[0.99] transition-all cursor-pointer"
+                className="flex-1 py-3 px-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold text-[13.5px] transition-all cursor-pointer shadow-xs"
               >
-                Apply Filter
+                Apply filter
               </button>
             </div>
           </div>

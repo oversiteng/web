@@ -1,342 +1,331 @@
 "use client";
 
-import React, { useState } from "react";
-import { Search, Send, Paperclip } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Search, Send, CheckCheck, Paperclip, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { formatTimeAgo } from "@/lib/utils";
 
-interface Message {
-  id: string;
-  sender: string;
-  text: string;
-  time: string;
-  isSelf: boolean;
-}
-
-interface Conversation {
-  id: string;
-  initials: string;
-  name: string;
+interface ChatThread {
+  taskId: string;
+  taskTitle: string;
+  moduleType: string;
   lastMessage: string;
-  time: string;
-  unread: number;
-  messages: Message[];
+  lastMessageAt: string;
+  unreadCount: number;
 }
 
-const INITIAL_CONVERSATIONS: Conversation[] = [
-  {
-    id: "conv-1",
-    initials: "AL",
-    name: "Aisha L.",
-    lastMessage: "Just finished reviewing the blueprints for th...",
-    time: "5m ago",
-    unread: 3,
-    messages: [
-      {
-        id: "m1",
-        sender: "Aisha L.",
-        text: "Hello Adaeze! I am reviewing the architectural drawings for the Lekki project.",
-        time: "10:15 AM",
-        isSelf: false,
-      },
-      {
-        id: "m2",
-        sender: "You",
-        text: "Great! Please ensure the foundation measurements match the survey document.",
-        time: "10:18 AM",
-        isSelf: true,
-      },
-      {
-        id: "m3",
-        sender: "Aisha L.",
-        text: "Just finished reviewing the blueprints for the site. Everything is aligned with the structural specifications.",
-        time: "10:25 AM",
-        isSelf: false,
-      },
-    ],
-  },
-  {
-    id: "conv-2",
-    initials: "JM",
-    name: "James M.",
-    lastMessage: "Client meeting rescheduled to next Wedne...",
-    time: "10m ago",
-    unread: 4,
-    messages: [
-      {
-        id: "m1",
-        sender: "James M.",
-        text: "Hi Adaeze, quick update on the property vendor meeting.",
-        time: "09:30 AM",
-        isSelf: false,
-      },
-      {
-        id: "m2",
-        sender: "James M.",
-        text: "Client meeting rescheduled to next Wednesday at 11:00 AM.",
-        time: "09:40 AM",
-        isSelf: false,
-      },
-    ],
-  },
-  {
-    id: "conv-3",
-    initials: "SR",
-    name: "Sophia R.",
-    lastMessage: "Received the latest materials shipment; qua...",
-    time: "15m ago",
-    unread: 5,
-    messages: [
-      {
-        id: "m1",
-        sender: "Sophia R.",
-        text: "Good morning! The supply truck arrived at the gate.",
-        time: "08:45 AM",
-        isSelf: false,
-      },
-      {
-        id: "m2",
-        sender: "Sophia R.",
-        text: "Received the latest materials shipment; quality check passed.",
-        time: "09:12 AM",
-        isSelf: false,
-      },
-    ],
-  },
-  {
-    id: "conv-4",
-    initials: "DP",
-    name: "David P.",
-    lastMessage: "Site safety audit completed, no issues repo...",
-    time: "20m ago",
-    unread: 6,
-    messages: [
-      {
-        id: "m1",
-        sender: "David P.",
-        text: "Carried out the routine perimeter and safety audit this morning.",
-        time: "08:10 AM",
-        isSelf: false,
-      },
-      {
-        id: "m2",
-        sender: "David P.",
-        text: "Site safety audit completed, no issues reported. Fence and gate lock secure.",
-        time: "08:35 AM",
-        isSelf: false,
-      },
-    ],
-  },
-];
+interface ChatMessage {
+  id: string;
+  taskId: string;
+  senderId: string;
+  senderRole?: string;
+  message: string;
+  mediaUrl?: string | null;
+  moderationStatus?: string;
+  isModerated?: boolean;
+  createdAt: string;
+}
 
 export default function MessagesPage() {
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [activeConv, setActiveConv] = useState<Conversation | null>(null);
+  const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [activeThread, setActiveThread] = useState<ChatThread | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoadingThreads, setIsLoadingThreads] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [inputText, setInputText] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const filtered = conversations.filter(
-    (c) =>
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+  // Load threads
+  useEffect(() => {
+    async function loadThreads() {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+          try {
+            const payload = JSON.parse(atob(token.split(".")[1]));
+            setCurrentUserId(payload.sub);
+          } catch (e) {}
+        }
+
+        const res = await fetch("/api/v1/chat", { credentials: "include", headers });
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setThreads(json.data);
+        } else {
+          setThreads([]);
+        }
+      } catch (err) {
+        console.error("Failed to load chat threads:", err);
+        setThreads([]);
+      } finally {
+        setIsLoadingThreads(false);
+      }
+    }
+
+    loadThreads();
+  }, []);
+
+  // Load messages when activeThread changes
+  useEffect(() => {
+    if (!activeThread) return;
+    const currentTaskId = activeThread.taskId;
+
+    async function loadMessages() {
+      setIsLoadingMessages(true);
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch(`/api/v1/chat/${currentTaskId}/messages`, {
+          credentials: "include",
+          headers,
+        });
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setMessages(json.data);
+        } else {
+          setMessages([]);
+        }
+      } catch (err) {
+        console.error("Failed to load messages:", err);
+        setMessages([]);
+      } finally {
+        setIsLoadingMessages(false);
+      }
+    }
+
+    loadMessages();
+  }, [activeThread]);
+
+  // Scroll to bottom on new message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const filteredThreads = threads.filter(
+    (t) =>
+      t.taskTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleOpenConversation = (conv: Conversation) => {
-    // Mark as read when opening
-    setConversations((prev) =>
-      prev.map((c) => (c.id === conv.id ? { ...c, unread: 0 } : c))
-    );
-    setActiveConv(conv);
-  };
-
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeConv) return;
+    if (!inputText.trim() || !activeThread) return;
 
-    const newMsg: Message = {
-      id: `m-${Date.now()}`,
-      sender: "You",
-      text: inputText.trim(),
-      time: "Just now",
-      isSelf: true,
+    const outgoing = inputText.trim();
+    setInputText("");
+
+    // Optimistic message
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: ChatMessage = {
+      id: tempId,
+      taskId: activeThread.taskId,
+      senderId: currentUserId || "me",
+      message: outgoing,
+      moderationStatus: "PENDING_REVIEW",
+      createdAt: new Date().toISOString(),
     };
 
-    setActiveConv((prev) =>
-      prev ? { ...prev, messages: [...prev.messages, newMsg] } : null
-    );
+    setMessages((prev) => [...prev, optimisticMsg]);
 
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === activeConv.id
-          ? {
-              ...c,
-              lastMessage: inputText.trim(),
-              time: "Just now",
-              messages: [...c.messages, newMsg],
-            }
-          : c
-      )
-    );
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    setInputText("");
+      const res = await fetch(`/api/v1/chat/${activeThread.taskId}/messages`, {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({ message: outgoing }),
+      });
+
+      const json = await res.json();
+      if (json.success && json.data) {
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? json.data : m)));
+      }
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    }
   };
 
   // ─── Active Chat Thread View ───
-  if (activeConv) {
+  if (activeThread) {
     return (
       <div className="relative w-full text-[var(--text-heading)] transition-colors duration-150 flex flex-col justify-between min-h-[calc(100dvh-180px)]">
         <div className="w-full flex-1 flex flex-col justify-between">
           <div>
-            {/* Unified Page Header */}
             <PageHeader
-              title={activeConv.name}
-              subtitle="Online · Accredited Field Agent"
+              title={activeThread.taskTitle}
+              subtitle="Hub-and-Spoke Moderated Operations Channel"
               showBack={true}
-              onBack={() => setActiveConv(null)}
+              onBack={() => setActiveThread(null)}
             />
 
+            {/* Moderation banner */}
+            <div className="mx-2 mb-3 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11.5px] text-amber-600 dark:text-amber-400 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>For security, direct exchanges of phone numbers and bank accounts are held for admin QA review.</span>
+            </div>
+
             {/* Messages Stream */}
-            <div className="space-y-3.5 overflow-y-auto pb-4 pt-1 max-h-[calc(100dvh-280px)]">
-              {activeConv.messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={`flex flex-col ${m.isSelf ? "items-end" : "items-start"}`}
-                >
-                  <div
-                    className={`max-w-[82%] px-4 py-2.5 rounded-[20px] text-[13.5px] leading-relaxed shadow-xs ${
-                      m.isSelf
-                        ? "bg-(--primary) text-white rounded-tr-xs"
-                        : "bg-(--bg-card) text-(--text-heading) rounded-tl-xs border border-(--border-color)"
-                    }`}
-                  >
-                    {m.text}
-                  </div>
-                  <span className="text-[10.5px] text-(--text-muted) mt-1 px-1">
-                    {m.time}
-                  </span>
+            <div className="space-y-3.5 overflow-y-auto pb-4 pt-1 max-h-[calc(100dvh-310px)] px-1">
+              {isLoadingMessages ? (
+                <DynamicLoadingState variant="documents" count={3} />
+              ) : messages.length === 0 ? (
+                <div className="text-center py-12 text-[13px] text-[var(--text-muted)]">
+                  No messages in this mission thread yet. Send a message to coordinate with the field operative.
                 </div>
-              ))}
+              ) : (
+                messages.map((msg) => {
+                  const isSelf = currentUserId ? msg.senderId === currentUserId : false;
+                  const timeFormatted = new Date(msg.createdAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`flex flex-col ${isSelf ? "items-end" : "items-start"}`}
+                    >
+                      <div
+                        className={`max-w-[78%] px-4 py-2.5 rounded-2xl text-[13.5px] leading-relaxed shadow-2xs ${
+                          isSelf
+                            ? "bg-[var(--primary)] text-white rounded-br-xs"
+                            : "bg-[var(--bg-card)] border border-[var(--border-color)]/70 text-[var(--text-heading)] rounded-bl-xs"
+                        }`}
+                      >
+                        {msg.message}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 mt-1 px-1 text-[10.5px] text-[var(--text-muted)]">
+                        <span>{timeFormatted}</span>
+                        {isSelf && (
+                          <CheckCheck className="w-3.5 h-3.5 text-[var(--primary)] stroke-[2.5]" />
+                        )}
+                        {msg.moderationStatus === "PENDING_REVIEW" && (
+                          <span className="text-[10px] text-amber-500 font-medium">· Reviewing</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={messagesEndRef} />
             </div>
           </div>
 
-          {/* Sticky Message Input */}
-          <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-(--bg-body)/95 backdrop-blur-md pt-3 pb-3 border-t border-(--border-color)">
-            <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-              <button
-                type="button"
-                className="p-2.5 text-(--text-muted) hover:text-(--text-heading) rounded-full bg-(--bg-card) border border-(--border-color) shadow-xs cursor-pointer transition-colors"
-                aria-label="Attach file"
-              >
-                <Paperclip className="w-5 h-5" />
-              </button>
-              <input
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1 bg-(--bg-card) rounded-full px-4 py-3 text-[14px] text-(--text-heading) placeholder:text-(--text-muted) outline-none border border-(--border-color) focus:border-(--primary) shadow-xs transition-all"
-              />
-              <button
-                type="submit"
-                className="w-11 h-11 bg-(--primary) hover:bg-(--primary-hover) text-white rounded-full flex items-center justify-center shrink-0 shadow-xs cursor-pointer active:scale-95 transition-all"
-                aria-label="Send message"
-              >
-                <Send className="w-5 h-5 -translate-x-0.5" />
-              </button>
-            </form>
-          </div>
+          {/* Sticky Input Dock */}
+          <form
+            onSubmit={handleSendMessage}
+            className="sticky bottom-0 bg-[var(--bg-body)] pt-2 pb-1 border-t border-[var(--border-color)]/60 flex items-center gap-2"
+          >
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder="Type your message..."
+              className="flex-1 py-3 px-4 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 text-[13.5px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all"
+            />
+            <button
+              type="submit"
+              disabled={!inputText.trim()}
+              aria-label="Send message"
+              className="w-11 h-11 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white flex items-center justify-center shrink-0 disabled:opacity-40 transition-all cursor-pointer shadow-xs"
+            >
+              <Send className="w-4 h-4 ml-0.5 stroke-[2.2]" />
+            </button>
+          </form>
         </div>
       </div>
     );
   }
 
-  // ─── Main Messages List ───
+  // ─── Conversations List View ───
   return (
-    <div className="relative w-full text-[var(--text-heading)] transition-colors duration-150">
-      <div>
-        {/* Unified Page Header */}
-        <PageHeader title="Messages" />
+    <div className="relative w-full text-[var(--text-heading)] pb-12 transition-colors duration-150">
+      <PageHeader title="Messages" subtitle="Live Field Dispatch Threads" />
 
-          {/* ── Search Input: Rounded Pill ── */}
-          <div className="mb-6">
-            <div className="w-full bg-(--bg-card) rounded-full px-4 py-3 flex items-center gap-3 shadow-xs border border-(--border-color) focus-within:border-(--primary) transition-all">
-              <Search className="w-5 h-5 text-(--text-muted) shrink-0 stroke-[2.2]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search.."
-                className="w-full bg-transparent text-[14px] text-(--text-heading) placeholder:text-(--text-muted) focus:outline-none"
-              />
-            </div>
-          </div>
-
-          {/* ── Conversation List ── */}
-          <div className="space-y-4">
-            {filtered.length === 0 ? (
-              searchQuery ? (
-                <EmptyState
-                  preset="search"
-                  query={searchQuery}
-                  action={{
-                    label: "Clear Search",
-                    onClick: () => setSearchQuery(""),
-                  }}
-                />
-              ) : (
-                <EmptyState
-                  preset="messages"
-                  action={{
-                    label: "View Tasks to Chat",
-                    href: "/dashboard/tasks",
-                  }}
-                />
-              )
-            ) : (
-              filtered.map((conv) => (
-                <button
-                  key={conv.id}
-                  type="button"
-                  onClick={() => handleOpenConversation(conv)}
-                  className="w-full flex items-center gap-3.5 p-2 rounded-2xl hover:bg-(--bg-secondary) text-left cursor-pointer transition-all active:scale-[0.99]"
-                >
-                  {/* Avatar circle */}
-                  <div className="w-14 h-14 rounded-full bg-(--bg-secondary) text-(--text-heading) font-bold text-[16px] flex items-center justify-center shrink-0 border border-(--border-color)">
-                    {conv.initials}
-                  </div>
-
-                  {/* Middle content: Name & Snippet */}
-                  <div className="flex-1 min-w-0 pr-1">
-                    <p className="text-[15.5px] font-bold text-(--text-heading) truncate">
-                      {conv.name}
-                    </p>
-                    <p className="text-[13px] text-(--text-muted) truncate mt-0.5 leading-snug">
-                      {conv.lastMessage}
-                    </p>
-                  </div>
-
-                  {/* Right column: Time & Emerald unread badge */}
-                  <div className="flex flex-col items-end shrink-0 gap-1.5 self-center">
-                    <span className="text-[12px] text-(--text-muted) font-medium">
-                      {conv.time}
-                    </span>
-                    {conv.unread > 0 ? (
-                      <span className="w-5 h-5 rounded-full bg-(--primary) text-white text-[11px] font-bold flex items-center justify-center shadow-xs">
-                        {conv.unread}
-                      </span>
-                    ) : (
-                      <div className="w-5 h-5" />
-                    )}
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Space above bottom nav */}
-        <div className="pb-8" />
+      {/* Search Input */}
+      <div className="relative mb-4">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] stroke-[2]" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search mission threads..."
+          className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]/70 text-[13.5px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs"
+        />
       </div>
+
+      {/* Threads List */}
+      <div className="space-y-2">
+        {isLoadingThreads ? (
+          <DynamicLoadingState variant="documents" count={4} />
+        ) : filteredThreads.length === 0 ? (
+          searchQuery ? (
+            <EmptyState
+              preset="search"
+              query={searchQuery}
+              action={{
+                label: "Clear Search",
+                onClick: () => setSearchQuery(""),
+              }}
+            />
+          ) : (
+            <EmptyState
+              preset="chat"
+              action={{
+                label: "Request a New Task",
+                href: "/dashboard",
+              }}
+            />
+          )
+        ) : (
+          filteredThreads.map((thread) => (
+            <div
+              key={thread.taskId}
+              onClick={() => setActiveThread(thread)}
+              className="flex items-center justify-between p-3.5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]/70 hover:border-[var(--primary)]/40 hover:bg-[var(--bg-secondary)]/50 transition-all cursor-pointer group shadow-2xs"
+            >
+              <div className="flex items-center gap-3 min-w-0 pr-3">
+                <div className="w-11 h-11 rounded-full bg-[var(--primary-light)] text-[var(--primary)] font-bold text-[13px] flex items-center justify-center shrink-0">
+                  {thread.taskTitle.slice(0, 2).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[14px] font-semibold text-[var(--text-heading)] group-hover:text-[var(--primary)] transition-colors truncate">
+                      {thread.taskTitle}
+                    </p>
+                  </div>
+                  <p className="text-[12.5px] text-[var(--text-muted)] truncate mt-0.5">
+                    {thread.lastMessage || "Mission thread opened"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-right shrink-0">
+                <span className="text-[11px] text-[var(--text-muted)]/80 font-medium">
+                  {formatTimeAgo(thread.lastMessageAt)}
+                </span>
+                {thread.unreadCount > 0 && (
+                  <span className="mt-1 w-5 h-5 rounded-full bg-[var(--primary)] text-white text-[10px] font-bold flex items-center justify-center ml-auto">
+                    {thread.unreadCount}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
   );
 }

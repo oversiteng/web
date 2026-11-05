@@ -6,75 +6,32 @@ import { Download, Check, Search } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { formatTimeAgo } from "@/lib/utils";
 
 type DocCategory = "all" | "property" | "documents" | "diligence";
 
-interface VaultDocument {
+interface VaultDocItem {
   id: string;
   name: string;
   category: "property" | "documents" | "diligence";
-  type: "PDF" | "ZIP";
-  subtitle: string;
-  status?: "pending";
+  type: "PDF" | "IMAGE" | "DOCUMENT";
+  fileUrl: string;
+  taskId?: string;
+  taskTitle?: string;
+  createdAt: string;
 }
 
-const DOCUMENTS: VaultDocument[] = [
-  {
-    id: "doc-1",
-    name: "Vendor Background Check...",
-    category: "diligence",
-    type: "PDF",
-    subtitle: "Spreadsheets · yesterday · 450 KB",
-    status: "pending",
-  },
-  {
-    id: "doc-2",
-    name: "Ikoyi Site Visit Report.pdf",
-    category: "property",
-    type: "PDF",
-    subtitle: "Property Oversite · today · 2.4 MB",
-  },
-  {
-    id: "doc-3",
-    name: "CAC Certified True Copy.pdf",
-    category: "documents",
-    type: "PDF",
-    subtitle: "Documents · today · 1.1 MB",
-  },
-  {
-    id: "doc-4",
-    name: "Lekki Boundary Evidence.zip",
-    category: "property",
-    type: "ZIP",
-    subtitle: "Evidence · 4 photos · 9.8 MB",
-  },
-  {
-    id: "doc-5",
-    name: "Title Deed Verification.pdf",
-    category: "diligence",
-    type: "PDF",
-    subtitle: "Due Diligence · 3 days ago · 1.8 MB",
-  },
-  {
-    id: "doc-6",
-    name: "Survey Plan & Coordinate Chart.pdf",
-    category: "property",
-    type: "PDF",
-    subtitle: "Survey · 5 days ago · 3.5 MB",
-  },
-];
-
 const CATEGORIES: { id: DocCategory; label: string }[] = [
-  { id: "all", label: "All file" },
+  { id: "all", label: "All files" },
   { id: "property", label: "Property" },
   { id: "documents", label: "Documents" },
   { id: "diligence", label: "Due Diligence" },
 ];
 
-function DocFileIcon({ type }: { type: "PDF" | "ZIP" }) {
+function DocFileIcon({ type }: { type: string }) {
+  const displayType = type === "IMAGE" ? "IMG" : type === "DOCUMENT" ? "DOC" : "PDF";
   return (
     <div className="relative w-7 h-9 flex items-center justify-center shrink-0">
-      {/* Document outline with folded top-right corner */}
       <svg
         className="w-7 h-9 text-[var(--text-heading)]"
         viewBox="0 0 28 36"
@@ -87,9 +44,8 @@ function DocFileIcon({ type }: { type: "PDF" | "ZIP" }) {
         <path d="M5 3h11l7 7v21a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
         <path d="M16 3v7h7" />
       </svg>
-      {/* File type badge at bottom left */}
       <span className="absolute -bottom-1 -left-1 bg-black text-white text-[7.5px] font-bold px-1 py-0.2 rounded-xs tracking-tight border border-zinc-700/60 leading-tight">
-        {type}
+        {displayType}
       </span>
     </div>
   );
@@ -99,10 +55,37 @@ export default function DocumentVaultPage() {
   const router = useRouter();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const [documents, setDocuments] = useState<VaultDocItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<DocCategory>("all");
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadDocuments() {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch("/api/v1/vault/documents", { credentials: "include", headers });
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setDocuments(json.data);
+        } else {
+          setDocuments([]);
+        }
+      } catch (err) {
+        console.error("Failed to load vault documents:", err);
+        setDocuments([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadDocuments();
+  }, []);
 
   useEffect(() => {
     if (isSearching) {
@@ -111,29 +94,27 @@ export default function DocumentVaultPage() {
   }, [isSearching]);
 
   const filteredDocs = useMemo(() => {
-    return DOCUMENTS.filter((doc) => {
-      // Category filter
+    return documents.filter((doc) => {
       if (activeCategory !== "all" && doc.category !== activeCategory) {
         return false;
       }
-      // Search filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         return (
           doc.name.toLowerCase().includes(q) ||
-          doc.subtitle.toLowerCase().includes(q)
+          (doc.taskTitle && doc.taskTitle.toLowerCase().includes(q))
         );
       }
       return true;
     });
-  }, [activeCategory, searchQuery]);
+  }, [documents, activeCategory, searchQuery]);
 
-  const handleDownload = (doc: VaultDocument) => {
+  const handleDownload = (doc: VaultDocItem) => {
     setToastMessage(`Downloading ${doc.name}...`);
-    setTimeout(() => {
-      setToastMessage(`Downloaded ${doc.name}`);
-      setTimeout(() => setToastMessage(null), 2500);
-    }, 1200);
+    if (doc.fileUrl) {
+      window.open(doc.fileUrl, "_blank", "noopener,noreferrer");
+    }
+    setTimeout(() => setToastMessage(null), 2500);
   };
 
   return (
@@ -205,7 +186,9 @@ export default function DocumentVaultPage() {
 
       {/* ── Document List ── */}
       <div className="space-y-4">
-        {filteredDocs.length === 0 ? (
+        {isLoading ? (
+          <DynamicLoadingState variant="documents" count={4} />
+        ) : filteredDocs.length === 0 ? (
           searchQuery ? (
             <EmptyState
               preset="search"
@@ -219,15 +202,15 @@ export default function DocumentVaultPage() {
             <EmptyState
               preset="filter"
               action={{
-                label: "View All Documents",
+                label: "Show All Files",
                 onClick: () => setActiveCategory("all"),
               }}
             />
           ) : (
             <EmptyState
-              preset="vault"
+              preset="documents"
               action={{
-                label: "Process a Document",
+                label: "Request a Verification Task",
                 href: "/dashboard",
               }}
             />
@@ -236,39 +219,29 @@ export default function DocumentVaultPage() {
           filteredDocs.map((doc) => (
             <div
               key={doc.id}
-              className="flex items-center justify-between gap-4 py-2 hover:bg-[var(--bg-secondary)]/50 rounded-xl px-2 transition-colors"
+              className="flex items-center justify-between py-2.5 transition-colors group"
             >
-              {/* Left File Icon & Details */}
-              <div className="flex items-center gap-4 min-w-0">
+              <div className="flex items-center gap-3.5 min-w-0 pr-4">
                 <DocFileIcon type={doc.type} />
                 <div className="min-w-0">
-                  <h2 className="text-[14px] sm:text-[15px] font-medium text-[var(--text-heading)] truncate">
+                  <p className="text-[14px] font-semibold text-[var(--text-heading)] truncate leading-snug">
                     {doc.name}
-                  </h2>
-                  <p className="text-[12px] text-[var(--text-muted)] mt-0.5 truncate">
-                    {doc.subtitle}
+                  </p>
+                  <p className="text-[12px] text-[var(--text-muted)] truncate mt-0.5">
+                    {doc.taskTitle ? `${doc.taskTitle} · ` : ""}
+                    {formatTimeAgo(doc.createdAt)}
                   </p>
                 </div>
               </div>
 
-              {/* Right Action / Status Badge */}
-              <div className="shrink-0 flex items-center">
-                {doc.status === "pending" ? (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-[#432b0c] border border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-400 text-[11px] font-semibold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    <span>Pending</span>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleDownload(doc)}
-                    aria-label={`Download ${doc.name}`}
-                    className="w-9 h-9 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-heading)] transition-colors cursor-pointer"
-                  >
-                    <Download className="w-5 h-5 stroke-[1.8]" />
-                  </button>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => handleDownload(doc)}
+                aria-label={`Download ${doc.name}`}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer shrink-0"
+              >
+                <Download className="w-4 h-4 stroke-[2]" />
+              </button>
             </div>
           ))
         )}

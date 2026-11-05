@@ -93,14 +93,13 @@ export default function UserDashboard() {
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [recentTasks, setRecentTasks] = useState<Task[] | null>(null);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [summary, setSummary] = useState<{
     activeRequests: number;
     pendingReports: number;
     monitoredProperties: number;
   }>({
-    activeRequests: 3,
-    pendingReports: 1,
-    monitoredProperties: 3,
+    activeRequests: 0, pendingReports: 0, monitoredProperties: 0,
   });
 
   const rawName = user?.name || user?.fullName || "";
@@ -122,6 +121,16 @@ export default function UserDashboard() {
             : null;
         const headers: Record<string, string> = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        // Load unread notifications
+        try {
+          const notifsRes = await fetch("/api/v1/notifications", { credentials: "include", headers });
+          const notifsJson = await notifsRes.json();
+          if (notifsJson.success && Array.isArray(notifsJson.data)) {
+            const unread = notifsJson.data.filter((n: any) => !n.isRead).length;
+            setUnreadNotifications(unread);
+          }
+        } catch (e) {}
 
         // Load dashboard stats
         const summaryRes = await fetch("/api/v1/dashboard/summary", { credentials: "include", headers });
@@ -173,9 +182,11 @@ export default function UserDashboard() {
         <h1 className="text-[18px] sm:text-2xl font-bold text-[var(--text-heading)]">Good day! {displayName}</h1>
         <Link href="/notifications" className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-(--bg-card) border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] flex items-center justify-center hover:bg-(--bg-secondary) transition-colors">
           <BellIcon className="w-6 h-6 sm:w-8 sm:h-8 text-[var(--text-heading)]" />
-          <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-[var(--primary)] text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-[var(--bg-body)]">
-            2
-          </span>
+          {unreadNotifications > 0 && (
+            <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-[var(--primary)] text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-[var(--bg-body)]">
+              {unreadNotifications}
+            </span>
+          )}
         </Link>
       </div>
 
@@ -207,7 +218,7 @@ export default function UserDashboard() {
         >
           <div className="flex items-center justify-between w-full gap-1">
             <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-slate-500 shrink-0 group-hover:scale-105 transition-transform" />
-            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">{summary.monitoredProperties || 2}</span>
+            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">{summary.monitoredProperties}</span>
           </div>
           <span className="text-[11px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">This Month</span>
         </Link>
@@ -217,7 +228,7 @@ export default function UserDashboard() {
         >
           <div className="flex items-center justify-between w-full gap-1">
             <Flag className="w-6 h-6 sm:w-8 sm:h-8 text-red-500 shrink-0 group-hover:scale-105 transition-transform" />
-            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">1</span>
+            <span className=" sm:text-[17px] font-bold text-[var(--text-heading)]">0</span>
           </div>
           <span className="text-[11px] sm:text-[13px] text-[var(--text-muted)] font-medium truncate">Flag</span>
         </Link>

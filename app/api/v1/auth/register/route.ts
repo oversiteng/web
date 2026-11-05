@@ -2,13 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { ApiResponse } from "@/lib/types/api";
 import { User, UserRole, AgentTier } from "@/lib/types/user";
 import bcrypt from "bcryptjs";
-import { eq, or , ilike} from "drizzle-orm";
+import { eq, or, ilike } from "drizzle-orm";
 import { getDbReady } from "@/lib/db/client";
 import { users, agentProfiles } from "@/db/schema";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
+
 export interface RegisterResponseData {
   user: Partial<User> & {
     fullName?: string | null;
+    title?: string | null;
+    address?: string | null;
+    location?: string | null;
+    occupation?: string | null;
+    state?: string | null;
+    country?: string | null;
+    residence?: string | null;
+    avatarUrl?: string | null;
     ninVerificationStatus?: string;
     nbaVerificationStatus?: string;
   };
@@ -24,7 +33,7 @@ export async function POST(
 ): Promise<NextResponse<ApiResponse<RegisterResponseData>>> {
   try {
     const db = await getDbReady();
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
 
     const rawEmail = (body.email || "").trim().toLowerCase();
     const password = typeof body.password === "string" ? body.password : "";
@@ -115,6 +124,14 @@ export async function POST(
         email: users.email,
         name: users.name,
         phone: users.phone,
+        title: users.title,
+        address: users.address,
+        location: users.location,
+        occupation: users.occupation,
+        state: users.state,
+        country: users.country,
+        residence: users.residence,
+        avatarUrl: users.avatarUrl,
         role: users.role,
         kycStatus: users.kycStatus,
         ninVerificationStatus: users.ninVerificationStatus,
@@ -159,6 +176,14 @@ export async function POST(
             name: newUser.name,
             fullName: newUser.name,
             phone: newUser.phone,
+            title: newUser.title,
+            address: newUser.address,
+            location: newUser.location,
+            occupation: newUser.occupation,
+            state: newUser.state,
+            country: newUser.country,
+            residence: newUser.residence,
+            avatarUrl: newUser.avatarUrl,
             role: newUser.role,
             kycStatus: newUser.kycStatus,
             ninVerificationStatus: newUser.ninVerificationStatus,

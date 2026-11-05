@@ -40,7 +40,9 @@ export interface Task {
   locationLat?: number | null;
   locationLng?: number | null;
   formData?: Record<string, unknown> | null;
-  priceNgn?: number | null;
+  priceNgn?: number | string | null;
+  assignee?: { id?: string; name?: string; fullName?: string; email?: string } | null;
+  property?: { id?: string; title?: string; address?: string } | null;
   scheduledAt?: string | null;
   completedAt?: string | null;
   createdAt: string;

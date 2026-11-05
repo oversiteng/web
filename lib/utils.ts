@@ -5,6 +5,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function formatCurrency(amount?: number | string | null): string {
+  if (amount === null || amount === undefined || amount === "") return "₦0";
+  const num = typeof amount === "number" ? amount : parseFloat(String(amount));
+  if (isNaN(num)) return "₦0";
+  return `₦${num.toLocaleString("en-NG", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+}
+
 export function formatTimeAgo(dateInput?: Date | string | null): string {
   if (!dateInput) return "recently";
 

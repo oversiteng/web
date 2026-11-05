@@ -141,7 +141,6 @@ export const waitlistStatusEnum = pgEnum("waitlist_status", [
   "CONVERTED",
 ]);
 
-// ─── Tables ──────────────────────────────────────────────────────────────────
 
 // Users — extended with role, phone, auth, and profile fields
 export const users = pgTable(

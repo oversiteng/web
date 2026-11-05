@@ -7,6 +7,7 @@ export type LoadingVariant =
   | "tasks"
   | "properties"
   | "vault"
+  | "documents"
   | "chat"
   | "notifications"
   | "dashboard"
@@ -148,8 +149,8 @@ export function DynamicLoadingState({
         </div>
       )}
 
-      {/* ─── VAULT VARIANT ─── */}
-      {variant === "vault" && (
+      {/* ─── VAULT & DOCUMENTS VARIANT ─── */}
+      {(variant === "vault" || variant === "documents") && (
         <div className="space-y-4">
           {/* Category Tabs Skeleton */}
           <div className="flex items-center gap-2 overflow-hidden pb-3">

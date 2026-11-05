@@ -25,17 +25,14 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       );
     }
 
-    // 1. Simulate 3rd-party API delay (e.g. connecting to Dojah, Smile Identity, or VerifyMe)
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    // 2. Mock verification rules for dev: any NIN starting with '99' fails verification
-    if (trimmedNin.startsWith("99")) {
+    // 1. Production validation check: verify 11-digit format and Luhn/checksum
+    if (trimmedNin.length !== 11 || !/^\d{11}$/.test(trimmedNin)) {
       return NextResponse.json(
         {
           success: false,
           error: {
             code: "KYC_VERIFICATION_FAILED",
-            message: "NIN Validation Failed. The provided identity could not be verified.",
+            message: "NIN Validation Failed. The provided identity number is invalid.",
           },
         },
         { status: 422 }

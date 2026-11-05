@@ -49,7 +49,7 @@ export const GET = withAuth(
       }
 
       const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
-      if (paystackSecret && !paystackSecret.includes("dummy")) {
+      if (paystackSecret && !paystackSecret.startsWith("placeholder")) {
         try {
           const res = await fetch("https://api.paystack.co/bank?country=nigeria&perPage=100", {
             headers: {

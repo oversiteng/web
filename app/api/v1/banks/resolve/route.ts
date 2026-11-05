@@ -40,7 +40,7 @@ export const POST = withAuth(
       const cleanBank = bankCode.trim();
 
       const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
-      if (paystackSecret && !paystackSecret.includes("dummy")) {
+      if (paystackSecret && !paystackSecret.startsWith("placeholder")) {
         try {
           const res = await fetch(
             `https://api.paystack.co/bank/resolve?account_number=${cleanAccount}&bank_code=${cleanBank}`,

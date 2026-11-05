@@ -22,7 +22,9 @@ export type EmptyStatePreset =
   | "tasks"
   | "properties"
   | "vault"
+  | "documents"
   | "messages"
+  | "chat"
   | "notifications"
   | "search"
   | "filter"
@@ -125,7 +127,33 @@ export function EmptyState({
         { label: "Title Deed Verification", href: "/diligence" },
       ],
     },
+    documents: {
+      title: "Document vault is all clear",
+      description:
+        "Verified land titles, survey plans, and CAC certifications generated from your completed tasks are automatically encrypted and archived here.",
+      icon: <FolderLock className="w-8 h-8 text-sky-500 stroke-[1.8]" />,
+      action: {
+        label: "Process New Document",
+        href: "/dashboard",
+        icon: Plus,
+      },
+      suggestions: [
+        { label: "CAC Certified Copy", href: "/vault" },
+        { label: "Title Deed Verification", href: "/diligence" },
+      ],
+    },
     messages: {
+      title: "No active conversations",
+      description:
+        "Direct communication channels with your assigned on-site field agents and legal advisors will open here once an assignment is underway.",
+      icon: <MessageSquare className="w-8 h-8 text-amber-500 stroke-[1.8]" />,
+      action: {
+        label: "View Tasks to Chat",
+        href: "/dashboard/tasks",
+        icon: ArrowRight,
+      },
+    },
+    chat: {
       title: "No active conversations",
       description:
         "Direct communication channels with your assigned on-site field agents and legal advisors will open here once an assignment is underway.",

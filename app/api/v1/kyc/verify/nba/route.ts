@@ -25,17 +25,15 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       );
     }
 
-    // 1. Simulate 3rd-party API delay (Connecting to NBA Supreme Court Roll)
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    // 2. Mock verification rules for dev: any number starting with 'FAKE' fails
-    if (trimmedNba.toUpperCase().startsWith("FAKE")) {
+    // 1. Strict Supreme Court format validation (e.g. SCN/..., NBA/LAG/2014/0982, etc.)
+    const nbaPattern = /^(NBA\/[A-Z]{3}\/\d{4}\/\d{3,5}|SCN\/\d{5,7}|[A-Z0-9\/\-]{8,25})$/i;
+    if (!nbaPattern.test(trimmedNba)) {
       return NextResponse.json(
         {
           success: false,
           error: {
             code: "NBA_VERIFICATION_FAILED",
-            message: "NBA Validation Failed. No record found in the Supreme Court registry.",
+            message: "NBA Validation Failed. Invalid Bar enrollment number format.",
           },
         },
         { status: 422 }

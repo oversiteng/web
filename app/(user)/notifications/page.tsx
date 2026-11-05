@@ -1,86 +1,106 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Search, Building2, MessageSquare, Scale, X } from "lucide-react";
+import { FileText, Search, Building2, MessageSquare, Scale, X, Bell } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { formatTimeAgo } from "@/lib/utils";
 
 interface NotificationItem {
   id: string;
-  icon: typeof FileText;
-  iconColor: string;
-  iconBg: string;
+  type: string;
   title: string;
-  subtitle: string;
-  isUnread?: boolean;
+  body: string | null;
+  isRead: boolean;
+  taskId?: string | null;
+  createdAt: string;
 }
 
-const DEFAULT_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: "notif-1",
-    icon: FileText,
-    iconColor: "text-emerald-500",
-    iconBg: "bg-emerald-500/10",
-    title: "The report for the Ikoyi site visit is now complete.",
-    subtitle: "Property Oversite · 2h ago",
-    isUnread: true,
-  },
-  {
-    id: "notif-2",
-    icon: FileText,
-    iconColor: "text-emerald-500",
-    iconBg: "bg-emerald-500/10",
-    title: "Assigned Agent: Retrieval of CAC Copy",
-    subtitle: "Documents processing · 5h ago",
-    isUnread: true,
-  },
-  {
-    id: "notif-3",
-    icon: Search,
-    iconColor: "text-blue-500",
-    iconBg: "bg-blue-500/10",
-    title: "Encroachment alert on Lekki plot",
-    subtitle: "Property Oversite · today",
-  },
-  {
-    id: "notif-4",
-    icon: Building2,
-    iconColor: "text-emerald-500",
-    iconBg: "bg-emerald-500/10",
-    title: "We have successfully processed your payment of ₦18,500. Thank you for your transaction!",
-    subtitle: "Billing · today",
-  },
-  {
-    id: "notif-5",
-    icon: MessageSquare,
-    iconColor: "text-emerald-500",
-    iconBg: "bg-emerald-500/10",
-    title: "New message from Tunde C.",
-    subtitle: "Messages · yesterday",
-  },
-  {
-    id: "notif-6",
-    icon: Scale,
-    iconColor: "text-blue-500",
-    iconBg: "bg-blue-500/10",
-    title: "Your tenancy review is complete!",
-    subtitle: "Legal Advisory · 5d ago",
-  },
-];
+function getIconForType(type: string) {
+  switch (type) {
+    case "TASK_UPDATE":
+    case "TASK_COMPLETED":
+      return { icon: FileText, color: "text-emerald-500", bg: "bg-emerald-500/10" };
+    case "PAYMENT":
+      return { icon: Building2, color: "text-emerald-500", bg: "bg-emerald-500/10" };
+    case "CHAT":
+      return { icon: MessageSquare, color: "text-blue-500", bg: "bg-blue-500/10" };
+    case "LEGAL":
+      return { icon: Scale, color: "text-purple-500", bg: "bg-purple-500/10" };
+    case "ENCROACHMENT":
+    case "ALERT":
+      return { icon: Search, color: "text-red-500", bg: "bg-red-500/10" };
+    default:
+      return { icon: Bell, color: "text-amber-500", bg: "bg-amber-500/10" };
+  }
+}
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<NotificationItem[]>(DEFAULT_NOTIFICATIONS);
-  const [isLoading, setIsLoading] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleDismiss = (id: string) => {
+  useEffect(() => {
+    async function loadNotifications() {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch("/api/v1/notifications", { credentials: "include", headers });
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setNotifications(json.data);
+        } else {
+          setNotifications([]);
+        }
+      } catch (err) {
+        console.error("Failed to load notifications:", err);
+        setNotifications([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadNotifications();
+  }, []);
+
+  const handleDismiss = async (id: string) => {
     setNotifications((prev) => prev.filter((item) => item.id !== id));
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      await fetch("/api/v1/notifications", {
+        method: "PATCH",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({ notificationIds: [id] }),
+      });
+    } catch (err) {
+      console.error("Failed to mark notification as read:", err);
+    }
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     setNotifications([]);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      await fetch("/api/v1/notifications", {
+        method: "PATCH",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({ markAllAsRead: true }),
+      });
+    } catch (err) {
+      console.error("Failed to clear notifications:", err);
+    }
   };
 
   return (
@@ -118,7 +138,7 @@ export default function NotificationsPage() {
         ) : (
           <div className="space-y-3">
             {notifications.map((notif) => {
-              const IconComp = notif.icon;
+              const { icon: IconComp, color, bg } = getIconForType(notif.type);
               return (
                 <div
                   key={notif.id}
@@ -126,10 +146,10 @@ export default function NotificationsPage() {
                 >
                   {/* Icon badge */}
                   <div
-                    className={`relative shrink-0 w-10 h-10 rounded-full ${notif.iconBg} flex items-center justify-center mt-0.5`}
+                    className={`relative shrink-0 w-10 h-10 rounded-full ${bg} flex items-center justify-center mt-0.5`}
                   >
-                    <IconComp className={`w-5 h-5 ${notif.iconColor}`} />
-                    {notif.isUnread && (
+                    <IconComp className={`w-5 h-5 ${color}`} />
+                    {!notif.isRead && (
                       <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[var(--primary)] border-2 border-[var(--bg-card)] rounded-full" />
                     )}
                   </div>
@@ -139,8 +159,13 @@ export default function NotificationsPage() {
                     <p className="text-[13.5px] sm:text-[14px] font-semibold text-[var(--text-heading)] leading-snug">
                       {notif.title}
                     </p>
-                    <p className="text-[11.5px] text-[var(--text-muted)] mt-1 font-medium">
-                      {notif.subtitle}
+                    {notif.body && (
+                      <p className="text-[12px] text-[var(--text-muted)] mt-0.5 leading-relaxed">
+                        {notif.body}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-[var(--text-muted)]/80 mt-1 font-medium">
+                      {formatTimeAgo(notif.createdAt)}
                     </p>
                   </div>
 
