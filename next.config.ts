@@ -3,6 +3,26 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "oversite-storage-bucket.s3.eu-west-2.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "oversite-storage-production.s3.eu-west-2.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "*.s3.eu-west-2.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "*.amazonaws.com",
+      },
+    ],
+  },
   async headers() {
     return [
       {
