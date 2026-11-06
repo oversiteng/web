@@ -7,16 +7,18 @@ function getS3Client(): S3Client {
   const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
   const endpoint = process.env.AWS_ENDPOINT_URL_S3;
 
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error(
+      "AWS credentials not configured. Please add AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY to your server environment or DEV_ENV_FILE secret."
+    );
+  }
+
   return new S3Client({
     region,
-    ...(accessKeyId && secretAccessKey
-      ? {
-          credentials: {
-            accessKeyId,
-            secretAccessKey,
-          },
-        }
-      : {}),
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+    },
     ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
   });
 }
