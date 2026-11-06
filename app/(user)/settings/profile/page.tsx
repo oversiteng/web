@@ -188,6 +188,32 @@ export default function EditProfilePage() {
 
   // Helper to upload image to S3 using authenticated presigned URL
   const uploadAvatarToS3 = async (file: File, token: string | null): Promise<string> => {
+    // 1. First try direct server-side upload (streams file to S3 via backend, zero CORS issues)
+    try {
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const directHeaders: Record<string, string> = {};
+      if (token) directHeaders["Authorization"] = `Bearer ${token}`;
+
+      const directRes = await fetch("/api/v1/user/avatar", {
+        method: "POST",
+        credentials: "include",
+        headers: directHeaders,
+        body: formData,
+      });
+
+      if (directRes.ok) {
+        const json = await directRes.json();
+        if (json?.data?.avatarUrl) {
+          return json.data.avatarUrl;
+        }
+      }
+    } catch (directErr) {
+      console.warn("Direct upload fallback to presigned S3 URL:", directErr);
+    }
+
+    // 2. Fallback to presigned S3 upload
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
 

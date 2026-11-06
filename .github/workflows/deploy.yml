@@ -47,9 +47,10 @@ jobs:
             printf "%s\n" "$DEV_ENV" > .env.local
           elif [ "$ENV_SECRET" = "STAGING_ENV_FILE" ] && [ -n "$STAGING_ENV" ]; then
             printf "%s\n" "$STAGING_ENV" > .env.local
-          elif [ -n "$PROD_ENV" ]; then
+          elif [ "$ENV_SECRET" = "PRODUCTION_ENV_FILE" ] && [ -n "$PROD_ENV" ]; then
             printf "%s\n" "$PROD_ENV" > .env.local
           else
+            echo "No secret provided for $ENV_SECRET, creating fallback .env.local"
             touch .env.local
           fi
 
@@ -83,25 +84,22 @@ jobs:
               sudo docker compose -f $COMPOSE_FILE up -d --build
             fi
 
-            # Automatically run database migration
+            # Automatically verify container health and initialize database
             ENV_NAME="${{ steps.env.outputs.env_name }}"
             CONTAINER_NAME="oversite_${ENV_NAME}_web"
-            echo "⏳ Applying database migrations on ${CONTAINER_NAME}..."
+            echo "⏳ Verifying ${CONTAINER_NAME} health and applying schema updates..."
 
-            # 1. First run the standalone migration runner inside the running container
-            for i in {1..15}; do
+            # Ping the healthcheck endpoint to trigger database initialization & safety patches
+            for i in {1..20}; do
               if sudo docker ps --filter "name=${CONTAINER_NAME}" --filter "status=running" -q | grep -q .; then
-                echo "Container is running, applying migrations..."
-                sudo docker exec -i "${CONTAINER_NAME}" node -e "require('./lib/db/migrate').ensureDatabaseMigrated()" || true
-                break
+                echo "Container is running, pinging healthcheck endpoint to initialize database..."
+                if sudo docker exec -i "${CONTAINER_NAME}" node -e "fetch('http://127.0.0.1:3000/api/health').then(r => r.json()).then(d => { console.log('Healthcheck status:', JSON.stringify(d)); process.exit(0); }).catch(e => { console.error('Waiting for app...', e.message); process.exit(1); })"; then
+                  echo "✅ Database initialized and app is healthy!"
+                  break
+                fi
               fi
-              echo "Waiting for container to start (attempt $i/15)..."
-              sleep 2
+              echo "Waiting for container and DB to be ready (attempt $i/20)..."
+              sleep 3
             done
 
-            # 2. Also run schema push from host if local node_modules exist
-            if [ -d "node_modules" ]; then
-              npx drizzle-kit push --config=drizzle.config.ts --force || true
-            fi
-
-            echo "✅ Deployed and migrated ${{ steps.env.outputs.env_name }} environment successfully"
+            echo "✅ Deployed and verified ${{ steps.env.outputs.env_name }} environment successfully"

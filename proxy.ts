@@ -50,6 +50,42 @@ function isTokenValid(token: string): boolean {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // 1. Handle CORS for all API routes (unblocks mobile apps & cross-origin clients)
+  if (pathname.startsWith("/api/")) {
+    const origin = request.headers.get("origin") || "*";
+
+    // Handle preflight OPTIONS request
+    if (request.method === "OPTIONS") {
+      const response = new NextResponse(null, { status: 204 });
+      response.headers.set("Access-Control-Allow-Origin", origin);
+      response.headers.set(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+      );
+      response.headers.set(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization, X-Requested-With, X-API-Key, Accept, Origin, Content-Length"
+      );
+      response.headers.set("Access-Control-Allow-Credentials", "true");
+      response.headers.set("Access-Control-Max-Age", "86400");
+      return response;
+    }
+
+    const response = NextResponse.next();
+    response.headers.set("Access-Control-Allow-Origin", origin);
+    response.headers.set(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    );
+    response.headers.set(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, X-Requested-With, X-API-Key, Accept, Origin, Content-Length"
+    );
+    response.headers.set("Access-Control-Allow-Credentials", "true");
+    return response;
+  }
+
+  // 2. Protect authenticated dashboard routes
   const isProtected = PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
@@ -75,7 +111,7 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // If user is already logged in and visits /login or /register, redirect to /dashboard
+  // 3. If user is already logged in and visits /login or /register, redirect to /dashboard
   if (pathname === "/login" || pathname === "/register") {
     const tokenCookie = request.cookies.get("token")?.value;
     if (tokenCookie && isTokenValid(tokenCookie)) {
@@ -90,6 +126,7 @@ export default proxy;
 
 export const config = {
   matcher: [
+    "/api/:path*",
     "/dashboard/:path*",
     "/properties/:path*",
     "/projects/:path*",

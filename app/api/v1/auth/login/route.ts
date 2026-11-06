@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ApiResponse } from "@/lib/types/api";
 import { User } from "@/lib/types/user";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
-import { eq, or, ilike } from "drizzle-orm";
+import { eq, or, ilike, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { getDbReady } from "@/lib/db/client";
 import { users } from "@/db/schema";
@@ -49,6 +49,23 @@ export async function POST(
       );
     }
 
+    // Generate phone variants if identifier contains digits
+    const phoneCandidates: string[] = [identifier, String(rawIdentifier).trim()];
+    const digitsOnly = identifier.replace(/\D/g, "");
+    if (digitsOnly.length >= 7) {
+      phoneCandidates.push(digitsOnly);
+      if (digitsOnly.startsWith("234") && digitsOnly.length > 3) {
+        phoneCandidates.push("+" + digitsOnly);
+        phoneCandidates.push("0" + digitsOnly.slice(3));
+      } else if (digitsOnly.startsWith("0") && digitsOnly.length > 1) {
+        phoneCandidates.push("+234" + digitsOnly.slice(1));
+        phoneCandidates.push("234" + digitsOnly.slice(1));
+      } else {
+        phoneCandidates.push("+234" + digitsOnly);
+        phoneCandidates.push("0" + digitsOnly);
+      }
+    }
+
     const foundUsers = await db
       .select({
         id: users.id,
@@ -72,7 +89,12 @@ export async function POST(
         createdAt: users.createdAt,
       })
       .from(users)
-      .where(or(ilike(users.email, identifier), eq(users.phone, identifier)))
+      .where(
+        or(
+          ilike(users.email, identifier),
+          inArray(users.phone, phoneCandidates)
+        )
+      )
       .limit(1);
 
     if (foundUsers.length === 0) {

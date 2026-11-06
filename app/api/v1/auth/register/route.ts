@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ApiResponse } from "@/lib/types/api";
 import { User, UserRole, AgentTier } from "@/lib/types/user";
 import bcrypt from "bcryptjs";
-import { eq, or, ilike } from "drizzle-orm";
+import { eq, or, ilike, inArray } from "drizzle-orm";
 import { getDbReady } from "@/lib/db/client";
 import { users, agentProfiles } from "@/db/schema";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
@@ -76,7 +76,22 @@ export async function POST(
     // Check if email or phone already registered
     const existingConditions = [ilike(users.email, rawEmail)];
     if (phone) {
-      existingConditions.push(eq(users.phone, phone));
+      const phoneCandidates = [phone];
+      const digitsOnly = phone.replace(/\D/g, "");
+      if (digitsOnly.length >= 7) {
+        phoneCandidates.push(digitsOnly);
+        if (digitsOnly.startsWith("234") && digitsOnly.length > 3) {
+          phoneCandidates.push("+" + digitsOnly);
+          phoneCandidates.push("0" + digitsOnly.slice(3));
+        } else if (digitsOnly.startsWith("0") && digitsOnly.length > 1) {
+          phoneCandidates.push("+234" + digitsOnly.slice(1));
+          phoneCandidates.push("234" + digitsOnly.slice(1));
+        } else {
+          phoneCandidates.push("+234" + digitsOnly);
+          phoneCandidates.push("0" + digitsOnly);
+        }
+      }
+      existingConditions.push(inArray(users.phone, phoneCandidates));
     }
 
     const existingUser = await db

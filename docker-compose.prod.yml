@@ -15,6 +15,12 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgres://oversite_user:oversite_password@postgres:5432/oversitedb_prod
       - REDIS_URL=redis://redis:6379
+      - AWS_REGION=${AWS_REGION:-eu-west-2}
+      - AWS_S3_MEDIA_BUCKET=${AWS_S3_MEDIA_BUCKET:-oversite-storage-production}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_SES_FROM_EMAIL=${AWS_SES_FROM_EMAIL:-noreply@oversite.ng}
+      - JWT_SECRET=${JWT_SECRET:-oversite_jwt_secret_prod_2026_super_secure}
     restart: always
     depends_on:
       postgres:
