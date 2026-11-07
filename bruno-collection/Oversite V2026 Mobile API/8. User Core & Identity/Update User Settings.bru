@@ -1,0 +1,28 @@
+meta {
+  name: Update User Settings
+  type: http
+  seq: 11
+}
+
+patch {
+  url: {{baseUrl}}/users/me/settings
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "notifications": {
+      "push": true,
+      "email": true,
+      "sms": false
+    },
+    "language": "en",
+    "theme": "dark"
+  }
+}

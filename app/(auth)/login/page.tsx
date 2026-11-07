@@ -4,22 +4,55 @@ import Link from "next/link";
 import { useState } from "react";
 import { EyeOff, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const { setSession } = useAuth();
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // TODO: Implement actual login logic with phone number
-    setTimeout(() => {
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setErrorMessage(data.error?.message || "Invalid credentials. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      if (data.data?.user) {
+        await setSession(data.data.user, data.data.token);
+      } else if (data.data?.token) {
+        localStorage.setItem("oversite_token", data.data.token);
+      }
+
+      if (data.data?.user?.role === "AGENT") {
+        router.push("/agent/dashboard");
+      } else if (data.data?.user?.role === "ADMIN" || data.data?.user?.role === "SUPER_ADMIN") {
+        router.push("/admin/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (err) {
+      setErrorMessage("Network error. Please try again.");
       setLoading(false);
-      router.push("/dashboard");
-    }, 1000);
+    }
   };
 
   return (
@@ -33,17 +66,23 @@ export default function LoginPage() {
         </div>
       </div>
 
+      {errorMessage && (
+        <div className="w-full mb-4 p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium text-center">
+          {errorMessage}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="w-full space-y-3">
-        {/* Email / Phone Number Input */}
+        {/* Email Input */}
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-(--text-heading) block">
-            Email / Phone Number
+            Email
           </label>
           <div className="flex items-center bg-(--bg-card) rounded-3xl overflow-hidden border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-(--primary) focus-within:border-[var(--primary)] transition-all">
             <input
               type="text"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
+              value={email}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               placeholder="e.g. mailali@gmail.com"
               className="w-full py-3 px-6 bg-transparent text-(--text-heading) placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium"
               required

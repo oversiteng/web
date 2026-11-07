@@ -6,7 +6,8 @@ export type TaskModule =
   | "PROJECT_WATCH"
   | "DUE_DILIGENCE"
   | "LEGAL_ADVISORY"
-  | "LAW_ENFORCEMENT";
+  | "LAW_ENFORCEMENT"
+  | "VULNERABILITY_TEST";
 
 export type TaskStatus =
   | "DRAFT"
@@ -39,11 +40,15 @@ export interface Task {
   locationLat?: number | null;
   locationLng?: number | null;
   formData?: Record<string, unknown> | null;
-  priceNgn?: number | null;
+  priceNgn?: number | string | null;
+  assignee?: { id?: string; name?: string; fullName?: string; email?: string } | null;
+  property?: { id?: string; title?: string; address?: string } | null;
   scheduledAt?: string | null;
   completedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
+  agentName?: string | null;
+  agentTier?: string | null;
 }
 
 export interface TaskMilestone {
@@ -62,13 +67,30 @@ export interface TaskReport {
   agentId: string;
   summary?: string | null;
   findings?: string | null;
+  checklist?: any;
+  measurements?: any;
+  severity?: string | null;
+  incidentalExpenses?: any;
+  metadata?: any;
   pdfS3Key?: string | null;
   watermarkCode?: string | null;
   status: ReportStatus;
   completionPct: number;
+  officialNotes?: string | null;
+  compiledAt?: string | null;
+  compiledBy?: string | null;
+  userReviewedAt?: string | null;
+  userRejectionReason?: string | null;
   createdAt: string;
   updatedAt?: string;
+  media?: any[];
 }
+
+export type ChatModerationStatus =
+  | "PENDING_REVIEW"
+  | "APPROVED_AS_IS"
+  | "REFINED_BY_ADMIN"
+  | "REJECTED";
 
 export interface ChatMessage {
   id: string;
@@ -76,12 +98,40 @@ export interface ChatMessage {
   senderId: string;
   receiverId: string;
   message?: string | null;
+  rawMessage?: string | null;
+  moderatedMessage?: string | null;
   fileUrl?: string | null;
+  messageType?: string | null;
   isModerated: boolean;
+  moderationStatus?: ChatModerationStatus;
+  moderatedBy?: string | null;
+  moderatedAt?: string | null;
+  rejectionReason?: string | null;
   createdAt: string;
 }
 
 export type TaskChat = ChatMessage;
+
+export interface LegalAdvisoryDeclaration {
+  accurateConfirmed: boolean;
+  noRelationshipConfirmed: boolean;
+  conflictCheckConfirmed: boolean;
+  ndpaConsentConfirmed: boolean;
+  signature: string;
+  declarationDate: string;
+}
+
+export interface LegalAdvisoryFormData {
+  legalDomain?: string;
+  legalType?: string;
+  serviceType?: string;
+  caseSummary?: string;
+  consultationDate?: string;
+  consultationDateRaw?: string;
+  fileName?: string | null;
+  workloadUnits?: number;
+  declaration?: LegalAdvisoryDeclaration | null;
+}
 
 export interface LegalConsultation {
   id: string;
@@ -118,4 +168,28 @@ export interface Property {
   description?: string | null;
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface PropertyCurrentTask {
+  id: string;
+  title: string;
+  moduleType: TaskModule;
+  status: TaskStatus;
+  agentId?: string | null;
+  agentName?: string | null;
+  agentTitle?: string | null;
+  agentDisplayName: string;
+  createdAt: string;
+  updatedAt: string;
+  scheduledAt?: string | null;
+  completedAt?: string | null;
+  clientPromisedDeliveryDate?: string | null;
+  timeAgo: string;
+  formattedDisplay: string;
+}
+
+export interface PropertyWithCurrentTask extends Property {
+  currentTask?: PropertyCurrentTask | null;
+  activeTaskCount?: number;
+  totalTaskCount?: number;
 }

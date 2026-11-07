@@ -1,0 +1,26 @@
+meta {
+  name: Request Due Diligence
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/diligence/request
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "tier": "Tier 3 - Deep Investigation",
+    "subjectName": "John Doe Enterprises",
+    "subjectType": "BUSINESS",
+    "cacNumber": "RC-123456",
+    "anonymizeRequest": true
+  }
+}

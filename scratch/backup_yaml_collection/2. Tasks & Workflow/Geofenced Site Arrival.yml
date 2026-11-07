@@ -1,0 +1,26 @@
+info:
+  name: Geofenced Site Arrival
+  type: http
+  seq: 8
+http:
+  method: POST
+  url: '{{baseUrl}}/tasks/{{taskId}}/arrive'
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "latitude": 6.4531,
+        "longitude": 3.4357,
+        "accuracy": 10.5
+      }
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

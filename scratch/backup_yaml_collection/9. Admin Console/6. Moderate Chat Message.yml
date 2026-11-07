@@ -1,0 +1,25 @@
+info:
+  name: 6. Moderate Chat Message
+  type: http
+  seq: 6
+http:
+  method: POST
+  url: '{{baseUrl}}/admin/chats/{{messageId}}/moderate'
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{adminToken}}
+  body:
+    type: json
+    data: |-
+      {
+        "action": "REFINE",
+        "refinedMessage": "Please check the survey beacons along the rear boundary and verify beacon markings."
+      }
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

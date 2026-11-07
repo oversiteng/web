@@ -1,0 +1,15 @@
+meta {
+  name: 1. Get Users List
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/admin/users?limit=50&page=1&role=USER
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}

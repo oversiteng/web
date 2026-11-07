@@ -1,30 +1,114 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Eye, ArrowLeft, EyeClosed } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Eye, ArrowLeft, EyeClosed, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import { Country } from "country-state-city";
 
 export default function RegisterPage() {
+  const { setSession } = useAuth();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [selectedCountryIso, setSelectedCountryIso] = useState("NG");
+
+  const countryList = useMemo(() => {
+    const countries = Country.getAllCountries()
+      .filter((c) => c.phonecode)
+      .map((c) => {
+        const rawCode = c.phonecode.replace(/[^0-9]/g, "");
+        return {
+          isoCode: c.isoCode,
+          name: c.name,
+          flag: c.flag,
+          phonecode: rawCode ? `+${rawCode}` : `+${c.phonecode}`,
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const ngIndex = countries.findIndex((c) => c.isoCode === "NG");
+    if (ngIndex > -1) {
+      const [ng] = countries.splice(ngIndex, 1);
+      return [ng, ...countries];
+    }
+    return countries;
+  }, []);
+
+  const selectedCountry = useMemo(() => {
+    return (
+      countryList.find((c) => c.isoCode === selectedCountryIso) ||
+      countryList[0] || {
+        isoCode: "NG",
+        name: "Nigeria",
+        flag: "🇳🇬",
+        phonecode: "+234",
+      }
+    );
+  }, [countryList, selectedCountryIso]);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      setErrorMessage("Passwords do not match");
+      return;
+    }
     setLoading(true);
-    // TODO: Implement actual registration logic
-    setTimeout(() => {
+    setErrorMessage(null);
+
+    const trimmedPhone = phoneNumber.trim();
+    let formattedPhone = "";
+    if (trimmedPhone) {
+      if (trimmedPhone.startsWith("+")) {
+        formattedPhone = trimmedPhone;
+      } else {
+        const cleaned = trimmedPhone.replace(/[\s\-()]/g, "");
+        const nationalNumber = cleaned.startsWith("0") ? cleaned.slice(1) : cleaned;
+        formattedPhone = `${selectedCountry.phonecode}${nationalNumber}`;
+      }
+    }
+
+    try {
+      const response = await fetch("/api/v1/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `${firstName.trim()} ${lastName.trim()}`,
+          email: email.trim(),
+          phoneNumber: formattedPhone,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        setErrorMessage(data.error?.message || "Registration failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      if (data.data?.user) {
+        await setSession(data.data.user, data.data.token);
+      } else if (data.data?.token) {
+        localStorage.setItem("oversite_token", data.data.token);
+      }
+
       setLoading(false);
       router.push("/dashboard");
-    }, 1000);
+    } catch (error) {
+      console.error(error);
+      setErrorMessage("Network error. Please check your connection and try again.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -43,6 +127,12 @@ export default function RegisterPage() {
           </p>
         </div>
       </div>
+
+      {errorMessage && (
+        <div className="w-full mb-4 p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium text-center animate-in fade-in">
+          {errorMessage}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="w-full space-y-3">
         {/* Name Row */}
@@ -105,14 +195,35 @@ export default function RegisterPage() {
             Phone Number
           </label>
           <div className="flex items-center bg-(--bg-card) rounded-[24px] overflow-hidden border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-[var(--primary)] focus-within:border-[var(--primary)] transition-all pl-2">
-            <div className="pl-4 pr-3 py-3 text-[var(--text-heading)] font-semibold text-[12px] border-r border-(--border-color) flex-shrink-0">
-              +234
+            <div className="relative flex items-center pl-3 pr-2.5 py-3 text-[var(--text-heading)] font-semibold text-[12px] border-r border-(--border-color) flex-shrink-0 cursor-pointer group">
+              <div className="flex items-center gap-1.5 pointer-events-none select-none">
+                <span className="text-sm leading-none">{selectedCountry.flag}</span>
+                <span>{selectedCountry.phonecode}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)] opacity-60 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <select
+                value={selectedCountryIso}
+                onChange={(e) => setSelectedCountryIso(e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-base"
+                title="Select country code"
+              >
+                {countryList.map((c) => (
+                  <option
+                    key={c.isoCode}
+                    value={c.isoCode}
+                    className="bg-[var(--bg-card)] text-[var(--text-heading)] text-sm"
+                  >
+                    {c.flag} {c.name} ({c.phonecode})
+                  </option>
+                ))}
+              </select>
             </div>
             <input
               type="tel"
+              inputMode="tel"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="801 234 5678"
+              placeholder={selectedCountry.isoCode === "NG" ? "801 234 5678" : "Phone number"}
               className="w-full py-3 px-4 bg-transparent text-[var(--text-heading)] placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium"
               required
             />

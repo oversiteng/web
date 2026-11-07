@@ -1,110 +1,565 @@
 "use client";
 
-import Link from "next/link";
-import { HardHat, Plus, Calendar, CheckCircle2, ArrowRight } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  ChevronDown,
+  Plus,
+  Trash2,
+  Calendar,
+  CheckCircle2,
+} from "lucide-react";
 
-export default function ProjectsWatchPage() {
-  const projects = [
-    {
-      id: "prowatch-1",
-      title: "4-Bedroom Terrace Duplex Construction",
-      contractor: "Apex Build Engineering Ltd",
-      location: "Guzape District, Abuja",
-      completionPct: 65,
-      currentMilestone: "Roofing & Internal Plastering",
-      nextAuditDate: "Sept 28, 2026",
-      status: "ON_TRACK",
-    },
-    {
-      id: "prowatch-2",
-      title: "Warehouse Facility Renovation",
-      contractor: "SolidCraft Contractors",
-      location: "Trans-Amadi Industrial Layout, Port Harcourt",
-      completionPct: 30,
-      currentMilestone: "Structural Steel Frame Installation",
-      nextAuditDate: "Oct 02, 2026",
-      status: "DELAYED",
-    },
-  ];
+interface Milestone {
+  id: string;
+  name: string;
+  date: string;
+}
+
+const BUILDING_TYPES = [
+  "Residential (Duplex, Bungalow, Flats)",
+  "Commercial (Offices, Mall, Plaza)",
+  "Mixed-Use Development",
+  "Industrial & Warehouse Facility",
+  "Renovation & Remodeling",
+];
+
+const REVIEW_SCOPES = [
+  "Full Project Lifecycle",
+  "Structural & Foundation",
+  "Finishing & Interior",
+  "Compliance & Safety",
+];
+
+const SUPERVISOR_EXPERTISE = [
+  "Structural Engineer",
+  "MEP",
+  "Civil Engineer",
+  "Finishing",
+];
+
+export default function ProjectReviewFormPage() {
+  const router = useRouter();
+
+  // Form State
+  const [projectTitle, setProjectTitle] = useState("");
+  const [describeProject, setDescribeProject] = useState("");
+  const [keyOutcomes, setKeyOutcomes] = useState("");
+  const [buildingType, setBuildingType] = useState("Residential");
+  const [targetCompletion, setTargetCompletion] = useState("");
+  const [targetCompletionRaw, setTargetCompletionRaw] = useState("");
+  const [reviewScope, setReviewScope] = useState("");
+  const [supervisorExpertise, setSupervisorExpertise] = useState("");
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+
+  // Drawer visibility state (z-[80] to sit cleanly above z-50 bottom nav)
+  const [activeDrawer, setActiveDrawer] = useState<
+    "building" | "milestone" | "scope" | "supervisor" | null
+  >(null);
+
+  // New Milestone Form State
+  const [newMilestoneName, setNewMilestoneName] = useState("");
+  const [newMilestoneDate, setNewMilestoneDate] = useState("");
+  const [newMilestoneDateRaw, setNewMilestoneDateRaw] = useState("");
+
+  // Refs for native calendar pickers
+  const milestoneDateRef = useRef<HTMLInputElement>(null);
+
+  // Minimum date for pickers (today)
+  const minDate = new Date().toISOString().split("T")[0];
+
+  // Helper to format YYYY-MM-DD -> DD/MM/YYYY
+  const formatDateToDDMMYYYY = (val: string) => {
+    if (!val) return "";
+    const parts = val.split("-");
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return val;
+  };
+
+  const handleMilestoneDateChange = (val: string) => {
+    setNewMilestoneDateRaw(val);
+    setNewMilestoneDate(formatDateToDDMMYYYY(val));
+  };
+
+  // Add Milestone Handler
+  const handleAddMilestone = () => {
+    if (!newMilestoneName.trim()) return;
+    const dateFormatted = newMilestoneDate || formatDateToDDMMYYYY(minDate);
+
+    setMilestones((prev) => [
+      ...prev,
+      {
+        id: "ms-" + Date.now().toString(),
+        name: newMilestoneName.trim(),
+        date: dateFormatted,
+      },
+    ]);
+    setNewMilestoneName("");
+    setNewMilestoneDate("");
+    setNewMilestoneDateRaw("");
+    setActiveDrawer(null);
+  };
+
+  const handleRemoveMilestone = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMilestones((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  // Validation
+  const canProceed =
+    (projectTitle.trim().length >= 2 || describeProject.trim().length >= 2) &&
+    reviewScope &&
+    supervisorExpertise;
+
+  // Navigate to dedicated /projects/review page
+  const handleReview = () => {
+    if (!canProceed) return;
+
+    const titleValue = projectTitle.trim() || describeProject.trim().slice(0, 40) || "Construction Project";
+
+    // Save draft to sessionStorage for /projects/review to read
+    const draft = {
+      projectTitle: titleValue,
+      projectName: titleValue,
+      describeProject: describeProject.trim(),
+      keyOutcomes: keyOutcomes.trim(),
+      buildingType,
+      targetCompletion: targetCompletion || "DD/MM/YYYY",
+      targetCompletionRaw,
+      reviewScope,
+      supervisorExpertise,
+      milestones,
+      priceNgn: 12000,
+    };
+    sessionStorage.setItem("oversite_project_draft", JSON.stringify(draft));
+
+    // Also pass primary query parameters for direct linkability
+    const query = new URLSearchParams({
+      title: titleValue,
+      name: titleValue,
+      scope: reviewScope,
+      expert: supervisorExpertise,
+    });
+
+    router.push(`/projects/review?${query.toString()}`);
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="bg-[var(--bg-body)] min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] text-[var(--text-heading)] transition-colors duration-150">
+      <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between px-4 sm:px-6 py-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <HardHat className="w-6 h-6 text-blue-400" />
-            Project Watch (ProWatch)
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Independent onsite supervision for construction & renovation projects. Milestone verification before fund disbursement.
-          </p>
+          {/* ── Top Header ── */}
+          <div className="relative flex items-center justify-center py-3 mb-4">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="absolute left-0 p-2 -ml-2 text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer"
+              aria-label="Back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-[17px] sm:text-[18px] font-bold text-[var(--text-heading)] tracking-tight">
+              Project Monitor
+            </h1>
+          </div>
+
+          {/* ── Form Fields ── */}
+          <div className="space-y-4">
+            {/* Field 1: Project Title */}
+            <div>
+              <label className="block text-[13.5px] font-semibold text-[var(--text-heading)] mb-2">
+                Project title
+              </label>
+              <input
+                type="text"
+                value={projectTitle}
+                onChange={(e) => setProjectTitle(e.target.value)}
+                placeholder="e.g. 4-Bedroom Duplex Construction"
+                className="w-full bg-[var(--bg-card)] rounded-[18px] px-4 py-3.5 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] border border-[var(--border-color)] focus:border-[var(--primary)] focus:outline-none transition-all shadow-xs"
+              />
+            </div>
+
+            {/* Field 2: Describe Project */}
+            <div>
+              <label className="block text-[13.5px] font-semibold text-[var(--text-heading)] mb-2">
+                Describe Project
+              </label>
+              <textarea
+                rows={3}
+                value={describeProject}
+                onChange={(e) => setDescribeProject(e.target.value)}
+                placeholder="Provide overview of the project, site location, and current progress..."
+                className="w-full bg-[var(--bg-card)] rounded-[18px] p-4 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] border border-[var(--border-color)] focus:border-[var(--primary)] focus:outline-none transition-all shadow-xs resize-none"
+              />
+            </div>
+
+            {/* Field 3: Key Outcomes of interest */}
+            <div>
+              <label className="block text-[13.5px] font-semibold text-[var(--text-heading)] mb-2">
+                Key Outcomes of interest
+              </label>
+              <textarea
+                rows={3}
+                value={keyOutcomes}
+                onChange={(e) => setKeyOutcomes(e.target.value)}
+                placeholder="e.g. Structural stability, quality of materials, plumbing/electrical compliance..."
+                className="w-full bg-[var(--bg-card)] rounded-[18px] p-4 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] border border-[var(--border-color)] focus:border-[var(--primary)] focus:outline-none transition-all shadow-xs resize-none"
+              />
+            </div>
+
+            {/* Section 4: Milestones */}
+            <div>
+              <div className="mb-2">
+                <h2 className="text-[13.5px] font-semibold text-[var(--text-heading)]">
+                  Milestones
+                </h2>
+                <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
+                  Project Milestone vs Target date
+                </p>
+              </div>
+
+              {/* List of Added Milestones */}
+              {milestones.length > 0 && (
+                <div className="space-y-2.5 mb-2.5">
+                  {milestones.map((m) => (
+                    <div
+                      key={m.id}
+                      className="w-full bg-[var(--bg-card)] rounded-[18px] px-4 py-3.5 flex items-center justify-between shadow-xs border border-[var(--border-color)] transition-colors"
+                    >
+                      <span className="text-[14px] font-medium text-[var(--text-heading)] truncate pr-2">
+                        {m.name}
+                      </span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-[13px] text-[var(--text-muted)]">
+                          {m.date}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => handleRemoveMilestone(m.id, e)}
+                          className="text-[var(--text-muted)] hover:text-red-500 transition-colors cursor-pointer p-0.5"
+                          title="Remove milestone"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add Milestone Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setActiveDrawer("milestone")}
+                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-[18px] py-4 px-4 flex items-center justify-center gap-2 cursor-pointer shadow-xs hover:opacity-90 active:scale-[0.99] transition-all"
+              >
+                <Plus className="w-4 h-4 text-[var(--primary)]" />
+                <span className="text-[14px] font-medium text-[var(--text-heading)]">
+                  Add milestone
+                </span>
+              </button>
+            </div>
+
+            {/* Field 5: Review Scope */}
+            <div>
+              <label className="block text-[13.5px] font-semibold text-[var(--text-heading)] mb-2">
+                Review scope
+              </label>
+              <button
+                type="button"
+                onClick={() => setActiveDrawer("scope")}
+                className="w-full bg-[var(--bg-card)] rounded-[18px] px-4 py-3.5 flex items-center justify-between text-[14px] text-left cursor-pointer border border-[var(--border-color)] focus:border-[var(--primary)] transition-all shadow-xs"
+              >
+                <span
+                  className={
+                    reviewScope
+                      ? "text-[var(--text-heading)] font-medium"
+                      : "text-[var(--text-muted)]"
+                  }
+                >
+                  {reviewScope || "Select"}
+                </span>
+                <ChevronDown className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
+              </button>
+            </div>
+
+            {/* Field 6: Supervisor Expertise */}
+            <div>
+              <label className="block text-[13.5px] font-semibold text-[var(--text-heading)] mb-2">
+                Supervisor expertise
+              </label>
+              <button
+                type="button"
+                onClick={() => setActiveDrawer("supervisor")}
+                className="w-full bg-[var(--bg-card)] rounded-[18px] px-4 py-3.5 flex items-center justify-between text-[14px] text-left cursor-pointer border border-[var(--border-color)] focus:border-[var(--primary)] transition-all shadow-xs"
+              >
+                <span
+                  className={
+                    supervisorExpertise
+                      ? "text-[var(--text-heading)] font-medium"
+                      : "text-[var(--text-muted)]"
+                  }
+                >
+                  {supervisorExpertise || "Select"}
+                </span>
+                <ChevronDown className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
+              </button>
+            </div>
+          </div>
         </div>
-        <button
-          onClick={() => alert("Initiate ProWatch onboarding")}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-slate-950 font-semibold text-sm transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Project Audit</span>
-        </button>
+
+        {/* ── Bottom Sticky Bar: Review ── */}
+        <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[var(--bg-body)]/95 backdrop-blur-md pt-4 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 mt-6 border-t border-[var(--border-color)]">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <span className="text-[14px] font-medium text-[var(--text-muted)]">
+              Service fee
+            </span>
+            <span className="text-[18px] sm:text-[20px] font-bold text-[var(--text-heading)]">
+              ₦12,000
+            </span>
+          </div>
+
+          <button
+            type="button"
+            disabled={!canProceed}
+            onClick={handleReview}
+            className="w-full py-3.5 sm:py-4 rounded-full bg-[#85e19e] hover:bg-[#74d38e] active:scale-[0.98] text-zinc-950 font-bold text-[16px] transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Review
+          </button>
+        </div>
       </div>
 
-      <div className="space-y-4">
-        {projects.map((proj) => (
-          <div
-            key={proj.id}
-            className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition-all flex flex-col lg:flex-row justify-between lg:items-center gap-6"
-          >
-            <div className="space-y-2 flex-1">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    proj.status === "ON_TRACK"
-                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                      : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                  }`}
-                >
-                  {proj.status === "ON_TRACK" ? "ON SCHEDULE" : "BEHIND SCHEDULE"}
-                </span>
-                <h3 className="font-semibold text-white text-base">{proj.title}</h3>
-              </div>
-              <p className="text-xs text-slate-400">
-                Contractor: <span className="text-slate-200">{proj.contractor}</span> • Location: {proj.location}
-              </p>
-              <p className="text-xs text-blue-400">
-                Active Phase: <span className="text-slate-300">{proj.currentMilestone}</span>
-              </p>
+      {/* ─────────────────────────────────────────────────────────────
+          BOTTOM DRAWERS / MODALS (z-[80] to sit cleanly ABOVE bottom nav)
+         ───────────────────────────────────────────────────────────── */}
 
-              {/* Progress bar */}
-              <div className="w-full max-w-md pt-2">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-slate-400">Overall Verified Completion</span>
-                  <span className="font-semibold text-white">{proj.completionPct}%</span>
-                </div>
-                <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-                  <div
-                    className="h-full bg-blue-500 rounded-full transition-all"
-                    style={{ width: `${proj.completionPct}%` }}
+      {/* 1. Drawer: Add a Milestone */}
+      {activeDrawer === "milestone" && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center p-0 sm:items-center sm:p-4">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+            onClick={() => setActiveDrawer(null)}
+          />
+          <div
+            className="relative w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-color)] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-1 bg-[var(--border-color)] rounded-full mx-auto mb-4" />
+
+            <div className="text-center mb-6">
+              <h3 className="text-[18px] font-bold text-[var(--text-heading)]">
+                Add a milestone
+              </h3>
+              <p className="text-[12.5px] text-[var(--text-muted)] mt-1">
+                The oversite manager verifies the progress against each one.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Field 1: Milestone Name */}
+              <div>
+                <label className="block text-[13px] font-semibold text-[var(--text-heading)] mb-2">
+                  Milestone title
+                </label>
+                <input
+                  type="text"
+                  value={newMilestoneName}
+                  onChange={(e) => setNewMilestoneName(e.target.value)}
+                  placeholder="e.g. Foundation & Substructure Inspection"
+                  className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-[18px] px-4 py-3.5 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-xs"
+                />
+              </div>
+
+              {/* Field 2: Target Completion with Calendar Picker */}
+              <div>
+                <label className="block text-[13px] font-semibold text-[var(--text-heading)] mb-2">
+                  Target completion
+                </label>
+                <div
+                  onClick={() => {
+                    try {
+                      milestoneDateRef.current?.showPicker?.();
+                    } catch {
+                      milestoneDateRef.current?.focus();
+                    }
+                  }}
+                  className="relative w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-[18px] px-4 py-3.5 flex items-center justify-between cursor-pointer text-left shadow-xs"
+                >
+                  <span
+                    className={`text-[14px] ${
+                      newMilestoneDate
+                        ? "text-[var(--text-heading)] font-medium"
+                        : "text-[var(--text-muted)]"
+                    }`}
+                  >
+                    {newMilestoneDate || "DD/MM/YYYY"}
+                  </span>
+                  <div className="flex items-center gap-1.5 text-[var(--text-muted)] pointer-events-none">
+                    <Calendar className="w-4 h-4" />
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+
+                  <input
+                    ref={milestoneDateRef}
+                    type="date"
+                    min={minDate}
+                    value={newMilestoneDateRaw}
+                    onChange={(e) => handleMilestoneDateChange(e.target.value)}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full [color-scheme:dark_light]"
+                    aria-label="Select milestone completion date"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between lg:flex-col lg:items-end gap-3 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-800">
-              <div className="text-xs text-slate-400 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                <span>Next Site Audit: {proj.nextAuditDate}</span>
-              </div>
-              <Link
-                href={`/projects/${proj.id}`}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white flex items-center gap-1.5 transition-colors"
+            {/* Buttons: Cancel vs Add milestone */}
+            <div className="flex items-center gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setActiveDrawer(null)}
+                className="w-1/2 py-3.5 rounded-full border border-[var(--border-color)] hover:bg-[var(--bg-secondary)] text-[var(--primary)] font-bold text-[14px] transition-colors cursor-pointer"
               >
-                <span>Milestone Gantt</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddMilestone}
+                disabled={!newMilestoneName.trim()}
+                className="w-1/2 py-3.5 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-[14px] transition-colors cursor-pointer disabled:opacity-40"
+              >
+                Add milestone
+              </button>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {/* 2. Drawer: Building Type */}
+      {activeDrawer === "building" && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center p-0 sm:items-center sm:p-4">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+            onClick={() => setActiveDrawer(null)}
+          />
+          <div
+            className="relative w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-color)] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-1 bg-[var(--border-color)] rounded-full mx-auto mb-4" />
+            <h3 className="text-[18px] font-bold text-center text-[var(--text-heading)] mb-4">
+              Building type
+            </h3>
+            <div className="divide-y divide-[var(--border-color)]">
+              {BUILDING_TYPES.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => {
+                    setBuildingType(type);
+                    setActiveDrawer(null);
+                  }}
+                  className={`w-full py-4 px-2 text-left text-[15px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
+                    buildingType === type
+                      ? "text-[var(--primary)] font-semibold"
+                      : "text-[var(--text-body)] hover:text-[var(--primary)]"
+                  }`}
+                >
+                  <span>{type}</span>
+                  {buildingType === type && (
+                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)]" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Drawer: Review Scope */}
+      {activeDrawer === "scope" && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center p-0 sm:items-center sm:p-4">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+            onClick={() => setActiveDrawer(null)}
+          />
+          <div
+            className="relative w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-color)] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-1 bg-[var(--border-color)] rounded-full mx-auto mb-4" />
+            <h3 className="text-[18px] font-bold text-center text-[var(--text-heading)] mb-4">
+              Review scope
+            </h3>
+            <div className="divide-y divide-[var(--border-color)]">
+              {REVIEW_SCOPES.map((scope) => (
+                <button
+                  key={scope}
+                  type="button"
+                  onClick={() => {
+                    setReviewScope(scope);
+                    setActiveDrawer(null);
+                  }}
+                  className={`w-full py-4 px-2 text-left text-[15px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
+                    reviewScope === scope
+                      ? "text-[var(--primary)] font-semibold"
+                      : "text-[var(--text-body)] hover:text-[var(--primary)]"
+                  }`}
+                >
+                  <span>{scope}</span>
+                  {reviewScope === scope && (
+                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)]" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Drawer: Supervisor Expertise */}
+      {activeDrawer === "supervisor" && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center p-0 sm:items-center sm:p-4">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+            onClick={() => setActiveDrawer(null)}
+          />
+          <div
+            className="relative w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-color)] rounded-t-[32px] sm:rounded-[32px] p-6 pb-10 sm:pb-8 shadow-2xl z-10 animate-in slide-in-from-bottom duration-200 max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-1 bg-[var(--border-color)] rounded-full mx-auto mb-4" />
+            <h3 className="text-[18px] font-bold text-center text-[var(--text-heading)] mb-4">
+              Supervisor expertise
+            </h3>
+            <div className="divide-y divide-[var(--border-color)]">
+              {SUPERVISOR_EXPERTISE.map((exp) => (
+                <button
+                  key={exp}
+                  type="button"
+                  onClick={() => {
+                    setSupervisorExpertise(exp);
+                    setActiveDrawer(null);
+                  }}
+                  className={`w-full py-4 px-2 text-left text-[15px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
+                    supervisorExpertise === exp
+                      ? "text-[var(--primary)] font-semibold"
+                      : "text-[var(--text-body)] hover:text-[var(--primary)]"
+                  }`}
+                >
+                  <span>{exp}</span>
+                  {supervisorExpertise === exp && (
+                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)]" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

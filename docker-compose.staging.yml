@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runner
     container_name: oversite_staging_web
     ports:
       - "3002:3000"
@@ -14,12 +15,27 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgres://oversite_user:oversite_password@postgres:5432/oversitedb_staging
       - REDIS_URL=redis://redis:6379
+      - AWS_REGION=${AWS_REGION:-eu-west-2}
+      - AWS_S3_MEDIA_BUCKET=${AWS_S3_MEDIA_BUCKET:-oversite-storage-bucket}
+      - AWS_SES_FROM_EMAIL=${AWS_SES_FROM_EMAIL:-noreply@oversite.ng}
+      - JWT_SECRET=${JWT_SECRET:-oversite_jwt_secret_staging_2026_super_secure}
     restart: always
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    develop:
+      watch:
+        # For production runner, rebuild the standalone image on source changes
+        - action: rebuild
+          path: .
+          ignore:
+            - node_modules/
+            - .next/
+            - .git/
+        - action: restart
+          path: .env.local
 
   postgres:
     image: postgres:16-alpine

@@ -12,6 +12,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ export const userRoleEnum = pgEnum("user_role", [
   "USER",
   "AGENT",
   "ADMIN",
+  "SUPER_ADMIN",
 ]);
 
 export const kycStatusEnum = pgEnum("kyc_status", [
@@ -49,6 +51,7 @@ export const taskModuleEnum = pgEnum("task_module", [
   "DUE_DILIGENCE",
   "LEGAL_ADVISORY",
   "LAW_ENFORCEMENT",
+  "VULNERABILITY_TEST",
 ]);
 
 export const paymentStatusEnum = pgEnum("payment_status", [
@@ -117,6 +120,13 @@ export const payoutStatusEnum = pgEnum("payout_status", [
   "FAILED",
 ]);
 
+export const chatModerationStatusEnum = pgEnum("chat_moderation_status", [
+  "PENDING_REVIEW",
+  "APPROVED_AS_IS",
+  "REFINED_BY_ADMIN",
+  "REJECTED",
+]);
+
 export const notificationTypeEnum = pgEnum("notification_type", [
   "TASK_UPDATE",
   "PAYMENT",
@@ -131,9 +141,8 @@ export const waitlistStatusEnum = pgEnum("waitlist_status", [
   "CONVERTED",
 ]);
 
-// ─── Tables ──────────────────────────────────────────────────────────────────
 
-// Users — extended with role, phone, auth fields
+// Users — extended with role, phone, auth, and profile fields
 export const users = pgTable(
   "users",
   {
@@ -141,9 +150,21 @@ export const users = pgTable(
     email: varchar("email", { length: 320 }).notNull(),
     phone: varchar("phone", { length: 20 }),
     name: varchar("name", { length: 120 }),
+    title: varchar("title", { length: 50 }),
+    address: text("address"),
+    location: varchar("location", { length: 150 }),
+    occupation: varchar("occupation", { length: 120 }),
+    state: varchar("state", { length: 80 }),
+    country: varchar("country", { length: 80 }),
+    residence: varchar("residence", { length: 150 }),
     passwordHash: text("password_hash"),
     role: userRoleEnum("role").notNull().default("USER"),
     kycStatus: kycStatusEnum("kyc_status").notNull().default("PENDING"),
+    ninVerificationStatus: varchar("nin_verification_status", { length: 20 }).notNull().default("pending"),
+    nbaVerificationStatus: varchar("nba_verification_status", { length: 20 }).notNull().default("pending"),
+    addressVerificationStatus: varchar("address_verification_status", { length: 20 }).notNull().default("pending"),
+    accreditationDocuments: jsonb("accreditation_documents"),
+    consentSignedAt: timestamp("consent_signed_at", { withTimezone: true }),
     avatarUrl: text("avatar_url"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -154,7 +175,8 @@ export const users = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("users_email_unique").on(table.email),
+    uniqueIndex("users_email_unique").on(sql`lower(${table.email})`),
+    index("users_phone_idx").on(table.phone),
     index("users_role_idx").on(table.role),
   ],
 );
@@ -240,6 +262,15 @@ export const tasks = pgTable(
     locationLng: numeric("location_lng", { precision: 10, scale: 7 }),
     formData: jsonb("form_data"),
     priceNgn: numeric("price_ngn", { precision: 12, scale: 2 }),
+    pricingMode: varchar("pricing_mode", { length: 30 }).default("AUTOMATED"),
+    quoteStatus: varchar("quote_status", { length: 30 }).default("ESTIMATED"),
+    agentTargetHours: integer("agent_target_hours"),
+    clientPromisedHours: integer("client_promised_hours"),
+    clientPromisedDeliveryDate: timestamp("client_promised_delivery_date", { withTimezone: true }),
+    waypoints: jsonb("waypoints"),
+    purchaseItems: jsonb("purchase_items"),
+    requiresOfficialDocs: boolean("requires_official_docs").default(false),
+    pricingBreakdown: jsonb("pricing_breakdown"),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -252,12 +283,15 @@ export const tasks = pgTable(
   (table) => [
     index("tasks_user_idx").on(table.userId),
     index("tasks_agent_idx").on(table.agentId),
+    index("tasks_property_idx").on(table.propertyId),
     index("tasks_module_idx").on(table.moduleType),
     index("tasks_status_idx").on(table.status),
+    index("tasks_agent_status_idx").on(table.agentId, table.status),
+    index("tasks_user_status_idx").on(table.userId, table.status),
   ],
 );
 
-// Task Milestones — for ProWatch project timeline tracking
+// Task Milestones — operational directives, sequence tracking, and deliverables
 export const taskMilestones = pgTable(
   "task_milestones",
   {
@@ -266,15 +300,23 @@ export const taskMilestones = pgTable(
       .notNull()
       .references(() => tasks.id),
     title: varchar("title", { length: 255 }).notNull(),
+    description: text("description"),
+    orderIndex: integer("order_index").notNull().default(0),
+    deliverableType: varchar("deliverable_type", { length: 50 }).notNull().default("INSPECTION_CHECKLIST"),
+    checklist: jsonb("checklist"),
     targetDate: timestamp("target_date", { withTimezone: true }),
     status: milestoneStatusEnum("status").notNull().default("PENDING"),
     completionPct: integer("completion_pct").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (table) => [
     index("task_milestones_task_idx").on(table.taskId),
+    index("task_milestones_order_idx").on(table.taskId, table.orderIndex),
   ],
 );
 
@@ -291,10 +333,20 @@ export const taskReports = pgTable(
       .references(() => users.id),
     summary: text("summary"),
     findings: text("findings"),
+    checklist: jsonb("checklist"),
+    measurements: jsonb("measurements"),
+    severity: varchar("severity", { length: 20 }).default("NONE"),
+    incidentalExpenses: jsonb("incidental_expenses"),
+    metadata: jsonb("metadata"),
     pdfS3Key: text("pdf_s3_key"),
     watermarkCode: varchar("watermark_code", { length: 32 }),
     status: reportStatusEnum("status").notNull().default("DRAFT"),
     completionPct: integer("completion_pct").notNull().default(0),
+    officialNotes: text("official_notes"),
+    compiledAt: timestamp("compiled_at", { withTimezone: true }),
+    compiledBy: uuid("compiled_by").references(() => users.id),
+    userReviewedAt: timestamp("user_reviewed_at", { withTimezone: true }),
+    userRejectionReason: text("user_rejection_reason"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -305,6 +357,7 @@ export const taskReports = pgTable(
   (table) => [
     index("task_reports_task_idx").on(table.taskId),
     index("task_reports_agent_idx").on(table.agentId),
+    index("task_reports_status_idx").on(table.status),
   ],
 );
 
@@ -320,6 +373,7 @@ export const reportMedia = pgTable(
     mediaType: varchar("media_type", { length: 20 }).notNull(),
     latitude: numeric("latitude", { precision: 10, scale: 7 }),
     longitude: numeric("longitude", { precision: 10, scale: 7 }),
+    caption: text("caption"),
     capturedAt: timestamp("captured_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -330,7 +384,7 @@ export const reportMedia = pgTable(
   ],
 );
 
-// Task Chats — encrypted in-app messaging
+// Task Chats — hub-and-spoke in-app messaging with Mission Control moderation
 export const taskChats = pgTable(
   "task_chats",
   {
@@ -345,16 +399,25 @@ export const taskChats = pgTable(
       .notNull()
       .references(() => users.id),
     message: text("message"),
+    rawMessage: text("raw_message"),
+    moderatedMessage: text("moderated_message"),
     fileUrl: text("file_url"),
+    messageType: varchar("message_type", { length: 20 }).default("TEXT"),
     isModerated: boolean("is_moderated").notNull().default(false),
+    moderationStatus: chatModerationStatusEnum("moderation_status").notNull().default("PENDING_REVIEW"),
     moderatedBy: uuid("moderated_by").references(() => users.id),
+    moderatedAt: timestamp("moderated_at", { withTimezone: true }),
+    rejectionReason: text("rejection_reason"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
   (table) => [
     index("task_chats_task_idx").on(table.taskId),
+    index("task_chats_task_created_idx").on(table.taskId, table.createdAt),
     index("task_chats_sender_idx").on(table.senderId),
+    index("task_chats_receiver_idx").on(table.receiverId),
+    index("task_chats_moderation_idx").on(table.moderationStatus),
   ],
 );
 
@@ -385,7 +448,37 @@ export const payments = pgTable(
   (table) => [
     index("payments_task_idx").on(table.taskId),
     index("payments_user_idx").on(table.userId),
+    index("payments_user_created_idx").on(table.userId, table.createdAt),
     index("payments_status_idx").on(table.status),
+    index("payments_gateway_ref_idx").on(table.gatewayRef),
+  ],
+);
+
+// User Payment Methods — PCI-DSS tokenized gateway authorizations (Paystack / Flutterwave)
+export const userPaymentMethods = pgTable(
+  "user_payment_methods",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    authorizationCode: varchar("authorization_code", { length: 255 }).notNull(),
+    cardType: varchar("card_type", { length: 50 }).notNull().default("card"),
+    brand: varchar("brand", { length: 50 }).notNull(),
+    last4: varchar("last4", { length: 4 }).notNull(),
+    expiryMonth: varchar("expiry_month", { length: 4 }).notNull(),
+    expiryYear: varchar("expiry_year", { length: 4 }).notNull(),
+    bank: varchar("bank", { length: 120 }),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("user_payment_methods_user_idx").on(table.userId),
   ],
 );
 
@@ -432,7 +525,9 @@ export const payoutTransactions = pgTable(
     processedAt: timestamp("processed_at", { withTimezone: true }),
   },
   (table) => [
+    index("payout_transactions_wallet_idx").on(table.walletId),
     index("payout_transactions_agent_idx").on(table.agentId),
+    index("payout_transactions_agent_created_idx").on(table.agentId, table.createdAt),
     index("payout_transactions_status_idx").on(table.status),
   ],
 );
@@ -508,7 +603,9 @@ export const notifications = pgTable(
   },
   (table) => [
     index("notifications_user_idx").on(table.userId),
+    index("notifications_task_idx").on(table.taskId),
     index("notifications_read_idx").on(table.isRead),
+    index("notifications_user_created_idx").on(table.userId, table.createdAt),
   ],
 );
 
@@ -542,7 +639,10 @@ export const outboundEmails = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [index("outbound_emails_to_address_idx").on(table.toAddress)],
+  (table) => [
+    index("outbound_emails_to_address_idx").on(table.toAddress),
+    index("outbound_emails_user_idx").on(table.userId),
+  ],
 );
 
 // Waitlist — captures early interest from the landing page

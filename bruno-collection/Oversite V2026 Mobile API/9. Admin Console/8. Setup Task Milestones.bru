@@ -1,0 +1,38 @@
+meta {
+  name: 8. Setup Task Milestones
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/admin/tasks/{{taskId}}/milestones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{adminToken}}
+}
+
+body:json {
+  {
+    "directives": "Conduct comprehensive boundary inspection. Pay special attention to canal side boundary.",
+    "milestones": [
+      {
+        "title": "GPS Site Check-In",
+        "description": "Log geotagged arrival coordinates at main entrance.",
+        "deliverableType": "PHOTO_GEO",
+        "orderIndex": 1,
+        "checklist": ["Front gate arrival photo", "GPS coordinate verification"]
+      },
+      {
+        "title": "Perimeter Beacon Verification",
+        "description": "Locate and photograph all boundary pillars.",
+        "deliverableType": "INSPECTION_CHECKLIST",
+        "orderIndex": 2,
+        "checklist": ["North Beacon", "South Beacon", "East Beacon", "West Beacon"]
+      }
+    ]
+  }
+}

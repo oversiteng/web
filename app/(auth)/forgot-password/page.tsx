@@ -16,7 +16,6 @@ export default function ForgotPasswordPage() {
   const handleSendLink = (e: React.FormEvent) => {
     e.preventDefault();
     if (email) {
-      // Move to OTP step
       setStep(2);
     }
   };

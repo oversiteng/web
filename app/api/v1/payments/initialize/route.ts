@@ -8,13 +8,14 @@ const db = getDb();
 export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
     const body = await req.json();
-    const { taskId, amountNgn, gateway } = body; // gateway: 'PAYSTACK' | 'FLUTTERWAVE'
+    const { taskId, gateway } = body; // gateway: 'PAYSTACK' | 'FLUTTERWAVE'
+    const amountVal = body.amount ?? body.amountNgn;
 
-    if (!taskId || !amountNgn) {
+    if (!taskId || !amountVal) {
       return NextResponse.json(
         {
           success: false,
-          error: { code: "VALIDATION_ERROR", message: "taskId and amountNgn are required" },
+          error: { code: "VALIDATION_ERROR", message: "taskId and amount are required" },
         },
         { status: 400 }
       );
@@ -26,8 +27,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     const [paymentRecord] = await db.insert(payments).values({
       taskId,
       userId: user.sub,
-      amountNgn,
-      gateway: "PAYSTACK", // Keeping schema valid, but routing to Stripe MS
+      amountNgn: String(amountVal),
+      gateway: gateway === "FLUTTERWAVE" ? "FLUTTERWAVE" : "PAYSTACK",
       gatewayRef: reference,
       status: "PENDING",
     }).returning();
@@ -40,7 +41,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           taskId,
-          amount: amountNgn,
+          amount: amountVal,
           reference: paymentRecord.gatewayRef,
         }),
       });
@@ -53,13 +54,21 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     }
 
     return NextResponse.json<
-      ApiResponse<{ reference: string; authorizationUrl: string; gateway: string }>
+      ApiResponse<{
+        reference: string;
+        transactionReference: string;
+        authorizationUrl: string;
+        paymentUrl: string;
+        gateway: string;
+      }>
     >({
       success: true,
       data: {
         reference: paymentRecord.gatewayRef!,
+        transactionReference: paymentRecord.gatewayRef!,
         authorizationUrl,
-        gateway: "STRIPE", // Informing client
+        paymentUrl: authorizationUrl,
+        gateway: gateway || "PAYSTACK",
       },
     });
   } catch (error) {

@@ -1,0 +1,25 @@
+meta {
+  name: 2. Update Profile
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseUrl}}/users/me
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "name": "Chidi Chukwuemeka",
+    "phone": "08012345678",
+    "location": "Lekki Phase 1, Lagos",
+    "occupation": "Property Developer"
+  }
+}

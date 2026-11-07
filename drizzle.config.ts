@@ -1,5 +1,9 @@
-import { config } from "dotenv";
-config({ path: ".env.local" });
+try {
+  const { config } = require("dotenv");
+  config({ path: ".env.local" });
+} catch {
+  // dotenv not available in minimal production containers; environment variables are already injected
+}
 import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({

@@ -1,0 +1,35 @@
+meta {
+  name: Sync Offline Report
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/tasks/{{taskId}}/report/sync
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "offlineCapturedAt": "2026-10-04T12:00:00Z",
+    "summary": "Building foundation is 40% complete.",
+    "findings": "Minor cracks observed on the retaining wall.",
+    "completionPct": 40,
+    "media": [
+      {
+        "localId": "media-1",
+        "mediaType": "image/jpeg",
+        "s3ObjectKey": "reports/task-uuid/photo1.jpg", 
+        "latitude": 6.4531,
+        "longitude": 3.4357,
+        "capturedAt": "2026-10-04T11:45:00Z"
+      }
+    ]
+  }
+}

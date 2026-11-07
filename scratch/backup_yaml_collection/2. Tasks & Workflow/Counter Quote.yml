@@ -1,0 +1,25 @@
+info:
+  name: Counter Quote
+  type: http
+  seq: 5
+http:
+  method: POST
+  url: '{{baseUrl}}/tasks/{{taskId}}/quote/counter'
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "counterPriceNgn": 35000,
+        "counterNote": "Can you offer a concession for 48-hour delivery?"
+      }
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

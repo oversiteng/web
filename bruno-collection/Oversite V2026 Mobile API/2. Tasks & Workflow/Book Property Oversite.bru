@@ -1,0 +1,26 @@
+meta {
+  name: Book Property Oversite
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/tasks/property-oversite
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "title": "Perimeter Beacon Inspection",
+    "locationAddress": "Plot 12, Block 4, Victoria Island, Lagos",
+    "perimeterScale": "standard",
+    "inspectionType": "ROUTINE",
+    "isExpress": false
+  }
+}

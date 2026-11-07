@@ -1,0 +1,23 @@
+meta {
+  name: 7. Upload Accreditation Document
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/kyc/documents
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "documentType": "UTILITY_BILL",
+    "s3ObjectKey": "accreditation/utility_bill_lagos.pdf"
+  }
+}

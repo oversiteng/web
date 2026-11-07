@@ -1,78 +1,74 @@
-import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db/client";
+import { NextRequest, NextResponse } from "next/server";
+import { withAuth } from "@/lib/auth/middleware";
+import { PaginatedResponse } from "@/lib/types/api";
+import { getDbReady } from "@/lib/db/client";
 import { users } from "@/db/schema";
-import { desc, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 
-// Utility to mock admin authorization check
-function isAdmin(request: Request) {
-  const role = request.headers.get("x-user-role");
-  return role === "ADMIN" || true; // Bypass for development
-}
+export const GET = withAuth(
+  async (req: NextRequest) => {
+    try {
+      const searchParams = req.nextUrl.searchParams;
+      const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+      const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
+      const roleFilter = searchParams.get("role");
 
-export async function GET(request: Request) {
-  try {
-    if (!isAdmin(request)) return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+      const db = await getDbReady();
+      const offset = (page - 1) * limit;
 
-    const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "50");
-    const offset = parseInt(searchParams.get("offset") || "0");
-    const role = searchParams.get("role");
+      let query = db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          phone: users.phone,
+          role: users.role,
+          kycStatus: users.kycStatus,
+          ninVerificationStatus: users.ninVerificationStatus,
+          nbaVerificationStatus: users.nbaVerificationStatus,
+          isActive: users.isActive,
+          createdAt: users.createdAt,
+        })
+        .from(users);
 
-    const db = getDb();
-    
-    // Basic dynamic query builder
-    let query = db.select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      phone: users.phone,
-      role: users.role,
-      kycStatus: users.kycStatus,
-      isActive: users.isActive,
-      createdAt: users.createdAt,
-    })
-    .from(users)
-    .orderBy(desc(users.createdAt))
-    .limit(limit)
-    .offset(offset);
+      let countQuery = db.select({ count: sql<number>`count(*)` }).from(users);
 
-    // Filter by role if provided
-    if (role) {
-      query = db.select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        phone: users.phone,
-        role: users.role,
-        kycStatus: users.kycStatus,
-        isActive: users.isActive,
-        createdAt: users.createdAt,
-      })
-      .from(users)
-      .where(sql`${users.role} = ${role}`)
-      .orderBy(desc(users.createdAt))
-      .limit(limit)
-      .offset(offset) as any;
-    }
-
-    const userList = await query;
-
-    // Get total count
-    const countResult = await db.select({ count: sql<number>`count(*)` }).from(users);
-    const totalCount = countResult[0].count;
-
-    return NextResponse.json({ 
-      success: true, 
-      data: userList,
-      pagination: {
-        total: totalCount,
-        limit,
-        offset
+      if (roleFilter && ["USER", "AGENT", "ADMIN", "SUPER_ADMIN"].includes(roleFilter)) {
+        // @ts-expect-error drizzle enum filter
+        query = query.where(eq(users.role, roleFilter));
+        // @ts-expect-error drizzle enum filter
+        countQuery = countQuery.where(eq(users.role, roleFilter));
       }
-    });
 
-  } catch (error) {
-    console.error("Admin GET Users Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-  }
-}
+      const [userList, countResult] = await Promise.all([
+        query.orderBy(desc(users.createdAt)).limit(limit).offset(offset),
+        countQuery,
+      ]);
+
+      const total = Number(countResult[0]?.count || 0);
+      const totalPages = Math.ceil(total / limit) || 1;
+
+      return NextResponse.json<PaginatedResponse<any>>({
+        success: true,
+        data: userList.map((u) => ({
+          ...u,
+          createdAt: u.createdAt.toISOString(),
+        })),
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+        message: "Users retrieved successfully",
+      });
+    } catch (error) {
+      console.error("Admin GET Users Error:", error);
+      return NextResponse.json(
+        { success: false, error: { code: "INTERNAL_ERROR", message: (error as Error).message } },
+        { status: 500 }
+      );
+    }
+  },
+  { roles: ["ADMIN", "SUPER_ADMIN"] }
+);

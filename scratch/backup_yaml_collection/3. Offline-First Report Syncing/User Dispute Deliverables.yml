@@ -1,0 +1,24 @@
+info:
+  name: User Dispute Deliverables
+  type: http
+  seq: 5
+http:
+  method: POST
+  url: '{{baseUrl}}/tasks/{{taskId}}/reports/{{reportId}}/reject'
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "reason": "Photographic evidence is blurry on corner beacon 3. Please request sharper recapture."
+      }
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

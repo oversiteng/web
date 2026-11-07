@@ -1,0 +1,27 @@
+info:
+  name: Agent Register
+  type: http
+  seq: 2
+http:
+  method: POST
+  url: '{{baseUrl}}/auth/register'
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "agent@example.com",
+        "password": "securepassword123",
+        "name": "Ibrahim Danjuma",
+        "phone": "08098765432",
+        "role": "AGENT",
+        "tier": "GENERAL"
+      }
+  auth: none
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

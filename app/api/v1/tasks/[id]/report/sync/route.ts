@@ -1,107 +1,173 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db/client";
-import { tasks, taskReports, reportMedia } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { verifyToken, JwtPayload } from "@/lib/auth/jwt";
+import { withAuth } from "@/lib/auth/middleware";
+import { getDbReady } from "@/lib/db/client";
+import { tasks, taskReports, reportMedia, notifications } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { enqueueJob } from "@/lib/queue/backgroundQueue";
+import crypto from "crypto";
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { success: false, error: { code: "UNAUTHORIZED", message: "Missing or invalid token" } },
-        { status: 401 }
-      );
-    }
+// POST /api/v1/tasks/:id/report/sync — Offline-First Operative Report Syncing
+export const POST = withAuth<{ id: string }>(
+  async (req: NextRequest, { user, params }) => {
+    try {
+      const { id: taskId } = await params;
+      const body = await req.json();
+      const {
+        offlineCapturedAt,
+        summary,
+        findings,
+        checklist,
+        measurements,
+        severity,
+        incidentalExpenses,
+        metadata,
+        completionPct,
+        media,
+      } = body;
 
-    const token = authHeader.split(" ")[1];
-    const decoded = verifyToken<JwtPayload>(token);
-    if (!decoded || !decoded.sub) {
-      return NextResponse.json(
-        { success: false, error: { code: "UNAUTHORIZED", message: "Invalid or expired token" } },
-        { status: 401 }
-      );
-    }
+      if (!summary || !summary.trim()) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Summary is required to sync an operative report.",
+            },
+          },
+          { status: 400 }
+        );
+      }
 
-    const resolvedParams = await params;
-    const taskId = resolvedParams.id;
-    const body = await req.json();
-    const { offlineCapturedAt, summary, findings, completionPct, media } = body;
+      const db = await getDbReady();
 
-    // Manual Validation
-    if (!summary || completionPct === undefined || !Array.isArray(media)) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Missing required report fields" } },
-        { status: 400 }
-      );
-    }
+      const existingTasks = await db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.id, taskId))
+        .limit(1);
 
-    const db = getDb();
+      if (existingTasks.length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: { code: "NOT_FOUND", message: "Task not found." },
+          },
+          { status: 404 }
+        );
+      }
 
-    // Verify task exists and is assigned to this agent
-    const [task] = await db
-      .select()
-      .from(tasks)
-      .where(and(eq(tasks.id, taskId), eq(tasks.agentId, decoded.sub)))
-      .limit(1);
+      const task = existingTasks[0];
+      const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(user.role);
+      const isAssignedAgent = task.agentId === user.sub;
 
-    if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found or not assigned to you" } },
-        { status: 404 }
-      );
-    }
+      if (!isAdmin && !isAssignedAgent) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message: "Only the assigned field operative or Mission Control can sync report data.",
+            },
+          },
+          { status: 403 }
+        );
+      }
 
-    // Insert Report
-    const [report] = await db.insert(taskReports).values({
-      taskId,
-      agentId: decoded.sub,
-      summary,
-      findings: findings || null,
-      status: "SUBMITTED",
-      completionPct: Number(completionPct),
-      createdAt: offlineCapturedAt ? new Date(offlineCapturedAt) : new Date(),
-    }).returning();
+      const watermarkCode =
+        "OVS-SYNC-" +
+        crypto
+          .createHash("sha256")
+          .update(taskId + user.sub + Date.now().toString())
+          .digest("hex")
+          .substring(0, 10)
+          .toUpperCase();
 
-    // Insert Media Evidence
-    if (media.length > 0) {
-      const mediaValues = media.map((m: any) => ({
-        reportId: report.id,
-        mediaUrl: m.s3ObjectKey, // Maps to the S3 URL uploaded by the Flutter app
-        mediaType: m.mediaType || "image/jpeg",
-        latitude: m.latitude ? String(m.latitude) : null,
-        longitude: m.longitude ? String(m.longitude) : null,
-        capturedAt: m.capturedAt ? new Date(m.capturedAt) : new Date(),
-      }));
+      const capturedAtDate = offlineCapturedAt
+        ? new Date(offlineCapturedAt)
+        : new Date();
 
-      await db.insert(reportMedia).values(mediaValues);
-    }
+      const [report] = await db
+        .insert(taskReports)
+        .values({
+          taskId,
+          agentId: user.sub,
+          summary: summary.trim(),
+          findings: findings || null,
+          checklist: checklist || null,
+          measurements: measurements || null,
+          severity: severity || "NONE",
+          incidentalExpenses: incidentalExpenses || null,
+          metadata: metadata || null,
+          watermarkCode,
+          status: "SUBMITTED",
+          completionPct: completionPct !== undefined ? Number(completionPct) : 100,
+          createdAt: capturedAtDate,
+          updatedAt: new Date(),
+        })
+        .returning();
 
-    // Enqueue PDF generation job in the background
-    await enqueueJob({
-      type: "GENERATE_WATERMARK_PDF",
-      data: { reportId: report.id },
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
+      // Insert Media Evidence
+      if (media && Array.isArray(media) && media.length > 0) {
+        const mediaValues = media.map((m: any) => ({
           reportId: report.id,
-          status: report.status,
+          mediaUrl: m.s3ObjectKey || m.mediaUrl || m.url,
+          mediaType: m.mediaType || m.type || "image/jpeg",
+          latitude: m.latitude !== undefined ? String(m.latitude) : (m.lat !== undefined ? String(m.lat) : null),
+          longitude: m.longitude !== undefined ? String(m.longitude) : (m.lng !== undefined ? String(m.lng) : null),
+          caption: m.caption || null,
+          capturedAt: m.capturedAt ? new Date(m.capturedAt) : capturedAtDate,
+        }));
+
+        await db.insert(reportMedia).values(mediaValues);
+      }
+
+      // Update task status
+      await db
+        .update(tasks)
+        .set({ status: "REPORT_SUBMITTED", updatedAt: new Date() })
+        .where(eq(tasks.id, taskId));
+
+      // Notify User
+      await db.insert(notifications).values({
+        userId: task.userId,
+        type: "TASK_UPDATE",
+        title: "Field Report Synchronized",
+        body: `Operative observations for "${task.title}" have synchronized with Central Operations.`,
+        taskId: task.id,
+      });
+
+      // Enqueue PDF generation job in the background (failsafe)
+      try {
+        await enqueueJob({
+          type: "GENERATE_WATERMARK_PDF",
+          data: { reportId: report.id },
+        });
+      } catch (qErr) {
+        console.warn("Queue notice:", (qErr as Error).message);
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            reportId: report.id,
+            status: report.status,
+            watermarkCode: report.watermarkCode,
+            offlineCapturedAt: capturedAtDate.toISOString(),
+          },
+          message: "Report synchronized successfully. Central Operations compilation queued.",
         },
-        message: "Report synchronized successfully. PDF generation queued.",
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, error: { code: "INTERNAL_ERROR", message: (error as Error).message } },
-      { status: 500 }
-    );
-  }
-}
+        { status: 201 }
+      );
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { code: "INTERNAL_ERROR", message: (error as Error).message },
+        },
+        { status: 500 }
+      );
+    }
+  },
+  { roles: ["AGENT", "ADMIN", "SUPER_ADMIN"] }
+);

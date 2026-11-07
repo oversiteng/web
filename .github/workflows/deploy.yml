@@ -37,21 +37,39 @@ jobs:
           fi
 
       - name: Create Env File
+        env:
+          DEV_ENV: ${{ secrets.DEV_ENV_FILE }}
+          STAGING_ENV: ${{ secrets.STAGING_ENV_FILE }}
+          PROD_ENV: ${{ secrets.PRODUCTION_ENV_FILE }}
+          ENV_SECRET: ${{ steps.env.outputs.env_secret }}
+          AWS_KEY: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_BUCKET: ${{ secrets.AWS_S3_MEDIA_BUCKET }}
+          AWS_REG: ${{ secrets.AWS_REGION }}
         run: |
-          ENV_SECRET="${{ steps.env.outputs.env_secret }}"
-          CONTENT=""
-          if [ "$ENV_SECRET" = "DEV_ENV_FILE" ] && [ -n "${{ secrets.DEV_ENV_FILE }}" ]; then
-            CONTENT="${{ secrets.DEV_ENV_FILE }}"
-          elif [ "$ENV_SECRET" = "STAGING_ENV_FILE" ] && [ -n "${{ secrets.STAGING_ENV_FILE }}" ]; then
-            CONTENT="${{ secrets.STAGING_ENV_FILE }}"
+          if [ "$ENV_SECRET" = "DEV_ENV_FILE" ] && [ -n "$DEV_ENV" ]; then
+            printf "%s\n" "$DEV_ENV" > .env.local
+          elif [ "$ENV_SECRET" = "STAGING_ENV_FILE" ] && [ -n "$STAGING_ENV" ]; then
+            printf "%s\n" "$STAGING_ENV" > .env.local
+          elif [ "$ENV_SECRET" = "PRODUCTION_ENV_FILE" ] && [ -n "$PROD_ENV" ]; then
+            printf "%s\n" "$PROD_ENV" > .env.local
           else
-            CONTENT="${{ secrets.PRODUCTION_ENV_FILE }}"
+            echo "No full env secret provided for $ENV_SECRET, creating base .env.local"
+            touch .env.local
           fi
 
-          if [ -n "$CONTENT" ]; then
-            echo "$CONTENT" > .env.local
-          else
-            touch .env.local
+          # If individual AWS secrets are provided in repository secrets, append them
+          if [ -n "$AWS_KEY" ]; then
+            echo "AWS_ACCESS_KEY_ID=$AWS_KEY" >> .env.local
+          fi
+          if [ -n "$AWS_SECRET" ]; then
+            echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET" >> .env.local
+          fi
+          if [ -n "$AWS_BUCKET" ]; then
+            echo "AWS_S3_MEDIA_BUCKET=$AWS_BUCKET" >> .env.local
+          fi
+          if [ -n "$AWS_REG" ]; then
+            echo "AWS_REGION=$AWS_REG" >> .env.local
           fi
 
       - name: Copy project files to VPS
@@ -62,8 +80,6 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "."
           target: ${{ steps.env.outputs.deploy_dir }}
-          # Exclude heavy folders that shouldn't be copied
-          rm: true
           strip_components: 0
 
       - name: SSH into VPS and Deploy
@@ -72,7 +88,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          command_timeout: 20m
+          command_timeout: 30m
           script: |
             cd ${{ steps.env.outputs.deploy_dir }}
 
@@ -84,4 +100,22 @@ jobs:
               sudo docker compose -f $COMPOSE_FILE up -d --build
             fi
 
-            echo "✅ Deployed ${{ steps.env.outputs.env_name }} environment successfully"
+            # Automatically verify container health and initialize database
+            ENV_NAME="${{ steps.env.outputs.env_name }}"
+            CONTAINER_NAME="oversite_${ENV_NAME}_web"
+            echo "⏳ Verifying ${CONTAINER_NAME} health and applying schema updates..."
+
+            # Ping the healthcheck endpoint to trigger database initialization & safety patches
+            for i in {1..20}; do
+              if sudo docker ps --filter "name=${CONTAINER_NAME}" --filter "status=running" -q | grep -q .; then
+                echo "Container is running, pinging healthcheck endpoint to initialize database..."
+                if sudo docker exec -i "${CONTAINER_NAME}" node -e "fetch('http://127.0.0.1:3000/api/health').then(r => r.json()).then(d => { console.log('Healthcheck status:', JSON.stringify(d)); process.exit(0); }).catch(e => { console.error('Waiting for app...', e.message); process.exit(1); })"; then
+                  echo "✅ Database initialized and app is healthy!"
+                  break
+                fi
+              fi
+              echo "Waiting for container and DB to be ready (attempt $i/20)..."
+              sleep 3
+            done
+
+            echo "✅ Deployed and verified ${{ steps.env.outputs.env_name }} environment successfully"

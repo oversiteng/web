@@ -1,88 +1,250 @@
 "use client";
 
-import { FolderLock, Upload, FileText, Download, ShieldCheck, Lock } from "lucide-react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Download, Check, Search } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { formatTimeAgo } from "@/lib/utils";
+
+type DocCategory = "all" | "property" | "documents" | "diligence";
+
+interface VaultDocItem {
+  id: string;
+  name: string;
+  category: "property" | "documents" | "diligence";
+  type: "PDF" | "IMAGE" | "DOCUMENT";
+  fileUrl: string;
+  taskId?: string;
+  taskTitle?: string;
+  createdAt: string;
+}
+
+const CATEGORIES: { id: DocCategory; label: string }[] = [
+  { id: "all", label: "All files" },
+  { id: "property", label: "Property" },
+  { id: "documents", label: "Documents" },
+  { id: "diligence", label: "Due Diligence" },
+];
+
+function DocFileIcon({ type }: { type: string }) {
+  const displayType = type === "IMAGE" ? "IMG" : type === "DOCUMENT" ? "DOC" : "PDF";
+  return (
+    <div className="relative w-7 h-9 flex items-center justify-center shrink-0">
+      <svg
+        className="w-7 h-9 text-[var(--text-heading)]"
+        viewBox="0 0 28 36"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M5 3h11l7 7v21a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+        <path d="M16 3v7h7" />
+      </svg>
+      <span className="absolute -bottom-1 -left-1 bg-black text-white text-[7.5px] font-bold px-1 py-0.2 rounded-xs tracking-tight border border-zinc-700/60 leading-tight">
+        {displayType}
+      </span>
+    </div>
+  );
+}
 
 export default function DocumentVaultPage() {
-  const documents = [
-    {
-      name: "Certificate of Occupancy (C of O) - Lekki Plot 8B.pdf",
-      size: "4.2 MB",
-      uploadedAt: "August 10, 2026",
-      classification: "LAND TITLE",
-      encrypted: true,
-    },
-    {
-      name: "Survey Plan & Beacon Coordinate Chart.pdf",
-      size: "2.8 MB",
-      uploadedAt: "August 10, 2026",
-      classification: "SURVEY",
-      encrypted: true,
-    },
-    {
-      name: "Contractor Agreement & Architectural Blueprints.pdf",
-      size: "18.4 MB",
-      uploadedAt: "August 25, 2026",
-      classification: "BUILDING PERMIT",
-      encrypted: true,
-    },
-  ];
+  const router = useRouter();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const [documents, setDocuments] = useState<VaultDocItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<DocCategory>("all");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadDocuments() {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch("/api/v1/vault/documents", { credentials: "include", headers });
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setDocuments(json.data);
+        } else {
+          setDocuments([]);
+        }
+      } catch (err) {
+        console.error("Failed to load vault documents:", err);
+        setDocuments([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadDocuments();
+  }, []);
+
+  useEffect(() => {
+    if (isSearching) {
+      searchInputRef.current?.focus();
+    }
+  }, [isSearching]);
+
+  const filteredDocs = useMemo(() => {
+    return documents.filter((doc) => {
+      if (activeCategory !== "all" && doc.category !== activeCategory) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return (
+          doc.name.toLowerCase().includes(q) ||
+          (doc.taskTitle && doc.taskTitle.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [documents, activeCategory, searchQuery]);
+
+  const handleDownload = (doc: VaultDocItem) => {
+    setToastMessage(`Downloading ${doc.name}...`);
+    if (doc.fileUrl) {
+      window.open(doc.fileUrl, "_blank", "noopener,noreferrer");
+    }
+    setTimeout(() => setToastMessage(null), 2500);
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <FolderLock className="w-6 h-6 text-emerald-400" />
-            Encrypted Document Vault
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            AES-256 encrypted cloud repository for land titles, C of O documents, registered survey plans, and architectural blueprints.
-          </p>
+    <div className="relative w-full text-[var(--text-heading)] pb-16 select-none">
+      {/* ── Toast Notification Banner ── */}
+      {toastMessage && (
+        <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
+          <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
+            <div className="w-5 h-5 rounded-full bg-[var(--primary-light)] flex items-center justify-center shrink-0">
+              <Check className="w-3.5 h-3.5 text-[var(--primary)] stroke-[3]" />
+            </div>
+            <span className="text-[13px] font-medium tracking-wide truncate">
+              {toastMessage}
+            </span>
+          </div>
         </div>
-        <button
-          onClick={() => alert("Upload document modal")}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-sm transition-all"
-        >
-          <Upload className="w-4 h-4" />
-          <span>Upload Document</span>
-        </button>
+      )}
+
+      {/* ── Unified Page Header ── */}
+      <PageHeader
+        title="Document Vault"
+        showBack={true}
+        onBack={() => {
+          if (window.history.length > 1) {
+            router.back();
+          } else {
+            router.push("/more");
+          }
+        }}
+        searchConfig={{
+          active: isSearching,
+          onActiveChange: setIsSearching,
+          query: searchQuery,
+          onQueryChange: setSearchQuery,
+          placeholder: "Search documents by name...",
+        }}
+        rightSlot={
+          <button
+            type="button"
+            onClick={() => setIsSearching(true)}
+            aria-label="Search documents"
+            className="w-10 h-10 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer"
+          >
+            <Search className="w-4 h-4 stroke-[2.2]" />
+          </button>
+        }
+      />
+
+      {/* ── Category Filter Tabs ── */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-6 pt-1">
+        {CATEGORIES.map((cat) => {
+          const isActive = activeCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setActiveCategory(cat.id)}
+              className={`px-4 py-1.5 rounded-full text-[13px] whitespace-nowrap transition-all cursor-pointer font-medium ${
+                isActive
+                  ? "bg-[#85e19e] text-zinc-950 font-semibold shadow-xs"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+              }`}
+            >
+              {cat.label}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="space-y-3">
-        {documents.map((doc, idx) => (
-          <div
-            key={idx}
-            className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:border-slate-700 transition-all"
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-300 shrink-0">
-                <FileText className="w-5 h-5 text-emerald-400" />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-medium text-white text-sm">{doc.name}</h4>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-semibold">
-                    {doc.classification}
-                  </span>
+      {/* ── Document List ── */}
+      <div className="space-y-4">
+        {isLoading ? (
+          <DynamicLoadingState variant="documents" count={4} />
+        ) : filteredDocs.length === 0 ? (
+          searchQuery ? (
+            <EmptyState
+              preset="search"
+              query={searchQuery}
+              action={{
+                label: "Clear Search",
+                onClick: () => setSearchQuery(""),
+              }}
+            />
+          ) : activeCategory !== "all" ? (
+            <EmptyState
+              preset="filter"
+              action={{
+                label: "Show All Files",
+                onClick: () => setActiveCategory("all"),
+              }}
+            />
+          ) : (
+            <EmptyState
+              preset="documents"
+              action={{
+                label: "Request a Verification Task",
+                href: "/dashboard",
+              }}
+            />
+          )
+        ) : (
+          filteredDocs.map((doc) => (
+            <div
+              key={doc.id}
+              className="flex items-center justify-between py-2.5 transition-colors group"
+            >
+              <div className="flex items-center gap-3.5 min-w-0 pr-4">
+                <DocFileIcon type={doc.type} />
+                <div className="min-w-0">
+                  <p className="text-[14px] font-semibold text-[var(--text-heading)] truncate leading-snug">
+                    {doc.name}
+                  </p>
+                  <p className="text-[12px] text-[var(--text-muted)] truncate mt-0.5">
+                    {doc.taskTitle ? `${doc.taskTitle} · ` : ""}
+                    {formatTimeAgo(doc.createdAt)}
+                  </p>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-400">
-                  <span>{doc.size}</span>
-                  <span>•</span>
-                  <span>Uploaded {doc.uploadedAt}</span>
-                  <span>•</span>
-                  <span className="text-emerald-400 flex items-center gap-1">
-                    <Lock className="w-3 h-3" /> Encrypted
-                  </span>
-                </div>
               </div>
-            </div>
 
-            <button className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 inline-flex items-center gap-1.5 transition-colors self-start sm:self-auto">
-              <Download className="w-3.5 h-3.5" />
-              <span>Download Securely</span>
-            </button>
-          </div>
-        ))}
+              <button
+                type="button"
+                onClick={() => handleDownload(doc)}
+                aria-label={`Download ${doc.name}`}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer shrink-0"
+              >
+                <Download className="w-4 h-4 stroke-[2]" />
+              </button>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

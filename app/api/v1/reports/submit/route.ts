@@ -54,6 +54,8 @@ export const POST = withAuth(
       const createdReport: TaskReport = {
         ...newReport,
         status: newReport.status as ReportStatus,
+        compiledAt: newReport.compiledAt ? newReport.compiledAt.toISOString() : null,
+        userReviewedAt: newReport.userReviewedAt ? newReport.userReviewedAt.toISOString() : null,
         createdAt: newReport.createdAt.toISOString(),
         updatedAt: newReport.updatedAt.toISOString(),
       };

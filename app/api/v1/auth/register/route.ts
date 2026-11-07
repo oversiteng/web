@@ -1,61 +1,177 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ApiResponse } from "@/lib/types/api";
-import { User } from "@/lib/types/user";
+import { User, UserRole, AgentTier } from "@/lib/types/user";
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
-import { getDb } from "@/lib/db/client";
+import { eq, or, ilike, inArray } from "drizzle-orm";
+import { getDbReady } from "@/lib/db/client";
 import { users, agentProfiles } from "@/db/schema";
-import { signToken } from "@/lib/auth/jwt";
+import { signToken, signRefreshToken } from "@/lib/auth/jwt";
 
-const db = getDb();
-export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{ user: Partial<User>; token: string }>>> {
+export interface RegisterResponseData {
+  user: Partial<User> & {
+    fullName?: string | null;
+    title?: string | null;
+    address?: string | null;
+    location?: string | null;
+    occupation?: string | null;
+    state?: string | null;
+    country?: string | null;
+    residence?: string | null;
+    avatarUrl?: string | null;
+    ninVerificationStatus?: string;
+    nbaVerificationStatus?: string;
+  };
+  token: string;
+  accessToken: string;
+  refreshToken: string;
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export async function POST(
+  req: NextRequest
+): Promise<NextResponse<ApiResponse<RegisterResponseData>>> {
   try {
-    const body = await req.json();
-    const { email, password, name, phone, role } = body;
+    const db = await getDbReady();
+    const body = await req.json().catch(() => ({}));
 
-    if (!email || !password) {
+    const rawEmail = (body.email || "").trim().toLowerCase();
+    const password = typeof body.password === "string" ? body.password : "";
+    const name = (body.name || body.fullName || "").trim();
+    const phone = (body.phone || body.phoneNumber || "").trim() || null;
+
+    // Strict role enforcement: Only USER or AGENT can be registered publicly
+    let role: UserRole = "USER";
+    if (body.role === "AGENT") {
+      role = "AGENT";
+    }
+
+    // Input Validation
+    if (!rawEmail || !EMAIL_REGEX.test(rawEmail)) {
       return NextResponse.json(
         {
           success: false,
-          error: { code: "VALIDATION_ERROR", message: "Email and password are required" },
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "A valid email address is required",
+          },
         },
         { status: 400 }
       );
     }
 
-    // Hash password with bcryptjs
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Check if user already exists
-    const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    if (existingUser.length > 0) {
+    if (!password || password.length < 6) {
       return NextResponse.json(
-        { success: false, error: { code: "CONFLICT", message: "Email is already registered" } },
+        {
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Password must be at least 6 characters long",
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check if email or phone already registered
+    const existingConditions = [ilike(users.email, rawEmail)];
+    if (phone) {
+      const phoneCandidates = [phone];
+      const digitsOnly = phone.replace(/\D/g, "");
+      if (digitsOnly.length >= 7) {
+        phoneCandidates.push(digitsOnly);
+        if (digitsOnly.startsWith("234") && digitsOnly.length > 3) {
+          phoneCandidates.push("+" + digitsOnly);
+          phoneCandidates.push("0" + digitsOnly.slice(3));
+        } else if (digitsOnly.startsWith("0") && digitsOnly.length > 1) {
+          phoneCandidates.push("+234" + digitsOnly.slice(1));
+          phoneCandidates.push("234" + digitsOnly.slice(1));
+        } else {
+          phoneCandidates.push("+234" + digitsOnly);
+          phoneCandidates.push("0" + digitsOnly);
+        }
+      }
+      existingConditions.push(inArray(users.phone, phoneCandidates));
+    }
+
+    const existingUser = await db
+      .select({ id: users.id, email: users.email, phone: users.phone })
+      .from(users)
+      .where(or(...existingConditions))
+      .limit(1);
+
+    if (existingUser.length > 0) {
+      const isEmailMatch = existingUser[0].email?.toLowerCase() === rawEmail.toLowerCase();
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "CONFLICT",
+            message: isEmailMatch
+              ? "An account with this email already exists"
+              : "An account with this phone number already exists",
+          },
+        },
         { status: 409 }
       );
     }
 
-    // Insert user record into db
-    const [newUser] = await db.insert(users).values({
-      email,
-      passwordHash: hashedPassword,
-      name: name || null,
-      phone: phone || null,
-      role: role || "USER",
-      kycStatus: "PENDING",
-      isActive: true,
-    }).returning();
+    // Hash password with bcryptjs work factor 10
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    // If agent, create agent profile
+    // Insert user record
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        email: rawEmail,
+        passwordHash: hashedPassword,
+        name: name || null,
+        phone,
+        role,
+        kycStatus: "PENDING",
+        ninVerificationStatus: "pending",
+        nbaVerificationStatus: "pending",
+        isActive: true,
+      })
+      .returning({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        phone: users.phone,
+        title: users.title,
+        address: users.address,
+        location: users.location,
+        occupation: users.occupation,
+        state: users.state,
+        country: users.country,
+        residence: users.residence,
+        avatarUrl: users.avatarUrl,
+        role: users.role,
+        kycStatus: users.kycStatus,
+        ninVerificationStatus: users.ninVerificationStatus,
+        nbaVerificationStatus: users.nbaVerificationStatus,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+      });
+
+    // If agent, create corresponding agent profile
     if (newUser.role === "AGENT") {
+      const tier: AgentTier =
+        body.tier && ["GENERAL", "TECHNICAL_SUPERVISOR", "INVESTIGATOR", "LEGAL_COUNSEL", "ENFORCEMENT_LIAISON"].includes(body.tier)
+          ? (body.tier as AgentTier)
+          : "GENERAL";
+
       await db.insert(agentProfiles).values({
         userId: newUser.id,
-        tier: "GENERAL",
+        tier,
+        nbaNumber: body.nbaNumber || null,
+        ninId: body.ninId || null,
         isAvailable: false,
       });
     }
 
+    // Sign JWT tokens
     const token = signToken({
       sub: newUser.id,
       email: newUser.email,
@@ -63,7 +179,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
       name: newUser.name || undefined,
     });
 
-    return NextResponse.json(
+    const refreshToken = signRefreshToken(newUser.id);
+
+    const response = NextResponse.json<ApiResponse<RegisterResponseData>>(
       {
         success: true,
         data: {
@@ -71,17 +189,44 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
             id: newUser.id,
             email: newUser.email,
             name: newUser.name,
+            fullName: newUser.name,
             phone: newUser.phone,
+            title: newUser.title,
+            address: newUser.address,
+            location: newUser.location,
+            occupation: newUser.occupation,
+            state: newUser.state,
+            country: newUser.country,
+            residence: newUser.residence,
+            avatarUrl: newUser.avatarUrl,
             role: newUser.role,
             kycStatus: newUser.kycStatus,
+            ninVerificationStatus: newUser.ninVerificationStatus,
+            nbaVerificationStatus: newUser.nbaVerificationStatus,
             isActive: newUser.isActive,
+            createdAt: newUser.createdAt.toISOString(),
           },
           token,
+          accessToken: token,
+          refreshToken,
         },
+        message: "User registered successfully",
       },
       { status: 201 }
     );
+
+    // Set auth cookie for web application
+    response.cookies.set("token", token, {
+      path: "/",
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      sameSite: "lax",
+    });
+
+    return response;
   } catch (error) {
+    console.error("Auth Register Error:", error);
     return NextResponse.json(
       {
         success: false,

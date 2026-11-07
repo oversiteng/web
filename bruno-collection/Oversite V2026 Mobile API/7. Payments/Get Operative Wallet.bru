@@ -1,0 +1,15 @@
+meta {
+  name: Get Operative Wallet
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/agent/wallet
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}

@@ -26,8 +26,12 @@ export async function storeOtp(
   const key = `otp:${identifier}`;
 
   if (redis) {
-    await redis.set(key, JSON.stringify({ code, attempts: 0 }), "EX", expirySeconds);
-    return;
+    try {
+      await redis.set(key, JSON.stringify({ code, attempts: 0 }), "EX", expirySeconds);
+      return;
+    } catch {
+      // Redis unavailable, fallback to memory
+    }
   }
 
   memoryOtpStore.set(identifier, {
@@ -45,29 +49,31 @@ export async function verifyOtp(
   const key = `otp:${identifier}`;
 
   if (redis) {
-    const raw = await redis.get(key);
-    if (!raw) {
-      return { valid: false, reason: "OTP expired or not found" };
-    }
+    try {
+      const raw = await redis.get(key);
+      if (raw) {
+        const data = JSON.parse(raw) as { code: string; attempts: number };
+        if (data.attempts >= MAX_ATTEMPTS) {
+          await redis.del(key);
+          return { valid: false, reason: "Too many failed attempts. Request a new OTP." };
+        }
 
-    const data = JSON.parse(raw) as { code: string; attempts: number };
-    if (data.attempts >= MAX_ATTEMPTS) {
-      await redis.del(key);
-      return { valid: false, reason: "Too many failed attempts. Request a new OTP." };
-    }
+        if (data.code !== inputCode.trim()) {
+          data.attempts += 1;
+          const ttl = await redis.ttl(key);
+          if (ttl > 0) {
+            await redis.set(key, JSON.stringify(data), "EX", ttl);
+          }
+          return { valid: false, reason: "Invalid code" };
+        }
 
-    if (data.code !== inputCode.trim()) {
-      data.attempts += 1;
-      const ttl = await redis.ttl(key);
-      if (ttl > 0) {
-        await redis.set(key, JSON.stringify(data), "EX", ttl);
+        // Success: remove OTP
+        await redis.del(key);
+        return { valid: true };
       }
-      return { valid: false, reason: "Invalid code" };
+    } catch {
+      // Redis unavailable, fallback to memory
     }
-
-    // Success: remove OTP
-    await redis.del(key);
-    return { valid: true };
   }
 
   // Memory fallback

@@ -11,7 +11,7 @@ Production-ready Next.js (App Router) scaffold for AWS ECS Fargate.
   - SES outbound email dispatch (`/lib/aws/ses.ts`)
 - **Redis real-time bridge** for websocket event fanout (`/lib/realtime/websocketHandlers.ts`)
 - **Versioned external API tier** under `/api/v1/external/*` with:
-  - API key auth (`x-api-key`)
+  - API key auth (`bearer token`)
   - Rate limiting (Redis-backed with in-memory fallback)
 - **Multi-stage Dockerfile** optimized for ECS Fargate
 - Multi-stage Docker image configured for ECS Fargate
@@ -25,7 +25,7 @@ Production-ready Next.js (App Router) scaffold for AWS ECS Fargate.
 
 All endpoints require:
 
-- Header: `x-api-key: <api key>`
+- Header: `bearer token: <api key>`
 - Optional header for per-client rate bucket: `x-client-id`
 
 ## Local setup
@@ -54,6 +54,11 @@ docker run --rm -p 3000:3000 \
 The image listens on port `3000`, runs as a non-root user, and uses the Next.js
 standalone server. Supply secrets through the ECS task definition or runtime
 environment; do not bake them into the image.
+
+## API Documentation & Mobile Integration
+
+- **Exhaustive API Reference Manual:** [`docs/api_documentation.md`](docs/api_documentation.md) (covers all 80+ endpoints with full JSON request & response bodies, status codes, query parameters, and error envelopes)
+- **Bruno Collection:** [`bruno-collection/Oversite V2026 Mobile API`](bruno-collection/Oversite%20V2026%20Mobile%20API) (native Bruno `.bru` requests ready to test)
 
 ## Drizzle commands
 

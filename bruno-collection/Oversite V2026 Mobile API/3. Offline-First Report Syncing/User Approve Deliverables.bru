@@ -1,0 +1,15 @@
+meta {
+  name: User Approve Deliverables
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/tasks/{{taskId}}/reports/{{reportId}}/approve
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}

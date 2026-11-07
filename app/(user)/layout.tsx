@@ -1,8 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import React, { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
+
+import { useAuth } from "@/context/AuthContext";
 
 const NAV_ITEMS = [
   { label: "Home", href: "/dashboard", icon: "home" },
@@ -14,6 +18,34 @@ const NAV_ITEMS = [
 
 export default function UserLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { user, isLoading, isAuthenticated, logout } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      window.location.href = "/login";
+    }
+  }, [isLoading, isAuthenticated]);
+
+  if (isLoading && !user) {
+    return (
+      <div className="min-h-screen bg-[#F4F6F4] dark:bg-[var(--bg-body)] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated && !user) {
+    return null;
+  }
+
+  const displayName = user?.name || user?.fullName || "Oversite User";
+  const initials = displayName
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "OU";
+  const displayRole = user?.role === "AGENT" ? "Accredited Agent" : "Client Account";
 
   return (
     <div className="min-h-screen bg-[#F4F6F4] dark:bg-[var(--bg-body)] text-[var(--text-body)] font-sans flex justify-center transition-colors duration-300">
@@ -59,34 +91,101 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                 </Link>
               );
             })}
+
+            {/* Quick Actions Section */}
+            <div className="pt-4 pb-2">
+              <p className="px-3 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
+                Quick Actions
+              </p>
+              <div className="space-y-0.5">
+                <Link
+                  href="/errands"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-[13px] font-medium transition-colors ${
+                    pathname === "/errands"
+                      ? "bg-amber-500/10 text-amber-500 font-semibold"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)]"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span>Quick Errands</span>
+                </Link>
+                <Link
+                  href="/legal"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-[13px] font-medium transition-colors ${
+                    pathname === "/legal"
+                      ? "bg-blue-500/10 text-blue-500 font-semibold"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)]"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span>Legal Advisory</span>
+                </Link>
+                <Link
+                  href="/enforcement"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-[13px] font-medium transition-colors ${
+                    pathname === "/enforcement"
+                      ? "bg-rose-500/10 text-rose-500 font-semibold"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)]"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  <span>Law Enforcement</span>
+                </Link>
+                <Link
+                  href="/vulnerability"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-[13px] font-medium transition-colors ${
+                    pathname === "/vulnerability"
+                      ? "bg-red-500/10 text-red-500 font-semibold"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)]"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                  <span>Vulnerability Test</span>
+                </Link>
+              </div>
+            </div>
           </nav>
 
           {/* User Card & Logout */}
           <div className="p-3 border-t border-[var(--border-color)]">
             <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-[var(--bg-secondary)] mb-2">
-              <div className="w-8 h-8 rounded-full bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] font-semibold text-[11px]">
-                AD
+              <div className="w-8 h-8 rounded-full bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] font-semibold text-[11px] overflow-hidden shrink-0">
+                {user?.avatarUrl || user?.avatar ? (
+                  <img
+                    src={user.avatarUrl || user.avatar || ""}
+                    alt={displayName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  initials
+                )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-semibold text-[var(--text-heading)] truncate">Adaeze C.</p>
-                <p className="text-[10px] text-[var(--primary)] truncate">Client Account</p>
+                <p className="text-[12px] font-semibold text-[var(--text-heading)] truncate">{displayName}</p>
+                <p className="text-[10px] text-[var(--primary)] truncate">{displayRole}</p>
               </div>
             </div>
-            <Link
-              href="/login"
-              className="flex items-center gap-2 px-3 py-1.5 text-[12px] text-[var(--text-muted)] hover:text-red-500 transition-colors"
-            >
-              <i className="ai-logout text-[16px]" />
-              <span>Sign Out</span>
-            </Link>
+            <div className="flex items-center justify-between px-1">
+              <button
+                type="button"
+                onClick={logout}
+                className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-[var(--text-muted)] hover:text-red-500 transition-colors cursor-pointer"
+              >
+                <i className="ai-logout text-[16px]" />
+                <span>Sign Out</span>
+              </button>
+              <ThemeToggle className="w-8 h-8 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-heading)] hover:bg-[var(--bg-card)] flex items-center justify-center transition-colors shadow-xs" />
+            </div>
           </div>
         </aside>
 
         {/* Main Content Area (Centered Feed Column) */}
         <div className="flex-1 flex flex-col min-h-screen min-w-0 md:border-r md:border-[var(--border-color)] max-w-full md:max-w-[600px] xl:max-w-[650px]">
           {/* Page Content Container */}
-          <main className="flex-1 p-4 sm:p-6 md:p-8 w-full mx-auto pb-24 md:pb-8">
-            {children}
+          <main className="flex-1 w-full max-w-[650px] mx-auto px-4 sm:px-6 py-4 sm:py-6 pb-28 md:pb-12">
+            <React.Suspense fallback={<DynamicLoadingState variant="generic" />}>
+              {children}
+            </React.Suspense>
           </main>
         </div>
 

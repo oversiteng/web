@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard,
   Users,
@@ -24,13 +25,35 @@ const ADMIN_NAV = [
   { label: "Tasks & Dispatch", href: "/admin/tasks", icon: Layers },
   { label: "QA & Audit Reports", href: "/admin/reports", icon: FileCheck2 },
   { label: "Chat Moderation", href: "/admin/chat", icon: ShieldCheck },
-  { label: "Finance & Escrow", href: "/admin/finance", icon: CreditCard },
+  { label: "Finance & Settlements", href: "/admin/finance", icon: CreditCard },
   { label: "Platform Settings", href: "/admin/settings", icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { user, isLoading, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && (!isAuthenticated || (user?.role !== "ADMIN" && user?.role !== "SUPER_ADMIN"))) {
+      window.location.href = "/login";
+    }
+  }, [isLoading, isAuthenticated, user]);
+
+  if (isLoading && !user) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated && !user) {
+    return null;
+  }
+
+  const adminName = user?.name || user?.fullName || "Platform Admin";
+  const adminRole = user?.role === "SUPER_ADMIN" ? "Super Admin" : "Operations Admin";
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex">
@@ -73,20 +96,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-3 border-t border-slate-800">
           <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-950/60 border border-slate-800/80 mb-2">
             <div className="w-8 h-8 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400 font-bold text-xs">
-              SA
+              {adminName.slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-slate-200 truncate">Platform Superadmin</p>
-              <p className="text-[10px] text-red-400 truncate">Root Level Authority</p>
+              <p className="text-xs font-semibold text-slate-200 truncate">{adminName}</p>
+              <p className="text-[10px] text-red-400 truncate">{adminRole}</p>
             </div>
           </div>
-          <Link
-            href="/login"
-            className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 hover:text-red-400 transition-colors"
+          <button
+            type="button"
+            onClick={logout}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 hover:text-red-400 transition-colors w-full cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
-          </Link>
+          </button>
         </div>
       </aside>
 

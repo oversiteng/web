@@ -1,0 +1,20 @@
+meta {
+  name: Get Tasks List
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/tasks?status=IN_PROGRESS&module=QUICK_ERRANDS
+  body: none
+  auth: inherit
+}
+
+params:query {
+  status: IN_PROGRESS
+  module: QUICK_ERRANDS
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}

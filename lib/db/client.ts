@@ -1,7 +1,9 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { ensureDatabaseMigrated } from "./migrate";
 
 let dbInstance: ReturnType<typeof drizzle> | null = null;
+let initPromise: Promise<void> | null = null;
 
 export function getDb() {
   if (dbInstance) return dbInstance;
@@ -11,11 +13,33 @@ export function getDb() {
     throw new Error("DATABASE_URL is required to initialize Drizzle.");
   }
 
+  // Only require SSL for remote databases (like AWS RDS/Aurora) or when explicitly requested
+  const isLocal =
+    connectionString.includes("@postgres:") ||
+    connectionString.includes("127.0.0.1") ||
+    (connectionString.includes("localhost") && !connectionString.includes("sslmode=require")) ||
+    connectionString.includes("sslmode=disable");
+
   const client = postgres(connectionString, {
     max: 10,
-    ssl: "require",
+    ssl: isLocal ? false : "require",
   });
 
   dbInstance = drizzle(client);
+
+  if (!initPromise) {
+    initPromise = ensureDatabaseMigrated().catch((err) => {
+      console.error("Migration check encountered an error:", err);
+    });
+  }
+
   return dbInstance;
+}
+
+export async function getDbReady() {
+  const db = getDb();
+  if (initPromise) {
+    await initPromise;
+  }
+  return db;
 }

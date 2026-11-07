@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Shield, Mail, Lock, User, Phone, Briefcase, ArrowRight } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 export default function AgentRegisterPage() {
+  const { setSession } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -15,14 +17,47 @@ export default function AgentRegisterPage() {
     ninId: "",
   });
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // TODO: Connect with /api/v1/auth/register with role='AGENT'
-    setTimeout(() => {
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/v1/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
+          password: formData.password,
+          role: "AGENT",
+          tier: formData.tier,
+          nbaNumber: formData.nbaNumber.trim() || undefined,
+          ninId: formData.ninId.trim() || undefined,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        setErrorMessage(data.error?.message || "Registration failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      if (data.data?.user) {
+        await setSession(data.data.user, data.data.token);
+      } else if (data.data?.token) {
+        localStorage.setItem("oversite_token", data.data.token);
+      }
+
       window.location.href = "/agent/dashboard";
-    }, 600);
+    } catch (err) {
+      setErrorMessage("Network error. Please try again.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -35,6 +70,12 @@ export default function AgentRegisterPage() {
         <h2 className="text-xl font-semibold text-white tracking-tight">Become an Oversite Agent</h2>
         <p className="text-xs text-slate-400 mt-1">Get assigned verified onsite tasks and earn in NGN</p>
       </div>
+
+      {errorMessage && (
+        <div className="w-full mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium text-center">
+          {errorMessage}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>

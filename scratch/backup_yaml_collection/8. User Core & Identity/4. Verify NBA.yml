@@ -1,0 +1,24 @@
+info:
+  name: 4. Verify NBA (Legal Agent)
+  type: http
+  seq: 4
+http:
+  method: POST
+  url: '{{baseUrl}}/kyc/verify/nba'
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "nbaNumber": "SCN/12345/2020"
+      }
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5

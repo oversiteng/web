@@ -1,0 +1,22 @@
+meta {
+  name: 11. Compile Official Dossier
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/admin/tasks/{{taskId}}/reports/{{reportId}}/compile
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{adminToken}}
+}
+
+body:json {
+  {
+    "officialNotes": "Perimeter boundaries and beacon coordinates verified against state survey cadastral data. Quality review approved by Mission Control."
+  }
+}

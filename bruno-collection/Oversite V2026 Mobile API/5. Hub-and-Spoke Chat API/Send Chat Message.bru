@@ -1,0 +1,23 @@
+meta {
+  name: Send Chat Message
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/chat/{{taskId}}/messages
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "message": "Can you check the survey beacons along the rear boundary?",
+    "receiverId": "{{agentId}}"
+  }
+}

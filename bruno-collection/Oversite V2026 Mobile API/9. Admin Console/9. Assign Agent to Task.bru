@@ -1,0 +1,22 @@
+meta {
+  name: 9. Assign Agent to Task
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/admin/tasks/{{taskId}}/assign
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{adminToken}}
+}
+
+body:json {
+  {
+    "agentId": "{{agentId}}"
+  }
+}

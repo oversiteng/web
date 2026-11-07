@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -23,8 +24,36 @@ const AGENT_NAV = [
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { user, isLoading, isAuthenticated, logout } = useAuth();
   const [isOnline, setIsOnline] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && (!isAuthenticated || (user?.role !== "AGENT" && user?.role !== "ADMIN" && user?.role !== "SUPER_ADMIN"))) {
+      window.location.href = "/login";
+    }
+  }, [isLoading, isAuthenticated, user]);
+
+  if (isLoading && !user) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated && !user) {
+    return null;
+  }
+
+  const agentName = user?.name || user?.fullName || "Field Agent";
+  const agentInitials = agentName
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "FA";
+  const tierName = user?.agentProfile?.tier ? user.agentProfile.tier.replace(/_/g, " ") : "Operative";
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex">
@@ -87,21 +116,26 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
         {/* Agent Profile & Rating Footer */}
         <div className="p-3 border-t border-slate-800">
           <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-950/60 border border-slate-800/80 mb-2">
-            <div className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 font-semibold text-xs">
-              BS
+            <div className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 font-semibold text-xs overflow-hidden">
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt={agentName} className="w-full h-full object-cover" />
+              ) : (
+                agentInitials
+              )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-slate-200 truncate">Babajide Sanusi</p>
-              <p className="text-[10px] text-amber-400 truncate">Tier 2: Tech Supervisor ⭐ 4.92</p>
+              <p className="text-xs font-semibold text-slate-200 truncate">{agentName}</p>
+              <p className="text-[10px] text-amber-400 truncate capitalize">{tierName}</p>
             </div>
           </div>
-          <Link
-            href="/login"
-            className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 hover:text-red-400 transition-colors"
+          <button
+            type="button"
+            onClick={logout}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 hover:text-red-400 transition-colors w-full cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
-          </Link>
+          </button>
         </div>
       </aside>
 

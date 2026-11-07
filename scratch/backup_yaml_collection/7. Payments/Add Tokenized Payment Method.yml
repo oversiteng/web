@@ -1,0 +1,30 @@
+info:
+  name: Add Tokenized Payment Method
+  type: http
+  seq: 3
+http:
+  method: POST
+  url: '{{baseUrl}}/payments/methods'
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    data: |-
+      {
+        "authorizationCode": "AUTH_8v2j9dksl2",
+        "brand": "Mastercard",
+        "last4": "4242",
+        "expiryMonth": "12",
+        "expiryYear": "2028",
+        "bank": "Guaranty Trust Bank",
+        "isDefault": true
+      }
+  auth: inherit
+  settings:
+    encodeUrl: true
+    timeout: 0
+    followRedirects: true
+    maxRedirects: 5
