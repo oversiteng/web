@@ -38,6 +38,8 @@
   ],
   "exclude": [
     "node_modules",
-    "services"
+    "services",
+    "neon.ts",
+    "**/*.neon.*"
   ]
 }
