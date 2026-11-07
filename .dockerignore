@@ -8,3 +8,5 @@ npm-debug.log
 dist
 .turbo
 coverage
+neon.ts
+*.neon.*
