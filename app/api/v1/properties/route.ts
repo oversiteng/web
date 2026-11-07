@@ -2,42 +2,53 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse, PaginatedResponse } from "@/lib/types/api";
 import { Property, PropertyWithCurrentTask } from "@/lib/types/task";
-import { getDb } from "@/lib/db/client";
+import { getDbReady } from "@/lib/db/client";
 import { properties } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { enrichPropertiesWithCurrentTasks } from "@/lib/services/propertyTaskService";
 import { geocodeAddress } from "@/lib/services/geocodingService";
 
-const db = getDb();
-
 export const GET = withAuth(async (req: NextRequest, { user }) => {
-  const searchParams = req.nextUrl.searchParams;
-  const page = parseInt(searchParams.get("page") || "1", 10);
-  const limit = parseInt(searchParams.get("limit") || "20", 10);
+  try {
+    const db = await getDbReady();
+    const searchParams = req.nextUrl.searchParams;
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "20", 10);
 
-  const dbProperties = await db
-    .select()
-    .from(properties)
-    .where(eq(properties.userId, user.sub))
-    .limit(limit)
-    .offset((page - 1) * limit);
+    const dbProperties = await db
+      .select()
+      .from(properties)
+      .where(eq(properties.userId, user.sub))
+      .limit(limit)
+      .offset((page - 1) * limit);
 
-  const enrichedProperties = await enrichPropertiesWithCurrentTasks(dbProperties, db);
+    const enrichedProperties = await enrichPropertiesWithCurrentTasks(dbProperties, db);
 
-  return NextResponse.json<PaginatedResponse<PropertyWithCurrentTask>>({
-    success: true,
-    data: enrichedProperties,
-    pagination: {
-      page,
-      limit,
-      total: enrichedProperties.length,
-      totalPages: 1,
-    },
-  });
+    return NextResponse.json<PaginatedResponse<PropertyWithCurrentTask>>({
+      success: true,
+      data: enrichedProperties,
+      pagination: {
+        page,
+        limit,
+        total: enrichedProperties.length,
+        totalPages: 1,
+      },
+    });
+  } catch (error) {
+    console.error("GET /properties error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: { code: "INTERNAL_ERROR", message: (error as Error).message },
+      },
+      { status: 500 }
+    );
+  }
 });
 
 export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
+    const db = await getDbReady();
     const body = await req.json();
     const { title, address, latitude, longitude, parcelNumber, propertyType, description } = body;
 

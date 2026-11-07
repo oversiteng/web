@@ -2,93 +2,102 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse, PaginatedResponse } from "@/lib/types/api";
 import { Task, TaskModule, TaskStatus } from "@/lib/types/task";
-import { getDb } from "@/lib/db/client";
+import { getDbReady } from "@/lib/db/client";
 import { tasks, properties, users } from "@/db/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
-
 import { calculateTaskPricing } from "@/lib/services/pricing";
 
-const db = getDb();
-
 export const GET = withAuth(async (req: NextRequest, { user }) => {
+  try {
+    const db = await getDbReady();
+    const searchParams = req.nextUrl.searchParams;
+    const moduleType = searchParams.get("module") as TaskModule | null;
+    const status = searchParams.get("status");
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "20", 10);
 
-  const searchParams = req.nextUrl.searchParams;
-  const moduleType = searchParams.get("module") as TaskModule | null;
-  const status = searchParams.get("status");
-  const page = parseInt(searchParams.get("page") || "1", 10);
-  const limit = parseInt(searchParams.get("limit") || "20", 10);
+    const conditions = [];
 
-  const conditions = [];
-
-  if (user.role === "USER") {
-    conditions.push(eq(tasks.userId, user.sub));
-  } else if (user.role === "AGENT") {
-    if (status === "open" || status === "PENDING") {
-      // Unassigned open tasks available for agents to claim
-      conditions.push(sql`${tasks.agentId} IS NULL AND ${tasks.status} IN ('PENDING', 'MATCHED')`);
-    } else {
-      // Default: tasks assigned to this agent
-      conditions.push(eq(tasks.agentId, user.sub));
+    if (user.role === "USER") {
+      conditions.push(eq(tasks.userId, user.sub));
+    } else if (user.role === "AGENT") {
+      if (status === "open" || status === "PENDING") {
+        // Unassigned open tasks available for agents to claim
+        conditions.push(sql`${tasks.agentId} IS NULL AND ${tasks.status} IN ('PENDING', 'MATCHED')`);
+      } else {
+        // Default: tasks assigned to this agent
+        conditions.push(eq(tasks.agentId, user.sub));
+      }
     }
+
+    const propertyId = searchParams.get("propertyId");
+
+    if (moduleType) {
+      conditions.push(eq(tasks.moduleType, moduleType));
+    }
+
+    if (propertyId) {
+      conditions.push(eq(tasks.propertyId, propertyId));
+    }
+
+    if (status && status !== "open") {
+      conditions.push(eq(tasks.status, status as TaskStatus));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const dbTasks = await db
+      .select({
+        task: tasks,
+        agentName: users.name,
+      })
+      .from(tasks)
+      .leftJoin(users, eq(tasks.agentId, users.id))
+      .where(whereClause)
+      .orderBy(desc(tasks.createdAt))
+      .limit(limit)
+      .offset((page - 1) * limit);
+
+    const mappedTasks: Task[] = dbTasks.map(({ task: t, agentName }) => ({
+      ...t,
+      moduleType: t.moduleType as TaskModule,
+      status: t.status as TaskStatus,
+      priority: t.priority ?? "normal",
+      formData: (t.formData as Record<string, unknown>) ?? null,
+      locationLat: t.locationLat ? parseFloat(t.locationLat) : undefined,
+      locationLng: t.locationLng ? parseFloat(t.locationLng) : undefined,
+      priceNgn: t.priceNgn ? parseFloat(t.priceNgn) : undefined,
+      scheduledAt: t.scheduledAt ? t.scheduledAt.toISOString() : null,
+      completedAt: t.completedAt ? t.completedAt.toISOString() : null,
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt ? t.updatedAt.toISOString() : undefined,
+      agentName: agentName || null,
+    }));
+
+    return NextResponse.json<PaginatedResponse<Task>>({
+      success: true,
+      data: mappedTasks,
+      pagination: {
+        page,
+        limit,
+        total: mappedTasks.length,
+        totalPages: 1,
+      },
+    });
+  } catch (error) {
+    console.error("GET /tasks error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: { code: "INTERNAL_ERROR", message: (error as Error).message },
+      },
+      { status: 500 }
+    );
   }
-
-  const propertyId = searchParams.get("propertyId");
-
-  if (moduleType) {
-    conditions.push(eq(tasks.moduleType, moduleType));
-  }
-
-  if (propertyId) {
-    conditions.push(eq(tasks.propertyId, propertyId));
-  }
-
-  if (status && status !== "open") {
-    conditions.push(eq(tasks.status, status as TaskStatus));
-  }
-
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-  const dbTasks = await db
-    .select({
-      task: tasks,
-      agentName: users.name,
-    })
-    .from(tasks)
-    .leftJoin(users, eq(tasks.agentId, users.id))
-    .where(whereClause)
-    .orderBy(desc(tasks.createdAt))
-    .limit(limit)
-    .offset((page - 1) * limit);
-
-  const mappedTasks: Task[] = dbTasks.map(({ task: t, agentName }) => ({
-    ...t,
-    moduleType: t.moduleType as TaskModule,
-    status: t.status as TaskStatus,
-    priority: t.priority ?? "normal",
-    formData: (t.formData as Record<string, unknown>) ?? null,
-    locationLat: t.locationLat ? parseFloat(t.locationLat) : undefined,
-    locationLng: t.locationLng ? parseFloat(t.locationLng) : undefined,
-    priceNgn: t.priceNgn ? parseFloat(t.priceNgn) : undefined,
-    scheduledAt: t.scheduledAt ? t.scheduledAt.toISOString() : null,
-    completedAt: t.completedAt ? t.completedAt.toISOString() : null,
-    createdAt: t.createdAt.toISOString(),
-    updatedAt: t.updatedAt ? t.updatedAt.toISOString() : undefined,
-    agentName: agentName || null,
-  }));
-
-  return NextResponse.json<PaginatedResponse<Task>>({
-    success: true,
-    data: mappedTasks,
-    pagination: {
-      page,
-      limit,
-      total: mappedTasks.length,
-      totalPages: 1,
-    },
-  });
 });
 
 export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
+    const db = await getDbReady();
     const body = await req.json();
     const {
       moduleType,

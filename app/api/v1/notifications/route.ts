@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
-import { getDb } from "@/lib/db/client";
+import { getDbReady } from "@/lib/db/client";
 import { notifications } from "@/db/schema";
 import { eq, desc, and, inArray } from "drizzle-orm";
-
-const db = getDb();
 
 export interface FormattedNotification {
   id: string;
@@ -19,35 +17,48 @@ export interface FormattedNotification {
 }
 
 export const GET = withAuth(async (req: NextRequest, { user }) => {
-  const searchParams = req.nextUrl.searchParams;
-  const limit = parseInt(searchParams.get("limit") || "50", 10);
+  try {
+    const db = await getDbReady();
+    const searchParams = req.nextUrl.searchParams;
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
 
-  const dbNotifs = await db
-    .select()
-    .from(notifications)
-    .where(eq(notifications.userId, user.sub))
-    .orderBy(desc(notifications.createdAt))
-    .limit(limit);
+    const dbNotifs = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, user.sub))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit);
 
-  const formatted: FormattedNotification[] = dbNotifs.map((n) => ({
-    id: n.id,
-    type: n.type,
-    title: n.title,
-    body: n.body,
-    isRead: n.isRead,
-    taskId: n.taskId,
-    metadata: n.metadata,
-    createdAt: n.createdAt.toISOString(),
-  }));
+    const formatted: FormattedNotification[] = dbNotifs.map((n) => ({
+      id: n.id,
+      type: n.type,
+      title: n.title,
+      body: n.body,
+      isRead: n.isRead,
+      taskId: n.taskId,
+      metadata: n.metadata,
+      createdAt: n.createdAt.toISOString(),
+    }));
 
-  return NextResponse.json<ApiResponse<FormattedNotification[]>>({
-    success: true,
-    data: formatted,
-  });
+    return NextResponse.json<ApiResponse<FormattedNotification[]>>({
+      success: true,
+      data: formatted,
+    });
+  } catch (error) {
+    console.error("GET /notifications error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: { code: "INTERNAL_ERROR", message: (error as Error).message },
+      },
+      { status: 500 }
+    );
+  }
 });
 
 export const PATCH = withAuth(async (req: NextRequest, { user }) => {
   try {
+    const db = await getDbReady();
     const body = await req.json();
     const { notificationIds, markAllAsRead } = body;
 
