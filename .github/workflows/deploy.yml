@@ -88,7 +88,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          command_timeout: 30m
+          command_timeout: 45m
           script: |
             cd ${{ steps.env.outputs.deploy_dir }}
 
@@ -106,16 +106,24 @@ jobs:
             echo "⏳ Verifying ${CONTAINER_NAME} health and applying schema updates..."
 
             # Ping the healthcheck endpoint to trigger database initialization & safety patches
+            HEALTH_OK=false
             for i in {1..20}; do
               if sudo docker ps --filter "name=${CONTAINER_NAME}" --filter "status=running" -q | grep -q .; then
                 echo "Container is running, pinging healthcheck endpoint to initialize database..."
-                if sudo docker exec -i "${CONTAINER_NAME}" node -e "fetch('http://127.0.0.1:3000/api/health').then(r => r.json()).then(d => { console.log('Healthcheck status:', JSON.stringify(d)); process.exit(0); }).catch(e => { console.error('Waiting for app...', e.message); process.exit(1); })"; then
+                if timeout 30s sudo docker exec -i "${CONTAINER_NAME}" node -e "fetch('http://127.0.0.1:3000/api/health', { signal: AbortSignal.timeout(15000) }).then(r => r.json()).then(d => { console.log('Healthcheck status:', JSON.stringify(d)); process.exit(0); }).catch(e => { console.error('Waiting for app...', e.message); process.exit(1); })"; then
                   echo "✅ Database initialized and app is healthy!"
+                  HEALTH_OK=true
                   break
                 fi
               fi
               echo "Waiting for container and DB to be ready (attempt $i/20)..."
               sleep 3
             done
+
+            if [ "$HEALTH_OK" != "true" ]; then
+              echo "❌ Healthcheck failed after retries for ${CONTAINER_NAME}"
+              sudo docker logs --tail 200 "${CONTAINER_NAME}" || true
+              exit 1
+            fi
 
             echo "✅ Deployed and verified ${{ steps.env.outputs.env_name }} environment successfully"
