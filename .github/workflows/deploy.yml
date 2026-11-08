@@ -7,6 +7,11 @@ on:
       - staging
       - dev
 
+# Ensures only one deployment runs on the VPS at a time to prevent CPU/RAM exhaustion
+concurrency:
+  group: vps-deployment
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -92,17 +97,9 @@ jobs:
           script: |
             cd ${{ steps.env.outputs.deploy_dir }}
 
-            # Start/Restart the containers in detached mode
-            COMPOSE_FILE="${{ steps.env.outputs.compose_override }}"
-            if command -v docker-compose >/dev/null 2>&1; then
-              sudo docker-compose -f $COMPOSE_FILE up -d --build
-            else
-              sudo docker compose -f $COMPOSE_FILE up -d --build
-            fi
+            sudo docker compose -f ${{ steps.env.outputs.compose_override }} up -d --build
 
-            # Automatically verify container health and initialize database
-            ENV_NAME="${{ steps.env.outputs.env_name }}"
-            CONTAINER_NAME="oversite_${ENV_NAME}_web"
+            CONTAINER_NAME="oversite_${{ steps.env.outputs.env_name }}_web"
             echo "⏳ Verifying ${CONTAINER_NAME} health and applying schema updates..."
 
             # Ping the healthcheck endpoint to trigger database initialization & safety patches
@@ -116,7 +113,7 @@ jobs:
                   break
                 fi
               fi
-              echo "Waiting for container and DB to be ready (attempt $i/20)..."
+              echo "Retrying health check in 3 seconds (attempt $i/20)..."
               sleep 3
             done
 
