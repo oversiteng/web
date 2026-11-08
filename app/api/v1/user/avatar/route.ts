@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/jpg"];
 
-export const POST = withAuth(async (req: NextRequest, { user }) => {
+const handleAvatarUpload = withAuth(async (req: NextRequest, { user }) => {
   try {
     const formData = await req.formData();
     const file = (formData.get("avatar") || formData.get("file") || formData.get("image") || formData.get("photo") || formData.get("picture")) as File | null;
@@ -57,13 +57,23 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       })
       .where(eq(users.id, user.sub));
 
+    const resData = {
+      avatarUrl: publicUrl,
+      avatar_url: publicUrl,
+      publicUrl,
+      public_url: publicUrl,
+      url: publicUrl,
+      imageUrl: publicUrl,
+      image_url: publicUrl,
+      objectKey,
+      object_key: objectKey,
+    };
+
     return NextResponse.json({
       success: true,
       message: "Avatar uploaded successfully",
-      data: {
-        avatarUrl: publicUrl,
-        objectKey,
-      },
+      ...resData,
+      data: resData,
     });
   } catch (error: any) {
     console.error("Server-side avatar upload error:", error);
@@ -77,3 +87,5 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   }
 });
 
+export const POST = handleAvatarUpload;
+export const PUT = handleAvatarUpload;

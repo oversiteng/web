@@ -5,6 +5,8 @@ import { getDbReady } from "@/lib/db/client";
 import { users, agentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
+export const runtime = "nodejs";
+
 export interface FullUserProfileResponse {
   id: string;
   email: string;
@@ -63,7 +65,6 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
 
     const dbUser = foundUsers[0];
 
-    // Fetch agent profile if user has AGENT role
     let agentProfileData = null;
     if (dbUser.role === "AGENT") {
       const foundAgents = await db
@@ -126,17 +127,23 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
   }
 });
 
-export const PATCH = withAuth(async (req: NextRequest, { user }) => {
+const handleProfileUpdate = withAuth(async (req: NextRequest, { user }) => {
   try {
     const db = await getDbReady();
-    const body = await req.json();
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
 
     const updates: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
 
-    const name = body.name || body.fullName || body.full_name;
+    const name = body.name || body.fullName || body.full_name ||
+      (body.firstName || body.first_name ? `${body.firstName || body.first_name} ${body.lastName || body.last_name || ""}`.trim() : undefined);
     if (name !== undefined) updates.name = String(name).trim() || null;
 
-    const phone = body.phone || body.phoneNumber || body.phone_number;
+    const phone = body.phone || body.phoneNumber || body.phone_number || body.telephone || body.mobile;
     if (phone !== undefined) updates.phone = String(phone).trim() || null;
 
     if (body.title !== undefined) updates.title = body.title ? String(body.title).trim() : null;
@@ -146,7 +153,10 @@ export const PATCH = withAuth(async (req: NextRequest, { user }) => {
     if (body.state !== undefined) updates.state = body.state ? String(body.state).trim() : null;
     if (body.country !== undefined) updates.country = body.country ? String(body.country).trim() : null;
     if (body.residence !== undefined) updates.residence = body.residence ? String(body.residence).trim() : null;
-    const avatar = body.avatarUrl || body.avatar_url || body.avatar || body.imageUrl || body.image_url || body.photoUrl;
+
+    const avatar = body.avatarUrl || body.avatar_url || body.avatar || body.imageUrl || body.image_url ||
+      body.photoUrl || body.photo_url || body.photo || body.picture || body.profile_picture ||
+      body.profile_photo || body.image || body.file_url || body.url;
     if (avatar !== undefined) updates.avatarUrl = avatar ? String(avatar).trim() : null;
 
     // Check if user is agent and wants to update availability
@@ -180,40 +190,35 @@ export const PATCH = withAuth(async (req: NextRequest, { user }) => {
       );
     }
 
-    return NextResponse.json<ApiResponse<{
-      id: string;
-      email: string;
-      name: string;
-      fullName: string;
-      phone: string | null;
-      title: string | null;
-      address: string | null;
-      location: string | null;
-      occupation: string | null;
-      state: string | null;
-      country: string | null;
-      residence: string | null;
-      avatarUrl: string | null;
-      updatedAt: string;
-    }>>({
+    const profileData = {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name || "User",
+      fullName: updatedUser.name || "User",
+      full_name: updatedUser.name || "User",
+      phone: updatedUser.phone,
+      phoneNumber: updatedUser.phone,
+      phone_number: updatedUser.phone,
+      title: updatedUser.title,
+      address: updatedUser.address,
+      location: updatedUser.location,
+      occupation: updatedUser.occupation,
+      state: updatedUser.state,
+      country: updatedUser.country,
+      residence: updatedUser.residence,
+      avatarUrl: updatedUser.avatarUrl || null,
+      avatar_url: updatedUser.avatarUrl || null,
+      imageUrl: updatedUser.avatarUrl || null,
+      image_url: updatedUser.avatarUrl || null,
+      updatedAt: updatedUser.updatedAt.toISOString(),
+      updated_at: updatedUser.updatedAt.toISOString(),
+    };
+
+    return NextResponse.json({
       success: true,
-      data: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        name: updatedUser.name || "User",
-        fullName: updatedUser.name || "User",
-        phone: updatedUser.phone,
-        title: updatedUser.title,
-        address: updatedUser.address,
-        location: updatedUser.location,
-        occupation: updatedUser.occupation,
-        state: updatedUser.state,
-        country: updatedUser.country,
-        residence: updatedUser.residence,
-        avatarUrl: updatedUser.avatarUrl || null,
-        updatedAt: updatedUser.updatedAt.toISOString(),
-      },
       message: "Profile updated successfully",
+      ...profileData,
+      data: profileData,
     });
   } catch (error) {
     console.error("PATCH /users/me Error:", error);
@@ -223,6 +228,9 @@ export const PATCH = withAuth(async (req: NextRequest, { user }) => {
     );
   }
 });
+
+export const PATCH = handleProfileUpdate;
+export const PUT = handleProfileUpdate;
 
 export const DELETE = withAuth(async (req: NextRequest, { user }) => {
   try {
