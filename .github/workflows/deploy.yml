@@ -7,7 +7,7 @@ on:
       - staging
       - dev
 
-# Ensures only one deployment runs on the VPS at a time to prevent CPU/RAM exhaustion
+# Ensures only one deployment runs on the VPS at a time
 concurrency:
   group: vps-deployment
   cancel-in-progress: false
@@ -20,50 +20,28 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Determine Environment
+      - name: Set Single Unified Dev Environment
         id: env
         run: |
-          BRANCH="${GITHUB_REF##*/}"
-          if [ "$BRANCH" = "main" ]; then
-            echo "env_name=prod" >> $GITHUB_OUTPUT
-            echo "deploy_dir=/home/ubuntu/oversite-prod" >> $GITHUB_OUTPUT
-            echo "compose_override=docker-compose.prod.yml" >> $GITHUB_OUTPUT
-            echo "env_secret=PRODUCTION_ENV_FILE" >> $GITHUB_OUTPUT
-          elif [ "$BRANCH" = "staging" ]; then
-            echo "env_name=staging" >> $GITHUB_OUTPUT
-            echo "deploy_dir=/home/ubuntu/oversite-staging" >> $GITHUB_OUTPUT
-            echo "compose_override=docker-compose.staging.yml" >> $GITHUB_OUTPUT
-            echo "env_secret=STAGING_ENV_FILE" >> $GITHUB_OUTPUT
-          elif [ "$BRANCH" = "dev" ]; then
-            echo "env_name=dev" >> $GITHUB_OUTPUT
-            echo "deploy_dir=/home/ubuntu/oversite-dev" >> $GITHUB_OUTPUT
-            echo "compose_override=docker-compose.dev.yml" >> $GITHUB_OUTPUT
-            echo "env_secret=DEV_ENV_FILE" >> $GITHUB_OUTPUT
-          fi
+          echo "env_name=dev" >> $GITHUB_OUTPUT
+          echo "deploy_dir=/home/ubuntu/oversite-dev" >> $GITHUB_OUTPUT
+          echo "compose_override=docker-compose.dev.yml" >> $GITHUB_OUTPUT
+          echo "env_secret=DEV_ENV_FILE" >> $GITHUB_OUTPUT
 
       - name: Create Env File
         env:
           DEV_ENV: ${{ secrets.DEV_ENV_FILE }}
-          STAGING_ENV: ${{ secrets.STAGING_ENV_FILE }}
-          PROD_ENV: ${{ secrets.PRODUCTION_ENV_FILE }}
-          ENV_SECRET: ${{ steps.env.outputs.env_secret }}
           AWS_KEY: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_BUCKET: ${{ secrets.AWS_S3_MEDIA_BUCKET }}
           AWS_REG: ${{ secrets.AWS_REGION }}
         run: |
-          if [ "$ENV_SECRET" = "DEV_ENV_FILE" ] && [ -n "$DEV_ENV" ]; then
+          if [ -n "$DEV_ENV" ]; then
             printf "%s\n" "$DEV_ENV" > .env.local
-          elif [ "$ENV_SECRET" = "STAGING_ENV_FILE" ] && [ -n "$STAGING_ENV" ]; then
-            printf "%s\n" "$STAGING_ENV" > .env.local
-          elif [ "$ENV_SECRET" = "PRODUCTION_ENV_FILE" ] && [ -n "$PROD_ENV" ]; then
-            printf "%s\n" "$PROD_ENV" > .env.local
           else
-            echo "No full env secret provided for $ENV_SECRET, creating base .env.local"
             touch .env.local
           fi
 
-          # If individual AWS secrets are provided in repository secrets, append them
           if [ -n "$AWS_KEY" ]; then
             echo "AWS_ACCESS_KEY_ID=$AWS_KEY" >> .env.local
           fi
@@ -84,7 +62,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "."
-          target: ${{ steps.env.outputs.deploy_dir }}
+          target: /home/ubuntu/oversite-dev
           strip_components: 0
 
       - name: SSH into VPS and Deploy
@@ -95,14 +73,13 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           command_timeout: 45m
           script: |
-            cd ${{ steps.env.outputs.deploy_dir }}
+            cd /home/ubuntu/oversite-dev
 
-            sudo docker compose -f ${{ steps.env.outputs.compose_override }} up -d --build
+            sudo docker compose -f docker-compose.dev.yml up -d --build
 
-            CONTAINER_NAME="oversite_${{ steps.env.outputs.env_name }}_web"
+            CONTAINER_NAME="oversite_dev_web"
             echo "⏳ Verifying ${CONTAINER_NAME} health and applying schema updates..."
 
-            # Ping the healthcheck endpoint to trigger database initialization & safety patches
             HEALTH_OK=false
             for i in {1..20}; do
               if sudo docker ps --filter "name=${CONTAINER_NAME}" --filter "status=running" -q | grep -q .; then
@@ -123,4 +100,4 @@ jobs:
               exit 1
             fi
 
-            echo "✅ Deployed and verified ${{ steps.env.outputs.env_name }} environment successfully"
+            echo "✅ Single unified dev environment deployed successfully!"
