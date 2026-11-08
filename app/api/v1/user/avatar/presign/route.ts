@@ -7,21 +7,11 @@ export const runtime = "nodejs";
 export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
     const body = await req.json();
-    const { contentType, fileExtension } = body as {
-      contentType?: string;
-      fileExtension?: string;
-    };
-
-    if (!contentType || !contentType.startsWith("image/")) {
-      return NextResponse.json(
-        { success: false, error: "A valid image content type is required" },
-        { status: 400 }
-      );
-    }
-
-    const ext = fileExtension
-      ? fileExtension.replace(/^\./, "")
-      : contentType.split("/")[1] || "jpg";
+    const rawType = body.contentType || body.mimeType || body.type;
+    const ext = (body.fileExtension || body.ext || "").replace(/^\./, "") || "jpg";
+    const contentType = (rawType && typeof rawType === "string" && rawType.startsWith("image/"))
+      ? rawType
+      : (ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg");
 
     const timestamp = Date.now();
     const objectKey = `profiles/${user.sub}-${timestamp}.${ext}`;

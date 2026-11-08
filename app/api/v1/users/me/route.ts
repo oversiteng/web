@@ -133,10 +133,10 @@ export const PATCH = withAuth(async (req: NextRequest, { user }) => {
 
     const updates: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
 
-    const name = body.name || body.fullName;
+    const name = body.name || body.fullName || body.full_name;
     if (name !== undefined) updates.name = String(name).trim() || null;
 
-    const phone = body.phone || body.phoneNumber;
+    const phone = body.phone || body.phoneNumber || body.phone_number;
     if (phone !== undefined) updates.phone = String(phone).trim() || null;
 
     if (body.title !== undefined) updates.title = body.title ? String(body.title).trim() : null;
@@ -146,7 +146,8 @@ export const PATCH = withAuth(async (req: NextRequest, { user }) => {
     if (body.state !== undefined) updates.state = body.state ? String(body.state).trim() : null;
     if (body.country !== undefined) updates.country = body.country ? String(body.country).trim() : null;
     if (body.residence !== undefined) updates.residence = body.residence ? String(body.residence).trim() : null;
-    if (body.avatarUrl !== undefined) updates.avatarUrl = body.avatarUrl ? String(body.avatarUrl).trim() : null;
+    const avatar = body.avatarUrl || body.avatar_url || body.avatar || body.imageUrl || body.image_url || body.photoUrl;
+    if (avatar !== undefined) updates.avatarUrl = avatar ? String(avatar).trim() : null;
 
     // Check if user is agent and wants to update availability
     if (body.isAvailable !== undefined && user.role === "AGENT") {

@@ -13,7 +13,7 @@ const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"
 export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
     const formData = await req.formData();
-    const file = (formData.get("avatar") || formData.get("file")) as File | null;
+    const file = (formData.get("avatar") || formData.get("file") || formData.get("image") || formData.get("photo") || formData.get("picture")) as File | null;
 
     if (!file) {
       return NextResponse.json(
