@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import Link from "next/link"import { useState, Suspense } from "react";
 import { EyeOff, Eye } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
-export default function LoginPage() {
+function LoginFormContent() {
   const { setSession } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -136,7 +135,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 rounded-[24px] bg-[var(--primary)] text-white font-semibold text-[13px] active:scale-[0.98] transition-transform hover:bg-[var(--primary-hover)] flex justify-center items-center"
+            className="w-full py-2 rounded-[24px] bg-[var(--primary)] text-white font-semibold text-[13px] active:scale-[0.98] transition-transform hover:bg-[var(--primary-hover)] flex justify-center items-center cursor-pointer"
           >
             {loading ? "Logging in..." : "Log in"}
           </button>
@@ -171,4 +170,19 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center w-full max-w-sm mx-auto p-8 animate-pulse text-center">
+        <div className="h-8 w-48 bg-slate-200 dark:bg-slate-800 rounded-full mb-4"></div>
+        <div className="h-4 w-64 bg-slate-200 dark:bg-slate-800 rounded-full mb-8"></div>
+        <div className="h-12 w-full bg-slate-200 dark:bg-slate-800 rounded-3xl mb-4"></div>
+        <div className="h-12 w-full bg-slate-200 dark:bg-slate-800 rounded-3xl mb-4"></div>
+      </div>
+    }>
+      <LoginFormContent />
+    </Suspense>
+  )
 }
