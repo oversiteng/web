@@ -41,5 +41,7 @@ yarn-error.log*
 next-env.d.ts
 Miscelleaneous
 scratch_folder
+scratch/
+scripts/
 .neon
 oversite-s3-app-user_accessKeys.csv
