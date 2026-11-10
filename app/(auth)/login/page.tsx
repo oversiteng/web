@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { EyeOff, Eye } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
@@ -13,6 +13,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isAgentMode = searchParams.get("role") === "agent";
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -59,9 +61,17 @@ export default function LoginPage() {
     <div className="flex flex-col items-center w-full max-w-sm mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col items-start mt-2 mb-10 w-full">
         <div className="flex flex-col mt-4">
-          <h1 className="text-[27px] font-bold text-(--text-heading) mb-2">Welcome back!</h1>
+          <h1 className="text-[27px] font-bold text-(--text-heading) mb-2">
+            {isAgentMode ? "Agent Sign In" : "Welcome back!"}
+          </h1>
           <p className="text-[13px] font-medium text-(--text-muted) leading-relaxed">
-            Sign in to manage your property, tasks and documents<br />from anywhere in the world.
+            {isAgentMode ? (
+              <>Sign in to manage your inspection tasks, field reports and earnings.</>
+            ) : (
+              <>
+                Sign in to manage your property, tasks and documents<br />from anywhere in the world.
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -80,7 +90,7 @@ export default function LoginPage() {
           </label>
           <div className="flex items-center bg-(--bg-card) rounded-3xl overflow-hidden border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-(--primary) focus-within:border-[var(--primary)] transition-all">
             <input
-              type="text"
+              type="email"
               value={email}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               placeholder="e.g. mailali@gmail.com"
@@ -134,12 +144,29 @@ export default function LoginPage() {
       </form>
 
       {/* Switch to Register */}
-      <div className="mt-6 text-center">
+      <div className="mt-6 text-center space-y-2">
         <p className="text-[13px] font-medium text-[var(--text-body)]">
           Don't have an account?{" "}
-          <Link href="/register" className="font-bold text-(--primary) hover:underline">
+          <Link href={isAgentMode ? "/register/agent" : "/register"} className="font-bold text-(--primary) hover:underline">
             Sign up
           </Link>
+        </p>
+        <p className="text-[12px] text-(--text-muted)">
+          {isAgentMode ? (
+            <>
+              Looking for property inspections?{" "}
+              <Link href="/login" className="font-bold text-(--primary) hover:underline">
+                Client Login
+              </Link>
+            </>
+          ) : (
+            <>
+              Are you an inspector or advisor?{" "}
+              <Link href="/register/agent" className="font-bold text-(--primary) hover:underline">
+                Sign up as Agent
+              </Link>
+            </>
+          )}
         </p>
       </div>
     </div>

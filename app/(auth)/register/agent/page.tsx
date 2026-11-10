@@ -1,42 +1,96 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Shield, Mail, Lock, User, Phone, Briefcase, ArrowRight } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Eye, ArrowLeft, EyeClosed, ChevronDown } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { Country } from "country-state-city";
 
 export default function AgentRegisterPage() {
   const { setSession } = useAuth();
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    password: "",
-    tier: "GENERAL",
-    nbaNumber: "",
-    ninId: "",
-  });
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [selectedCountryIso, setSelectedCountryIso] = useState("NG");
+  const [tier, setTier] = useState("GENERAL");
+  const [nbaNumber, setNbaNumber] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const router = useRouter();
+
+  const countryList = useMemo(() => {
+    const countries = Country.getAllCountries()
+      .filter((c) => c.phonecode)
+      .map((c) => {
+        const rawCode = c.phonecode.replace(/[^0-9]/g, "");
+        return {
+          isoCode: c.isoCode,
+          name: c.name,
+          flag: c.flag,
+          phonecode: rawCode ? `+${rawCode}` : `+${c.phonecode}`,
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const ngIndex = countries.findIndex((c) => c.isoCode === "NG");
+    if (ngIndex > -1) {
+      const [ng] = countries.splice(ngIndex, 1);
+      return [ng, ...countries];
+    }
+    return countries;
+  }, []);
+
+  const selectedCountry = useMemo(() => {
+    return (
+      countryList.find((c) => c.isoCode === selectedCountryIso) ||
+      countryList[0] || {
+        isoCode: "NG",
+        name: "Nigeria",
+        flag: "🇳🇬",
+        phonecode: "+234",
+      }
+    );
+  }, [countryList, selectedCountryIso]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      setErrorMessage("Passwords do not match");
+      return;
+    }
     setLoading(true);
     setErrorMessage(null);
+
+    const trimmedPhone = phoneNumber.trim();
+    let formattedPhone = "";
+    if (trimmedPhone) {
+      if (trimmedPhone.startsWith("+")) {
+        formattedPhone = trimmedPhone;
+      } else {
+        const cleaned = trimmedPhone.replace(/[\s\-()]/g, "");
+        const nationalNumber = cleaned.startsWith("0") ? cleaned.slice(1) : cleaned;
+        formattedPhone = `${selectedCountry.phonecode}${nationalNumber}`;
+      }
+    }
 
     try {
       const response = await fetch("/api/v1/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          phone: formData.phone.trim(),
-          password: formData.password,
+          name: `${firstName.trim()} ${lastName.trim()}`,
+          email: email.trim(),
+          phoneNumber: formattedPhone,
+          password,
           role: "AGENT",
-          tier: formData.tier,
-          nbaNumber: formData.nbaNumber.trim() || undefined,
-          ninId: formData.ninId.trim() || undefined,
+          tier,
+          nbaNumber: tier === "LEGAL" ? nbaNumber.trim() || undefined : undefined,
         }),
       });
 
@@ -53,148 +107,260 @@ export default function AgentRegisterPage() {
         localStorage.setItem("oversite_token", data.data.token);
       }
 
-      window.location.href = "/agent/dashboard";
-    } catch (err) {
-      setErrorMessage("Network error. Please try again.");
+      setLoading(false);
+      router.push("/agent/dashboard");
+    } catch (error) {
+      console.error(error);
+      setErrorMessage("Network error. Please check your connection and try again.");
       setLoading(false);
     }
   };
 
   return (
-    <div>
-      <div className="mb-6 text-center">
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium mb-2">
-          <Shield className="w-3.5 h-3.5" />
-          Field Agent & Legal Counsel Onboarding
+    <div className="flex flex-col items-center w-full max-w-sm mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col items-start mb-6 w-full">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="mb-6 cursor-pointer"
+        >
+          <ArrowLeft className="w-6 h-6 text-[var(--text-heading)]" />
+        </button>
+        <div className="flex flex-col">
+          <h1 className="text-[27px] font-bold text-[var(--text-heading)] mb-2">Agent Sign Up</h1>
+          <p className="text-[13px] font-medium text-(--text-muted) leading-relaxed">
+            Create an agent account to carry out verified inspections and earn.
+          </p>
         </div>
-        <h2 className="text-xl font-semibold text-white tracking-tight">Become an Oversite Agent</h2>
-        <p className="text-xs text-slate-400 mt-1">Get assigned verified onsite tasks and earn in NGN</p>
       </div>
 
       {errorMessage && (
-        <div className="w-full mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium text-center">
+        <div className="w-full mb-4 p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium text-center animate-in fade-in">
           {errorMessage}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="block text-xs font-medium text-slate-300 mb-1">Full Name</label>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Full legal name"
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors"
-            />
+      <form onSubmit={handleSubmit} className="w-full space-y-3">
+        {/* Name Row */}
+        <div className="flex flex-row gap-3">
+          {/* First Name */}
+          <div className="space-y-1 flex-1">
+            <label className="text-[11px] font-medium text-[var(--text-heading)] block">
+              First Name
+            </label>
+            <div className="flex items-center bg-(--bg-card) rounded-[24px] overflow-hidden border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-[var(--primary)] focus-within:border-[var(--primary)] transition-all">
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="First"
+                className="w-full py-3 px-6 bg-transparent text-[var(--text-heading)] placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Last Name */}
+          <div className="space-y-1 flex-1">
+            <label className="text-[11px] font-medium text-[var(--text-heading)] block">
+              Last Name
+            </label>
+            <div className="flex items-center bg-(--bg-card) rounded-[24px] overflow-hidden border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-[var(--primary)] focus-within:border-[var(--primary)] transition-all">
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Last"
+                className="w-full py-3 px-6 bg-transparent text-[var(--text-heading)] placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium"
+                required
+              />
+            </div>
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-slate-300 mb-1">Email Address</label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+        {/* Email */}
+        <div className="space-y-1">
+          <label className="text-[11px] font-medium text-[var(--text-heading)] block">
+            Email
+          </label>
+          <div className="flex items-center bg-(--bg-card) rounded-[24px] overflow-hidden border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-[var(--primary)] focus-within:border-[var(--primary)] transition-all">
             <input
               type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="e.g. mailali@gmail.com"
+              className="w-full py-3 px-6 bg-transparent text-[var(--text-heading)] placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium"
               required
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="agent@domain.com"
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors"
             />
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-slate-300 mb-1">Specialization / Tier</label>
-          <div className="relative">
-            <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <select
-              value={formData.tier}
-              onChange={(e) => setFormData({ ...formData, tier: e.target.value })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition-colors"
-            >
-              <option value="GENERAL">General Ground Agent (Errands & Visuals)</option>
-              <option value="TECHNICAL_SUPERVISOR">Technical Supervisor (Civil/Building)</option>
-              <option value="INVESTIGATOR">Investigator (Due Diligence)</option>
-              <option value="LEGAL_COUNSEL">Verified NBA Legal Counsel</option>
-              <option value="ENFORCEMENT_LIAISON">Enforcement Liaison</option>
-            </select>
-          </div>
-        </div>
-
-        {formData.tier === "LEGAL_COUNSEL" && (
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Supreme Court Enrolment / NBA Number</label>
+        {/* Phone Number Input */}
+        <div className="space-y-1">
+          <label className="text-[11px] font-medium text-[var(--text-heading)] block">
+            Phone Number
+          </label>
+          <div className="flex items-center bg-(--bg-card) rounded-[24px] overflow-hidden border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-[var(--primary)] focus-within:border-[var(--primary)] transition-all pl-2">
+            <div className="relative flex items-center pl-3 pr-2.5 py-3 text-[var(--text-heading)] font-semibold text-[12px] border-r border-(--border-color) flex-shrink-0 cursor-pointer group">
+              <div className="flex items-center gap-1.5 pointer-events-none select-none">
+                <span className="text-sm leading-none">{selectedCountry.flag}</span>
+                <span>{selectedCountry.phonecode}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)] opacity-60 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <select
+                value={selectedCountryIso}
+                onChange={(e) => setSelectedCountryIso(e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-base"
+                title="Select country code"
+              >
+                {countryList.map((c) => (
+                  <option
+                    key={c.isoCode}
+                    value={c.isoCode}
+                    className="bg-[var(--bg-card)] text-[var(--text-heading)] text-sm"
+                  >
+                    {c.flag} {c.name} ({c.phonecode})
+                  </option>
+                ))}
+              </select>
+            </div>
             <input
-              type="text"
+              type="tel"
+              inputMode="tel"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder={selectedCountry.isoCode === "NG" ? "801 234 5678" : "Phone number"}
+              className="w-full py-3 px-4 bg-transparent text-[var(--text-heading)] placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium"
               required
-              value={formData.nbaNumber}
-              onChange={(e) => setFormData({ ...formData, nbaNumber: e.target.value })}
-              placeholder="e.g. SCN012345"
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors"
             />
+          </div>
+        </div>
+
+        {/* Agent Role / Specialization */}
+        <div className="space-y-1">
+          <label className="text-[11px] font-medium text-[var(--text-heading)] block">
+            Agent Role / Specialization
+          </label>
+          <div className="relative flex items-center bg-(--bg-card) rounded-[24px] overflow-hidden border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-[var(--primary)] focus-within:border-[var(--primary)] transition-all">
+            <select
+              value={tier}
+              onChange={(e) => setTier(e.target.value)}
+              className="w-full py-3 px-6 bg-transparent text-[var(--text-heading)] focus:outline-none text-[12px] font-medium appearance-none cursor-pointer"
+            >
+              <option value="GENERAL" className="bg-[var(--bg-card)] text-[var(--text-heading)]">Field Inspector (General)</option>
+              <option value="LEGAL" className="bg-[var(--bg-card)] text-[var(--text-heading)]">Legal Advisor / Counsel</option>
+              <option value="TECHNICAL" className="bg-[var(--bg-card)] text-[var(--text-heading)]">Quantity Surveyor / Structural</option>
+            </select>
+            <ChevronDown className="w-4 h-4 text-[var(--text-muted)] absolute right-5 pointer-events-none opacity-60" />
+          </div>
+        </div>
+
+        {/* NBA Number (if Legal Advisor selected) */}
+        {tier === "LEGAL" && (
+          <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
+            <label className="text-[11px] font-medium text-[var(--text-heading)] block">
+              NBA Bar Enrollment Number
+            </label>
+            <div className="flex items-center bg-(--bg-card) rounded-[24px] overflow-hidden border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-[var(--primary)] focus-within:border-[var(--primary)] transition-all">
+              <input
+                type="text"
+                value={nbaNumber}
+                onChange={(e) => setNbaNumber(e.target.value)}
+                placeholder="e.g. SCN012345"
+                className="w-full py-3 px-6 bg-transparent text-[var(--text-heading)] placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium"
+                required
+              />
+            </div>
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Phone</label>
+        {/* Password */}
+        <div className="space-y-1">
+          <label className="text-[11px] font-medium text-[var(--text-heading)] block">
+            Password
+          </label>
+          <div className="relative bg-(--bg-card) rounded-[24px] border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-[var(--primary)] focus-within:border-[var(--primary)] transition-all">
             <input
-              type="tel"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••"
+              className="w-full py-3 pl-6 pr-12 bg-transparent text-[var(--text-heading)] placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium tracking-widest"
               required
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="+234..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors"
             />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">NIN Number</label>
-            <input
-              type="text"
-              required
-              value={formData.ninId}
-              onChange={(e) => setFormData({ ...formData, ninId: e.target.value })}
-              placeholder="11 digits"
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-slate-300 mb-1">Password</label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input
-              type="password"
-              required
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              placeholder="••••••••"
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors"
-            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-5 top-1/2 -translate-y-1/2 text-[#a0aab4] hover:text-[var(--text-heading)] transition-colors"
+            >
+              {showPassword ? <Eye className="w-5 h-5" /> : <EyeClosed className="w-5 h-5" />}
+            </button>
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-4"
-        >
-          {loading ? "Submitting Application..." : "Submit Agent Application"}
-          <ArrowRight className="w-4 h-4" />
-        </button>
+        {/* Confirm Password */}
+        <div className="space-y-1">
+          <label className="text-[11px] font-medium text-(--text-heading) block">
+            Confirm Password
+          </label>
+          <div className="relative bg-(--bg-card) rounded-3xl border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-[var(--primary)] focus-within:border-[var(--primary)] transition-all">
+            <input
+              type={showConfirmPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••"
+              className="w-full py-3 pl-6 pr-12 bg-transparent text-(--text-heading) placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium tracking-widest"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-5 top-1/2 -translate-y-1/2 text-[#a0aab4] hover:text-(--text-heading) transition-colors"
+            >
+              {showConfirmPassword ? <Eye className="w-5 h-5" /> : <EyeClosed className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Terms and Conditions Checkbox */}
+        <div className="flex items-center pt-2 pb-4 px-2">
+          <input
+            type="checkbox"
+            id="agent-terms"
+            className="w-3 h-3 rounded-xs border-gray-300 accent-(--primary) focus:ring-(--primary) mr-3 bg-(--bg-card)"
+            required
+          />
+          <label htmlFor="agent-terms" className="text-[12px] font-semibold text-(--text-heading)">
+            I agree to the Agent Terms and Code of Conduct
+          </label>
+        </div>
+
+        {/* Submit Button */}
+        <div className="pt-0">
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2.5 rounded-3xl bg-(--primary) text-white font-semibold text-[13px] active:scale-[0.98] transition-transform hover:bg-[var(--primary-hover)] flex justify-center items-center cursor-pointer"
+          >
+            {loading ? "Creating Agent Account..." : "Register as Agent"}
+          </button>
+        </div>
       </form>
 
-      <div className="mt-5 pt-3 border-t border-slate-800 text-center text-xs text-slate-400">
-        Already an agent?{" "}
-        <Link href="/login" className="text-amber-400 font-medium hover:underline">
-          Sign In
-        </Link>
+      {/* Switch to Login / Client Register */}
+      <div className="mt-6 text-center space-y-2">
+        <p className="text-[13px] font-medium text-(--text-body)">
+          Already have an account?{" "}
+          <Link href="/login" className="font-bold text-(--primary) hover:underline">
+            Log in
+          </Link>
+        </p>
+        <p className="text-[12px] text-(--text-muted)">
+          Looking to request property inspections?{" "}
+          <Link href="/register" className="font-bold text-(--primary) hover:underline">
+            Sign up as a Client
+          </Link>
+        </p>
       </div>
     </div>
   );

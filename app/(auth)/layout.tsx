@@ -19,8 +19,8 @@ export default function AuthLayout({
     setMounted(true);
   }, []);
 
-  // Only show carousel on login and register pages
-  const showCarousel = pathname === "/login" || pathname === "/register";
+  // Show carousel on all login and register pages
+  const showCarousel = pathname.startsWith("/login") || pathname.startsWith("/register");
 
   return (
     <div className="min-h-screen bg-[#FDFDFD] dark:bg-[var(--bg-body)] text-[var(--text-body)] font-sans flex transition-colors duration-300 relative overflow-hidden">
@@ -39,19 +39,6 @@ export default function AuthLayout({
           WebkitMaskPosition: 'center'
         }}
       />
-
-      {/* Theme Toggler */}
-      {/* <button
-        onClick={() => setTheme(resolvedTheme === "light" ? "dark" : "light")}
-        className="absolute top-6 right-6 p-2 rounded-full bg-(--bg-card) border border-(--border-color) shadow-sm text-[var(--text-heading)] hover:bg-(--bg-secondary) transition-colors z-50"
-        aria-label="Toggle theme"
-      >
-        {mounted ? (
-          resolvedTheme === "light" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />
-        ) : (
-          <Moon className="w-5 h-5" />
-        )}
-      </button> */}
 
       {/* Left Column: Carousel (Desktop only) */}
       {showCarousel && (
