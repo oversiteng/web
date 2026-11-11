@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
   BellBoldDuotoneIcon as Bell,
@@ -88,7 +89,19 @@ const CAROUSEL_IMAGES = [
 ];
 
 export default function UserDashboard() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+
+  // If agent opens user dashboard, immediately route to agent dashboard
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (user.role === "AGENT") {
+        router.replace("/agent/dashboard");
+      } else if (user.role === "ADMIN" || user.role === "SUPER_ADMIN") {
+        router.replace("/admin/dashboard");
+      }
+    }
+  }, [user, authLoading, router]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [recentTasks, setRecentTasks] = useState<Task[] | null>(null);

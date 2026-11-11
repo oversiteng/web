@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { EyeOff, Eye } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 function LoginFormContent() {
-  const { setSession } = useAuth();
+  const { user, isLoading: authLoading, setSession } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -17,6 +17,19 @@ function LoginFormContent() {
   const isAgentMode = searchParams.get("role") === "agent";
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // If already logged in, redirect immediately to role-specific dashboard
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (user.role === "AGENT") {
+        router.replace("/agent/dashboard");
+      } else if (user.role === "ADMIN" || user.role === "SUPER_ADMIN") {
+        router.replace("/admin/dashboard");
+      } else {
+        router.replace("/dashboard");
+      }
+    }
+  }, [user, authLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

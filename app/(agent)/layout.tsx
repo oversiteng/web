@@ -21,7 +21,7 @@ import {
 
 const AGENT_NAV = [
   { label: "Home", href: "/agent/dashboard", icon: Home },
-  { label: "Queue", href: "/agent/tasks?tab=queue", icon: ListFilter },
+  { label: "Queue", href: "/agent/queue", icon: ListFilter },
   { label: "Tasks", href: "/agent/tasks", icon: ClipboardCheck },
   { label: "Earnings", href: "/agent/wallet", icon: Wallet },
   { label: "More", href: "/more", icon: MoreHorizontal },
@@ -99,7 +99,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
               const Icon = item.icon;
               const isActive =
                 pathname === item.href ||
-                (item.href !== "/agent/dashboard" && pathname.startsWith(item.href));
+                (item.href !== "/agent/dashboard" && (pathname === item.href || pathname.startsWith(`${item.href}/`)));
               return (
                 <Link
                   key={item.label}
@@ -184,7 +184,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
           const Icon = item.icon;
           const isActive =
             pathname === item.href ||
-            (item.href !== "/agent/dashboard" && pathname.startsWith(item.href));
+            (item.href !== "/agent/dashboard" && (pathname === item.href || pathname.startsWith(`${item.href}/`)));
           return (
             <Link
               key={item.label}

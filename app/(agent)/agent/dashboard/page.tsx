@@ -302,7 +302,10 @@ export default function AgentDashboardPage() {
       {/* 5. Sub-Cards (Due Today & Available Queue) */}
       <div className="grid grid-cols-2 gap-3">
         {/* Due Today Card with gold/amber border */}
-        <div className="bg-[#121c16] border border-amber-600/50 rounded-3xl p-4 flex flex-col justify-between space-y-2">
+        <Link
+          href="/agent/tasks"
+          className="bg-[#121c16] border border-amber-600/50 hover:border-amber-500 rounded-3xl p-4 flex flex-col justify-between space-y-2 transition-colors cursor-pointer"
+        >
           <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
             <Calendar className="w-4 h-4 text-amber-400" />
             <span>Due Today</span>
@@ -312,10 +315,13 @@ export default function AgentDashboardPage() {
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
             <span>Next: 1h 45m left</span>
           </div>
-        </div>
+        </Link>
 
         {/* Available Queue Card */}
-        <div className="bg-[#121c16] border border-[#1b2b20] rounded-3xl p-4 flex flex-col justify-between space-y-2">
+        <Link
+          href="/agent/queue"
+          className="bg-[#121c16] border border-[#1b2b20] hover:border-emerald-500/40 rounded-3xl p-4 flex flex-col justify-between space-y-2 transition-colors cursor-pointer"
+        >
           <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
             <Inbox className="w-4 h-4 text-emerald-400" />
             <span>Available Queue</span>
@@ -325,7 +331,7 @@ export default function AgentDashboardPage() {
             <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
             <span>2 Near You (&lt;3km)</span>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* 6. In-Progress Task Draft Resume Card (from Screen 2) */}
@@ -420,7 +426,7 @@ export default function AgentDashboardPage() {
         <div className="flex items-center justify-between">
           <h3 className="text-white font-bold text-base">New offers</h3>
           <Link
-            href="/agent/tasks?tab=queue"
+            href="/agent/queue"
             className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
           >
             See all {offers.length}

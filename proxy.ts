@@ -17,13 +17,28 @@ const PROTECTED_PREFIXES = [
   "/notifications",
   "/more",
   "/agent",
+  "/admin",
+];
+
+// User-client specific pages that agents should never view
+const USER_CLIENT_ROUTES = [
+  "/dashboard",
+  "/properties",
+  "/projects",
+  "/errands",
+  "/legal",
+  "/diligence",
+  "/property-oversite",
+  "/vault",
+  "/enforcement",
+  "/vulnerability",
 ];
 
 // Helper to check basic JWT structure and expiration without native Node crypto in edge runtime
-function isTokenValid(token: string): boolean {
+function getValidPayload(token: string): { sub?: string; role?: string; exp?: number } | null {
   try {
     const parts = token.split(".");
-    if (parts.length !== 3) return false;
+    if (parts.length !== 3) return null;
 
     // Decode base64url payload
     let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
@@ -37,14 +52,21 @@ function isTokenValid(token: string): boolean {
     if (payload.exp && typeof payload.exp === "number") {
       const now = Math.floor(Date.now() / 1000);
       if (payload.exp < now) {
-        return false;
+        return null;
       }
     }
 
-    return !!payload.sub;
+    if (!payload.sub) return null;
+    return payload;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function getDashboardUrlForRole(role?: string): string {
+  if (role === "AGENT") return "/agent/dashboard";
+  if (role === "ADMIN" || role === "SUPER_ADMIN") return "/admin/dashboard";
+  return "/dashboard";
 }
 
 export function proxy(request: NextRequest) {
@@ -85,21 +107,22 @@ export function proxy(request: NextRequest) {
     return response;
   }
 
+  // Extract auth token
+  const tokenCookie = request.cookies.get("token")?.value;
+  const authHeader = request.headers.get("authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+  const token = tokenCookie || bearerToken;
+  const payload = token ? getValidPayload(token) : null;
+
   // 2. Protect authenticated dashboard routes
   const isProtected = PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
 
   if (isProtected) {
-    const tokenCookie = request.cookies.get("token")?.value;
-    const authHeader = request.headers.get("authorization");
-    const bearerToken = authHeader?.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
-
-    const token = tokenCookie || bearerToken;
-
-    if (!token || !isTokenValid(token)) {
+    if (!payload) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("returnUrl", pathname);
 
@@ -109,13 +132,42 @@ export function proxy(request: NextRequest) {
       }
       return response;
     }
+
+    // Role-based route redirection:
+    // If an AGENT opens /dashboard or client user routes, redirect them to /agent/dashboard!
+    const isUserClientRoute = USER_CLIENT_ROUTES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    );
+    if (payload.role === "AGENT" && isUserClientRoute) {
+      return NextResponse.redirect(new URL("/agent/dashboard", request.url));
+    }
+
+    // If a regular USER tries to access /agent routes, redirect them to /dashboard
+    if (
+      pathname.startsWith("/agent") &&
+      payload.role !== "AGENT" &&
+      payload.role !== "ADMIN" &&
+      payload.role !== "SUPER_ADMIN"
+    ) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // If non-admin tries to access /admin routes, redirect to their role dashboard
+    if (
+      pathname.startsWith("/admin") &&
+      payload.role !== "ADMIN" &&
+      payload.role !== "SUPER_ADMIN"
+    ) {
+      const target = getDashboardUrlForRole(payload.role);
+      return NextResponse.redirect(new URL(target, request.url));
+    }
   }
 
-  // 3. If user is already logged in and visits /login or /register, redirect to /dashboard
+  // 3. If user is already logged in and visits /login or /register, redirect to their role-specific dashboard
   if (pathname === "/login" || pathname === "/register") {
-    const tokenCookie = request.cookies.get("token")?.value;
-    if (tokenCookie && isTokenValid(tokenCookie)) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+    if (payload) {
+      const target = getDashboardUrlForRole(payload.role);
+      return NextResponse.redirect(new URL(target, request.url));
     }
   }
 
@@ -127,6 +179,7 @@ export default proxy;
 export const config = {
   matcher: [
     "/api/:path*",
+    "/dashboard",
     "/dashboard/:path*",
     "/properties/:path*",
     "/projects/:path*",
@@ -140,7 +193,10 @@ export const config = {
     "/chat/:path*",
     "/notifications/:path*",
     "/more/:path*",
+    "/agent",
     "/agent/:path*",
+    "/admin",
+    "/admin/:path*",
     "/login",
     "/register",
   ],

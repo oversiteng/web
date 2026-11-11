@@ -446,7 +446,7 @@ export default function AgentTaskExecutionPage({
               Return to Dashboard
             </Link>
             <Link
-              href="/agent/tasks?tab=queue"
+              href="/agent/queue"
               className="block w-full bg-[#16221a] hover:bg-[#1e2e23] text-slate-300 border border-[#233529] font-semibold text-xs py-2.5 rounded-2xl transition-colors"
             >
               Find More Tasks in Queue
