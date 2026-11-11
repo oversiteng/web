@@ -28,7 +28,7 @@ export default function AgentWalletPage() {
           Agent Earnings & Payout Wallet
         </h1>
         <p className="text-sm text-slate-400 mt-1">
-          Escrow payouts are credited instantly upon client report approval. Withdraw to any verified Nigerian bank account.
+          Payouts are credited instantly upon client report approval. Withdraw to any verified Nigerian bank account.
         </p>
       </div>
 
