@@ -15,8 +15,8 @@ import {
   MessageSquare,
   ShieldCheck,
   Check,
-  ListFilter,
-  ClipboardCheck,
+  RotateCw,
+  Play,
   Building2,
   Info,
 } from "lucide-react";
@@ -37,6 +37,19 @@ export interface QueueTask {
   secondsRemaining: number;
   deadlineText: string;
   instructions: string;
+}
+
+export interface MyTaskItem {
+  id: string;
+  category: string;
+  title: string;
+  address: string;
+  locationArea: string;
+  status: "ACTIVE" | "UNDER_REVIEW" | "COMPLETED";
+  isHappeningNow?: boolean;
+  timeLeft?: string;
+  payoutNgn: number;
+  progressPercent?: number;
 }
 
 const INITIAL_QUEUE_TASKS: QueueTask[] = [
@@ -99,20 +112,86 @@ const INITIAL_QUEUE_TASKS: QueueTask[] = [
   },
 ];
 
-type FilterType = "all" | "nearest" | "highest" | "soonest";
+const INITIAL_MY_TASKS: MyTaskItem[] = [
+  {
+    id: "my-task-1",
+    category: "Document Processing",
+    title: "CAC certified copy retrieval",
+    address: "4 Bourdillon Close, ikeja Lagos",
+    locationArea: "Lagos Island",
+    status: "ACTIVE",
+    isHappeningNow: false,
+    payoutNgn: 7700,
+  },
+  {
+    id: "my-task-2",
+    category: "Document Processing",
+    title: "CAC certified copy retrieval",
+    address: "4 Bourdillon Close, ikeja, Lagos.",
+    locationArea: "Lagos Island",
+    status: "ACTIVE",
+    isHappeningNow: true,
+    timeLeft: "2h left",
+    payoutNgn: 7700,
+    progressPercent: 85,
+  },
+  {
+    id: "my-task-3",
+    category: "Property Oversite",
+    title: "Boundary & Perimeter Inspection",
+    address: "14 Admiralty Way, Lekki. Lagos.",
+    locationArea: "Lekki Phase 1",
+    status: "ACTIVE",
+    isHappeningNow: false,
+    timeLeft: "4h left",
+    payoutNgn: 9500,
+  },
+  {
+    id: "my-task-review-1",
+    category: "Due Diligence",
+    title: "Victoria Island Corporate Verification",
+    address: "Adeola Odeku Street, Victoria Island",
+    locationArea: "Victoria Island",
+    status: "UNDER_REVIEW",
+    timeLeft: "Under Client Review",
+    payoutNgn: 12500,
+  },
+  {
+    id: "my-task-comp-1",
+    category: "Quick Errand",
+    title: "Surulere Document Courier",
+    address: "Adeniran Ogunsanya, Surulere",
+    locationArea: "Surulere",
+    status: "COMPLETED",
+    timeLeft: "Payout Approved",
+    payoutNgn: 4500,
+  },
+];
+
+type QueueFilterType = "all" | "nearest" | "highest" | "soonest";
+type MyTasksTabType = "ACTIVE" | "UNDER_REVIEW" | "COMPLETED";
 
 function AgentTasksContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialTab = searchParams.get("tab") === "queue" ? "queue" : "queue";
+  const tabParam = searchParams.get("tab");
 
-  const [activeTab, setActiveTab] = useState<"queue" | "active">(initialTab);
-  const [filter, setFilter] = useState<FilterType>("all");
+  // Main screen mode: "my-tasks" (Image 1) or "queue" (Image 1 from earlier flow)
+  const [screenMode, setScreenMode] = useState<"my-tasks" | "queue">(
+    tabParam === "queue" ? "queue" : "my-tasks"
+  );
+
+  // My Tasks filter matching Image 1: Active (3), Under Review (1), Completed (1)
+  const [myTasksTab, setMyTasksTab] = useState<MyTasksTabType>("ACTIVE");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Queue state
+  const [queueFilter, setQueueFilter] = useState<QueueFilterType>("all");
   const [queueTasks, setQueueTasks] = useState<QueueTask[]>(INITIAL_QUEUE_TASKS);
-  const [activeTasks, setActiveTasks] = useState<QueueTask[]>([]);
+  const [myTasks, setMyTasks] = useState<MyTaskItem[]>(INITIAL_MY_TASKS);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Modal states matching Screenshots 2, 3, 4
+  // Modals for Queue flow
   const [inspectingTask, setInspectingTask] = useState<QueueTask | null>(null);
   const [confirmingTask, setConfirmingTask] = useState<QueueTask | null>(null);
   const [acceptedTaskSuccess, setAcceptedTaskSuccess] = useState<QueueTask | null>(null);
@@ -122,7 +201,16 @@ function AgentTasksContent() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Timer countdown simulation
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    showToast("Refreshing assigned tasks...");
+    setTimeout(() => {
+      setIsRefreshing(false);
+      showToast("Tasks up to date");
+    }, 800);
+  };
+
+  // Live timer simulation for queue offers
   useEffect(() => {
     const timer = setInterval(() => {
       setQueueTasks((prev) =>
@@ -135,15 +223,20 @@ function AgentTasksContent() {
     return () => clearInterval(timer);
   }, []);
 
-  // Filter queue items
   const sortedQueue = [...queueTasks].sort((a, b) => {
-    if (filter === "nearest") return a.distanceKm - b.distanceKm;
-    if (filter === "highest") return b.payoutNgn - a.payoutNgn;
-    if (filter === "soonest") return a.secondsRemaining - b.secondsRemaining;
+    if (queueFilter === "nearest") return a.distanceKm - b.distanceKm;
+    if (queueFilter === "highest") return b.payoutNgn - a.payoutNgn;
+    if (queueFilter === "soonest") return a.secondsRemaining - b.secondsRemaining;
     return 0;
   });
 
-  const handleDecline = (taskId: string, e?: React.MouseEvent) => {
+  const activeMyTasks = myTasks.filter((t) => t.status === "ACTIVE");
+  const reviewMyTasks = myTasks.filter((t) => t.status === "UNDER_REVIEW");
+  const completedMyTasks = myTasks.filter((t) => t.status === "COMPLETED");
+
+  const displayedMyTasks = myTasks.filter((t) => t.status === myTasksTab);
+
+  const handleDeclineQueueTask = (taskId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setQueueTasks((prev) => prev.filter((t) => t.id !== taskId));
     if (inspectingTask?.id === taskId) setInspectingTask(null);
@@ -159,7 +252,18 @@ function AgentTasksContent() {
   const handleConfirmAcceptance = (task: QueueTask) => {
     setConfirmingTask(null);
     setQueueTasks((prev) => prev.filter((t) => t.id !== task.id));
-    setActiveTasks((prev) => [task, ...prev]);
+    const newMyTask: MyTaskItem = {
+      id: task.id,
+      category: task.category,
+      title: task.title,
+      address: task.address,
+      locationArea: task.locationArea,
+      status: "ACTIVE",
+      payoutNgn: task.payoutNgn,
+      isHappeningNow: true,
+      timeLeft: "2h left",
+    };
+    setMyTasks((prev) => [newMyTask, ...prev]);
     setAcceptedTaskSuccess(task);
   };
 
@@ -170,7 +274,7 @@ function AgentTasksContent() {
   };
 
   return (
-    <div className="space-y-4 max-w-full pb-10">
+    <div className="space-y-4 max-w-full pb-12">
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
@@ -179,44 +283,231 @@ function AgentTasksContent() {
         </div>
       )}
 
-      {/* Main Page Title matching Screenshot 1 */}
-      <div className="flex items-center justify-between pt-1">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Queue</h1>
-        <div className="flex items-center gap-1 bg-[#121c16] border border-[#1b2b20] p-1 rounded-2xl">
-          <button
-            type="button"
-            onClick={() => setActiveTab("queue")}
-            className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === "queue"
-                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            Queue ({queueTasks.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("active")}
-            className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === "active"
-                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            Active ({activeTasks.length})
-          </button>
-        </div>
-      </div>
+      {/* =========================================================================
+          VIEW 1: "MY TASKS" SCREEN (MATCHING IMAGE 1 EXACTLY)
+          ========================================================================= */}
+      {screenMode === "my-tasks" ? (
+        <div className="space-y-4">
+          {/* Top App Bar matching Image 1 */}
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-3">
+              <Link
+                href="/agent/dashboard"
+                className="w-9 h-9 rounded-full bg-[#121c16] border border-[#1b2b20] flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Link>
+              <h1 className="text-xl font-bold text-white tracking-tight">My Tasks</h1>
+            </div>
 
-      {activeTab === "queue" ? (
-        <>
-          {/* Filter Pills matching Screenshot 1 */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="w-9 h-9 rounded-full bg-[#121c16] border border-[#1b2b20] flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer"
+              >
+                <RotateCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-emerald-400" : ""}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* Switcher pill between "My Tasks" and "Queue" */}
+          <div className="flex items-center gap-1 bg-[#121c16] border border-[#1b2b20] p-1 rounded-2xl w-fit">
+            <button
+              type="button"
+              onClick={() => setScreenMode("my-tasks")}
+              className="px-3.5 py-1 rounded-xl text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition-all cursor-pointer"
+            >
+              My Tasks ({myTasks.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setScreenMode("queue")}
+              className="px-3.5 py-1 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-all cursor-pointer"
+            >
+              Available Queue ({queueTasks.length})
+            </button>
+          </div>
+
+          {/* Filter Pills matching Image 1: Active (3), Under Review (1), Completed (1) */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
             <button
               type="button"
-              onClick={() => setFilter("all")}
+              onClick={() => setMyTasksTab("ACTIVE")}
               className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                filter === "all"
+                myTasksTab === "ACTIVE"
+                  ? "bg-[#10b981] text-[#062414] shadow-sm shadow-emerald-500/10"
+                  : "bg-[#121c16] border border-[#1b2b20] text-slate-300 hover:border-emerald-500/30"
+              }`}
+            >
+              Active ({activeMyTasks.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setMyTasksTab("UNDER_REVIEW")}
+              className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer shrink-0 ${
+                myTasksTab === "UNDER_REVIEW"
+                  ? "bg-[#10b981] text-[#062414] font-bold"
+                  : "bg-[#121c16] border border-[#1b2b20] text-slate-300 hover:border-emerald-500/30"
+              }`}
+            >
+              Under Review ({reviewMyTasks.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setMyTasksTab("COMPLETED")}
+              className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer shrink-0 ${
+                myTasksTab === "COMPLETED"
+                  ? "bg-[#10b981] text-[#062414] font-bold"
+                  : "bg-[#121c16] border border-[#1b2b20] text-slate-300 hover:border-emerald-500/30"
+              }`}
+            >
+              Completed ({completedMyTasks.length})
+            </button>
+          </div>
+
+          {/* Tasks List matching Image 1 */}
+          <div className="space-y-3 pt-1">
+            {displayedMyTasks.length === 0 ? (
+              <div className="bg-[#121c16] border border-[#1b2b20] rounded-3xl p-8 text-center text-xs text-slate-400 space-y-2">
+                <p className="font-semibold text-slate-300 text-sm">No tasks in this category</p>
+                <p>Accept new missions from the queue to start assignments.</p>
+              </div>
+            ) : (
+              displayedMyTasks.map((task) => {
+                const isHappeningNow = task.isHappeningNow;
+
+                return (
+                  <div
+                    key={task.id}
+                    className={`rounded-3xl p-4 sm:p-5 space-y-3 transition-all ${
+                      isHappeningNow
+                        ? "border border-emerald-500/60 bg-[#0e1a12] shadow-lg shadow-emerald-500/5 ring-1 ring-emerald-500/20"
+                        : "bg-[#121c16] border border-[#1b2b20] hover:border-emerald-500/30"
+                    }`}
+                  >
+                    {/* Top Row: Location or Badges */}
+                    <div className="flex items-center justify-between">
+                      {isHappeningNow ? (
+                        <>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-extrabold uppercase tracking-wide">
+                            <Play className="w-2.5 h-2.5 fill-emerald-400" />
+                            Happening now
+                          </span>
+                          <span className="bg-[#291e13] border border-amber-800/40 text-amber-400 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-amber-400" />
+                            <span>{task.timeLeft || "2h left"}</span>
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-xs text-slate-400 font-medium">
+                            {task.locationArea}
+                          </span>
+                          {task.timeLeft ? (
+                            <span className="bg-[#16231b] border border-[#213527] text-slate-300 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              <span>{task.timeLeft}</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-400 bg-[#16241b] border border-[#213427] px-2.5 py-0.5 rounded-full">
+                              Completed
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Task Title & Address matching Image 1 */}
+                    <div>
+                      <h3 className="text-white font-bold text-base leading-snug">
+                        {task.title}
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>{task.address}</span>
+                      </p>
+                    </div>
+
+                    {/* Payout & Action Button matching Image 1 */}
+                    <div className="flex items-center justify-between pt-2 border-t border-[#1a281e]">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-medium">
+                          Estimated Payout
+                        </span>
+                        <span className="text-lg font-extrabold text-emerald-400">
+                          ₦{task.payoutNgn.toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div>
+                        {isHappeningNow ? (
+                          <Link
+                            href={`/agent/tasks/${task.id}`}
+                            className="bg-[#10b981] hover:bg-[#059669] text-black font-extrabold text-xs px-5 py-2.5 rounded-full inline-flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                          >
+                            <span>Continue task</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`/agent/tasks/${task.id}`}
+                            className="bg-[#10b981] hover:bg-[#059669] text-black font-semibold text-xs px-5 py-2.5 rounded-full inline-flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                          >
+                            <span>Start arrival</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      ) : (
+        /* =========================================================================
+            VIEW 2: "QUEUE" SCREEN (MATCHING EARLIER FLOW SPECIFICATIONS)
+            ========================================================================= */
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setScreenMode("my-tasks")}
+                className="w-9 h-9 rounded-full bg-[#121c16] border border-[#1b2b20] flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <h1 className="text-xl font-bold text-white tracking-tight">Queue</h1>
+            </div>
+
+            <div className="flex items-center gap-1 bg-[#121c16] border border-[#1b2b20] p-1 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setScreenMode("my-tasks")}
+                className="px-3 py-1 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-all cursor-pointer"
+              >
+                My Tasks ({myTasks.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setScreenMode("queue")}
+                className="px-3 py-1 rounded-xl text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition-all cursor-pointer"
+              >
+                Queue ({queueTasks.length})
+              </button>
+            </div>
+          </div>
+
+          {/* Queue Filter Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+            <button
+              type="button"
+              onClick={() => setQueueFilter("all")}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                queueFilter === "all"
                   ? "bg-[#10b981] text-[#062414] shadow-sm shadow-emerald-500/10"
                   : "bg-[#121c16] border border-[#1b2b20] text-slate-300 hover:border-emerald-500/30"
               }`}
@@ -225,9 +516,9 @@ function AgentTasksContent() {
             </button>
             <button
               type="button"
-              onClick={() => setFilter("nearest")}
+              onClick={() => setQueueFilter("nearest")}
               className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer shrink-0 ${
-                filter === "nearest"
+                queueFilter === "nearest"
                   ? "bg-[#10b981] text-[#062414] font-bold"
                   : "bg-[#121c16] border border-[#1b2b20] text-slate-300 hover:border-emerald-500/30"
               }`}
@@ -236,9 +527,9 @@ function AgentTasksContent() {
             </button>
             <button
               type="button"
-              onClick={() => setFilter("highest")}
+              onClick={() => setQueueFilter("highest")}
               className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer shrink-0 ${
-                filter === "highest"
+                queueFilter === "highest"
                   ? "bg-[#10b981] text-[#062414] font-bold"
                   : "bg-[#121c16] border border-[#1b2b20] text-slate-300 hover:border-emerald-500/30"
               }`}
@@ -247,9 +538,9 @@ function AgentTasksContent() {
             </button>
             <button
               type="button"
-              onClick={() => setFilter("soonest")}
+              onClick={() => setQueueFilter("soonest")}
               className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer shrink-0 ${
-                filter === "soonest"
+                queueFilter === "soonest"
                   ? "bg-[#10b981] text-[#062414] font-bold"
                   : "bg-[#121c16] border border-[#1b2b20] text-slate-300 hover:border-emerald-500/30"
               }`}
@@ -258,7 +549,7 @@ function AgentTasksContent() {
             </button>
           </div>
 
-          {/* Queue Tasks Cards List matching Screenshot 1 */}
+          {/* Queue Items */}
           <div className="space-y-3 pt-1">
             {sortedQueue.length === 0 ? (
               <div className="bg-[#121c16] border border-[#1b2b20] rounded-3xl p-8 text-center text-xs text-slate-400 space-y-2">
@@ -309,7 +600,7 @@ function AgentTasksContent() {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={(e) => handleDecline(task.id, e)}
+                        onClick={(e) => handleDeclineQueueTask(task.id, e)}
                         className="bg-[#19271e] hover:bg-[#223629] text-slate-300 text-xs font-semibold px-4 py-2 rounded-xl border border-[#233529] cursor-pointer transition-colors"
                       >
                         Decline
@@ -327,72 +618,13 @@ function AgentTasksContent() {
               ))
             )}
           </div>
-        </>
-      ) : (
-        /* Active Tasks Tab */
-        <div className="space-y-3 pt-1">
-          {activeTasks.length === 0 ? (
-            <div className="bg-[#121c16] border border-[#1b2b20] rounded-3xl p-8 text-center text-xs text-slate-400 space-y-2">
-              <p className="font-semibold text-slate-300 text-sm">No active tasks in progress</p>
-              <p>Accept a mission from the Queue to begin on-site verification.</p>
-              <button
-                type="button"
-                onClick={() => setActiveTab("queue")}
-                className="mt-2 bg-[#10b981] text-black font-bold text-xs px-4 py-2 rounded-xl"
-              >
-                Go to Queue
-              </button>
-            </div>
-          ) : (
-            activeTasks.map((task) => (
-              <div
-                key={task.id}
-                className="bg-[#121c16] border border-emerald-500/30 rounded-3xl p-4 sm:p-5 space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="bg-[#102419] border border-emerald-800/40 text-emerald-400 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    In Progress
-                  </span>
-                  <span className="text-xs text-amber-400 font-semibold flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-amber-400" />
-                    <span>2h left</span>
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="text-white font-bold text-base leading-snug">{task.title}</h3>
-                  <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{task.address}</span>
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-[#1a281e]">
-                  <div className="text-lg font-bold text-white">
-                    Payout: <span className="text-emerald-400 font-extrabold">₦{task.payoutNgn.toLocaleString()}</span>
-                  </div>
-                  <Link
-                    href={`/agent/tasks/${task.id}`}
-                    className="bg-[#10b981] hover:bg-[#059669] text-black text-xs font-bold px-5 py-2 rounded-xl transition-colors shadow-sm inline-flex items-center gap-1"
-                  >
-                    <span>Execute Task</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-            ))
-          )}
         </div>
       )}
 
-      {/* =========================================================================
-          SCREEN 2: Task Detail / Review View matching Screenshot 2
-          ========================================================================= */}
+      {/* Inspecting Task Modal (Screenshot 2) */}
       {inspectingTask && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-[#0b130e] border border-[#1b2b20] rounded-3xl p-4 sm:p-6 max-w-lg w-full space-y-4 my-auto animate-in fade-in zoom-in-95 duration-200">
-            {/* Top row with Category and Timer */}
             <div className="flex items-center justify-between">
               <span className="bg-[#16271e] text-emerald-400 border border-emerald-800/40 text-xs font-semibold px-3 py-1 rounded-full">
                 {inspectingTask.category}
@@ -412,7 +644,6 @@ function AgentTasksContent() {
               </div>
             </div>
 
-            {/* Title & Description */}
             <div>
               <h2 className="text-xl font-bold text-white leading-snug">
                 {inspectingTask.title}
@@ -422,30 +653,7 @@ function AgentTasksContent() {
               </p>
             </div>
 
-            {/* Map Preview Graphic */}
             <div className="relative rounded-2xl overflow-hidden border border-[#1b2b20] bg-[#1a281e] h-44 flex items-center justify-center">
-              {/* Illustrated Lagos street map background */}
-              <div
-                className="absolute inset-0 bg-cover bg-center opacity-80"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(#203829 15%, transparent 16%), radial-gradient(#162a1e 15%, transparent 16%)",
-                  backgroundSize: "20px 20px",
-                  backgroundPosition: "0 0, 10px 10px",
-                  backgroundColor: "#0d1a12",
-                }}
-              >
-                {/* SVG Street Grid Lines */}
-                <svg className="w-full h-full opacity-35" viewBox="0 0 400 200">
-                  <path d="M0,40 Q150,60 400,20" stroke="#10b981" strokeWidth="4" fill="none" />
-                  <path d="M20,200 Q180,120 380,0" stroke="#34d399" strokeWidth="3" fill="none" />
-                  <path d="M120,0 L200,200" stroke="#22543d" strokeWidth="3" fill="none" />
-                  <path d="M0,150 L400,100" stroke="#22543d" strokeWidth="2" fill="none" />
-                  <circle cx="200" cy="100" r="16" fill="#10b981" fillOpacity="0.2" />
-                </svg>
-              </div>
-
-              {/* Red Map Pin */}
               <div className="relative z-10 flex flex-col items-center">
                 <div className="w-8 h-8 rounded-full bg-rose-500 shadow-lg shadow-rose-500/50 flex items-center justify-center text-white border-2 border-white animate-bounce">
                   <MapPin className="w-4 h-4 fill-white" />
@@ -456,19 +664,6 @@ function AgentTasksContent() {
               </div>
             </div>
 
-            {/* Location & Time tag below map */}
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <span className="flex items-center gap-1.5 truncate">
-                <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>{inspectingTask.distanceKm} km · {inspectingTask.address}</span>
-              </span>
-              <span className="flex items-center gap-1 shrink-0 font-medium">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                <span>{inspectingTask.timeWindow}</span>
-              </span>
-            </div>
-
-            {/* Structured Info Card matching Screenshot 2 */}
             <div className="bg-[#121c16] border border-[#1b2b20] rounded-2xl p-4 divide-y divide-[#1b2b20] text-xs space-y-2">
               <div className="flex items-center justify-between pb-2">
                 <span className="text-slate-400">Payout</span>
@@ -494,19 +689,10 @@ function AgentTasksContent() {
               </div>
             </div>
 
-            {/* Disclaimer Alert Note matching Screenshot 2 */}
-            <div className="bg-[#0e1f15] border border-emerald-900/40 rounded-2xl p-3 flex items-start gap-2.5 text-xs text-emerald-300">
-              <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-              <span>
-                Declining won&apos;t affect your rating. Letting the timer run out will.
-              </span>
-            </div>
-
-            {/* Bottom Buttons */}
             <div className="flex items-center gap-3 pt-1">
               <button
                 type="button"
-                onClick={() => handleDecline(inspectingTask.id)}
+                onClick={() => handleDeclineQueueTask(inspectingTask.id)}
                 className="w-1/3 bg-[#16221a] hover:bg-[#1e2e23] text-slate-300 border border-[#233529] py-3 rounded-2xl text-xs font-semibold cursor-pointer transition-colors"
               >
                 Decline
@@ -523,15 +709,11 @@ function AgentTasksContent() {
         </div>
       )}
 
-      {/* =========================================================================
-          SCREEN 3: Accept Confirmation Bottom Sheet matching Screenshot 3
-          ========================================================================= */}
+      {/* Confirming Task Modal (Screenshot 3) */}
       {confirmingTask && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-[#0b130e] border-t sm:border border-[#1b2b20] rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 max-w-md w-full space-y-4 animate-in slide-in-from-bottom duration-200">
-            {/* Mobile handle drag bar */}
             <div className="w-12 h-1 bg-[#23382b] rounded-full mx-auto sm:hidden" />
-
             <div>
               <h2 className="text-lg font-bold text-white">Accept this task?</h2>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
@@ -539,7 +721,6 @@ function AgentTasksContent() {
               </p>
             </div>
 
-            {/* Summary card */}
             <div className="bg-[#121c16] border border-[#1b2b20] rounded-2xl p-4 divide-y divide-[#1b2b20] text-xs space-y-2">
               <div className="flex items-center justify-between pb-2">
                 <span className="text-slate-400">Task</span>
@@ -565,15 +746,6 @@ function AgentTasksContent() {
               </div>
             </div>
 
-            {/* Tier Allowance Info Note */}
-            <div className="bg-[#0e1f15] border border-emerald-900/40 rounded-2xl p-3 flex items-start gap-2 text-xs text-emerald-300">
-              <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-              <span>
-                This would be your 3rd accepted task today. Gold tier allows 3 at once.
-              </span>
-            </div>
-
-            {/* Action buttons */}
             <div className="flex items-center gap-3 pt-2">
               <button
                 type="button"
@@ -594,24 +766,19 @@ function AgentTasksContent() {
         </div>
       )}
 
-      {/* =========================================================================
-          SCREEN 4: Task Accepted Success Modal matching Screenshot 4
-          ========================================================================= */}
+      {/* Task Accepted Success (Screenshot 4) */}
       {acceptedTaskSuccess && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-[#0b130e] border border-[#1b2b20] rounded-3xl p-6 max-w-sm w-full text-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            {/* Big Green Circle with Checkmark */}
             <div className="w-16 h-16 rounded-full bg-[#10b981] flex items-center justify-center text-[#062414] mx-auto shadow-xl shadow-emerald-500/20">
               <Check className="w-8 h-8 stroke-[3]" />
             </div>
-
             <div>
               <h2 className="text-xl font-bold text-white">Accept this task?</h2>
               <p className="text-xs text-slate-400 mt-2 leading-relaxed">
                 <span className="font-semibold text-slate-200">{acceptedTaskSuccess.title}</span> is now yours. Finish by {acceptedTaskSuccess.deadlineText.toLowerCase()}.
               </p>
             </div>
-
             <div className="space-y-2.5 pt-2">
               <Link
                 href={`/agent/tasks/${acceptedTaskSuccess.id}`}
@@ -623,7 +790,7 @@ function AgentTasksContent() {
                 type="button"
                 onClick={() => {
                   setAcceptedTaskSuccess(null);
-                  router.push("/agent/dashboard");
+                  setScreenMode("my-tasks");
                 }}
                 className="block w-full bg-[#16221a] hover:bg-[#1e2e23] text-slate-300 border border-[#233529] font-semibold text-xs py-2.5 rounded-2xl transition-colors"
               >
