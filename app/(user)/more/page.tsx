@@ -36,6 +36,7 @@ export default function MorePage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const isAgent = user?.role === "AGENT";
   const displayName = user?.name || user?.fullName || "Oversite User";
   const displayEmail = user?.email || "";
   const initials =
@@ -160,7 +161,7 @@ export default function MorePage() {
 
             {/* Document Vault */}
             <Link
-              href="/vault"
+              href={isAgent ? "/agent/tasks" : "/vault"}
               className="flex items-center gap-3.5 p-3.5 hover:bg-(--bg-secondary) transition-colors group cursor-pointer"
             >
               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-(--primary) shrink-0">
@@ -168,10 +169,10 @@ export default function MorePage() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-[14.5px] font-semibold text-(--text-heading)">
-                  Document Vault
+                  {isAgent ? "Field Assignments" : "Document Vault"}
                 </h3>
                 <p className="text-[12px] text-(--text-muted) truncate">
-                  Reports, copies and evidence
+                  {isAgent ? "Active tasks, drafts and history" : "Reports, copies and evidence"}
                 </p>
               </div>
               <ChevronRight className="w-5 h-5 text-(--text-muted) group-hover:text-(--text-heading) transition-colors shrink-0" />
@@ -179,7 +180,7 @@ export default function MorePage() {
 
             {/* Billing and Payments */}
             <Link
-              href="/billing"
+              href={isAgent ? "/agent/wallet" : "/billing"}
               className="flex items-center gap-3.5 p-3.5 hover:bg-(--bg-secondary) transition-colors group cursor-pointer"
             >
               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-(--text-heading) shrink-0">
@@ -187,10 +188,10 @@ export default function MorePage() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-[14.5px] font-semibold text-(--text-heading)">
-                  Billing and Payments
+                  {isAgent ? "Earnings and Payouts" : "Billing and Payments"}
                 </h3>
                 <p className="text-[12px] text-(--text-muted) truncate">
-                  Plan, methods and history
+                  {isAgent ? "Balance, bank accounts and payouts" : "Plan, methods and history"}
                 </p>
               </div>
               <ChevronRight className="w-5 h-5 text-(--text-muted) group-hover:text-(--text-heading) transition-colors shrink-0" />

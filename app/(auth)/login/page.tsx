@@ -18,7 +18,6 @@ function LoginFormContent() {
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // If already logged in, redirect immediately to role-specific dashboard
   useEffect(() => {
     if (!authLoading && user) {
       if (user.role === "AGENT") {

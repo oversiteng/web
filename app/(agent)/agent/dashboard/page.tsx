@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   Bell,
   Star,
@@ -46,7 +47,7 @@ const INITIAL_OFFERS: OfferItem[] = [
     category: "Property Oversite",
     title: "Site perimeter verification",
     distance: "4.5 km",
-    location: "Leki Phase 1",
+    location: "Lekki Phase 1",
     duration: "48 hrs",
     amount: 12500,
     secondsRemaining: 380, // 06:20
@@ -110,36 +111,38 @@ export default function AgentDashboardPage() {
   const agentInitial = agentName.charAt(0).toUpperCase() || "A";
 
   return (
-    <div className="space-y-4 max-w-full pb-10">
+    <div className="space-y-5 max-w-full pb-10">
       {/* Toast Feedback */}
       {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
-          <CheckCircle2 className="w-4 h-4" />
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[var(--bg-card)] text-[var(--text-heading)] border border-[var(--border-color)] font-semibold text-xs px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 backdrop-blur-md animate-in fade-in slide-in-from-top-4 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-[var(--primary)] shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* 1. Header Bar matching screenshot */}
+      {/* 1. Header Bar */}
       <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-[#10b981] flex items-center justify-center text-[#042a17] font-extrabold text-lg shadow-md shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[var(--primary)] flex items-center justify-center text-white font-extrabold text-lg shadow-sm shrink-0">
             {agentInitial}
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-white font-bold text-base leading-tight">Agent</span>
-              <span className="text-[11px] font-semibold text-slate-400 bg-[#16241b] border border-[#223628] px-2 py-0.5 rounded-md tracking-wide">
+              <span className="text-[var(--text-heading)] font-bold text-base leading-tight truncate">
+                {agentName}
+              </span>
+              <span className="text-[11px] font-semibold text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border-color)] px-2 py-0.5 rounded-md tracking-wide shrink-0">
                 #OS-2041
               </span>
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5 font-medium">
+            <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] mt-0.5 font-medium">
               <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
               <span>4.9 · 128 tasks</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Online / Offline Status Toggle */}
           <button
             type="button"
@@ -148,28 +151,32 @@ export default function AgentDashboardPage() {
               setIsOnline(next);
               showToast(next ? "You are now Online" : "Status set to Offline");
             }}
-            className={`px-3 py-1.5 rounded-full border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
               isOnline
-                ? "bg-[#102419] border-emerald-500/40 text-emerald-400"
-                : "bg-slate-900 border-slate-700 text-slate-400"
+                ? "bg-[var(--primary-light)] border-[var(--primary-border)] text-[var(--primary)]"
+                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)]"
             }`}
           >
             <span
               className={`w-2 h-2 rounded-full ${
-                isOnline ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
+                isOnline ? "bg-[var(--primary)] animate-pulse" : "bg-[var(--text-muted)]"
               }`}
             />
             <span>{isOnline ? "Online" : "Offline"}</span>
           </button>
 
+          {/* Theme Toggle (accessible on both mobile and desktop) */}
+          <ThemeToggle className="w-9 h-9 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] flex items-center justify-center transition-colors shadow-xs cursor-pointer" />
+
           {/* Bell Notification with Badge */}
           <button
             type="button"
             onClick={() => showToast("2 unread operational notifications")}
-            className="relative w-9 h-9 rounded-full bg-[#121c16] border border-[#1b2b20] flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer"
+            className="relative w-9 h-9 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors shadow-xs cursor-pointer"
+            aria-label="Notifications"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white font-bold text-[10px] flex items-center justify-center">
+            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[var(--danger)] text-white font-bold text-[10px] flex items-center justify-center border-2 border-[var(--bg-body)]">
               2
             </span>
           </button>
@@ -178,17 +185,17 @@ export default function AgentDashboardPage() {
 
       {/* 2. Tax Clearance Alert Banner */}
       {showTaxBanner && (
-        <div className="bg-[#121c16] border border-emerald-900/30 rounded-3xl p-3.5 sm:p-4 flex items-center justify-between gap-3 shadow-sm">
+        <div className="bg-[var(--bg-card)] border border-[var(--primary-border)] rounded-[24px] p-3.5 sm:p-4 flex items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,0,0,0.03)]">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-2xl bg-[#16271e] text-emerald-400 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-2xl bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center shrink-0">
               <Bell className="w-4 h-4" />
             </div>
-            <div className="text-xs text-slate-300 leading-snug">
+            <div className="text-xs text-[var(--text-body)] leading-snug">
               <span>Submit Q3 Tax clearance documents by Friday to avoid payout pause. </span>
               <button
                 type="button"
                 onClick={() => showToast("Tax clearance upload modal opening...")}
-                className="text-emerald-400 underline font-semibold cursor-pointer hover:text-emerald-300 ml-1 inline"
+                className="text-[var(--primary)] underline font-semibold cursor-pointer hover:text-[var(--primary-hover)] ml-1 inline"
               >
                 Upload
               </button>
@@ -197,7 +204,8 @@ export default function AgentDashboardPage() {
           <button
             type="button"
             onClick={() => setShowTaxBanner(false)}
-            className="text-slate-500 hover:text-slate-300 p-1 cursor-pointer shrink-0"
+            className="text-[var(--text-muted)] hover:text-[var(--text-heading)] p-1 cursor-pointer shrink-0 transition-colors"
+            aria-label="Dismiss banner"
           >
             <X className="w-4 h-4" />
           </button>
@@ -208,15 +216,15 @@ export default function AgentDashboardPage() {
       <div className="space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="text-white font-bold text-base">SLA Deadlines</h3>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#361418] border border-rose-900/40 text-rose-400 text-[11px] font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+            <h3 className="text-[var(--text-heading)] font-bold text-base">SLA Deadlines</h3>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-[11px] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--danger)] animate-pulse" />
               2 urgent
             </span>
           </div>
           <Link
             href="/agent/tasks"
-            className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
+            className="text-xs font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)] flex items-center gap-1 transition-colors"
           >
             <span>View all</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -234,24 +242,26 @@ export default function AgentDashboardPage() {
                 onClick={() => setSelectedDay(item.day)}
                 className={`py-3 px-1 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer relative ${
                   isSelected
-                    ? "bg-[#10b981] text-[#062414] font-bold shadow-md shadow-emerald-500/10"
-                    : "bg-[#121c16] border border-[#1a2b20] text-slate-300 hover:border-emerald-500/30"
+                    ? "bg-[var(--primary)] text-white font-bold shadow-md shadow-[var(--primary)]/20"
+                    : "bg-[var(--bg-card)] border border-[var(--border-color)]/80 text-[var(--text-body)] hover:border-[var(--primary-border)] shadow-[0_0_10px_rgba(0,0,0,0.03)]"
                 }`}
               >
-                <span className={`text-[11px] ${isSelected ? "text-[#062414] font-semibold" : "text-slate-400"}`}>
+                <span className={`text-[11px] ${isSelected ? "text-white/90 font-semibold" : "text-[var(--text-muted)]"}`}>
                   {item.day}
                 </span>
-                <span className={`text-base font-extrabold ${isSelected ? "text-[#062414]" : "text-white"}`}>
+                <span className={`text-base font-extrabold ${isSelected ? "text-white" : "text-[var(--text-heading)]"}`}>
                   {item.date}
                 </span>
                 {item.dot && (
                   <span
                     className={`w-1.5 h-1.5 rounded-full mt-0.5 ${
-                      item.dot === "urgent"
-                        ? "bg-rose-500"
+                      isSelected
+                        ? "bg-white"
+                        : item.dot === "urgent"
+                        ? "bg-[var(--danger)]"
                         : item.dot === "warning"
-                        ? "bg-amber-400"
-                        : "bg-emerald-400"
+                        ? "bg-[var(--warning)]"
+                        : "bg-[var(--primary)]"
                     }`}
                   />
                 )}
@@ -260,9 +270,9 @@ export default function AgentDashboardPage() {
           })}
         </div>
 
-        {/* Maroon Urgent Reminder Bar */}
-        <div className="bg-[#311317] border border-rose-950/60 rounded-2xl px-3.5 py-2.5 flex items-center gap-2 text-rose-200 text-xs">
-          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+        {/* Urgent Reminder Bar */}
+        <div className="bg-[var(--danger-light)] border border-[var(--danger)]/25 rounded-2xl px-3.5 py-2.5 flex items-center gap-2 text-[var(--danger)] text-xs">
+          <AlertCircle className="w-4 h-4 text-[var(--danger)] shrink-0" />
           <span className="font-medium">
             2 tasks due in &lt; 24h · Next: 1h 45m remaining
           </span>
@@ -270,30 +280,30 @@ export default function AgentDashboardPage() {
       </div>
 
       {/* 4. Available to Withdraw (Wallet Card) */}
-      <div className="bg-[#121c16] border border-[#1b2b20] rounded-3xl p-5 space-y-3 shadow-sm">
+      <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-[24px] p-5 space-y-3 shadow-[0_0_10px_rgba(0,0,0,0.03)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-2xl bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center shrink-0">
               <Wallet className="w-4 h-4" />
             </div>
-            <span className="text-slate-300 text-xs font-semibold">Available to Withdraw</span>
+            <span className="text-[var(--text-muted)] text-xs font-semibold">Available to Withdraw</span>
           </div>
           <Link
             href="/agent/wallet"
-            className="bg-[#10b981] hover:bg-[#059669] text-black font-bold text-xs px-4 py-2 rounded-full inline-flex items-center gap-1 transition-colors shadow-sm cursor-pointer"
+            className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-xs px-4 py-2 rounded-full inline-flex items-center gap-1 transition-colors shadow-xs cursor-pointer"
           >
             <span>Withdraw</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
-        <div className="text-3xl font-extrabold text-white tracking-tight">
+        <div className="text-3xl font-extrabold text-[var(--text-heading)] tracking-tight">
           ₦45,000
         </div>
 
         <div>
-          <div className="inline-flex items-center gap-1.5 bg-[#17251d] border border-[#203427] text-slate-300 text-xs font-medium px-3 py-1.5 rounded-full">
-            <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <div className="inline-flex items-center gap-1.5 bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] text-[var(--text-body)] text-xs font-medium px-3 py-1.5 rounded-full">
+            <Clock className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
             <span>₦18,000 Pending Clearance (3 jobs in review)</span>
           </div>
         </div>
@@ -301,18 +311,18 @@ export default function AgentDashboardPage() {
 
       {/* 5. Sub-Cards (Due Today & Available Queue) */}
       <div className="grid grid-cols-2 gap-3">
-        {/* Due Today Card with gold/amber border */}
+        {/* Due Today Card */}
         <Link
           href="/agent/tasks"
-          className="bg-[#121c16] border border-amber-600/50 hover:border-amber-500 rounded-3xl p-4 flex flex-col justify-between space-y-2 transition-colors cursor-pointer"
+          className="bg-[var(--bg-card)] border border-[var(--warning)]/40 hover:border-[var(--warning)] rounded-[24px] p-4 flex flex-col justify-between space-y-2 transition-colors shadow-[0_0_10px_rgba(0,0,0,0.03)] cursor-pointer"
         >
-          <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
-            <Calendar className="w-4 h-4 text-amber-400" />
+          <div className="flex items-center gap-2 text-[var(--text-muted)] text-xs font-medium">
+            <Calendar className="w-4 h-4 text-[var(--warning)]" />
             <span>Due Today</span>
           </div>
-          <div className="text-xl font-bold text-white">2 Tasks</div>
-          <div className="flex items-center gap-1.5 text-xs text-amber-300 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+          <div className="text-xl font-bold text-[var(--text-heading)]">2 Tasks</div>
+          <div className="flex items-center gap-1.5 text-xs text-[var(--warning)] font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--warning)]" />
             <span>Next: 1h 45m left</span>
           </div>
         </Link>
@@ -320,35 +330,35 @@ export default function AgentDashboardPage() {
         {/* Available Queue Card */}
         <Link
           href="/agent/queue"
-          className="bg-[#121c16] border border-[#1b2b20] hover:border-emerald-500/40 rounded-3xl p-4 flex flex-col justify-between space-y-2 transition-colors cursor-pointer"
+          className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 hover:border-[var(--primary)]/50 rounded-[24px] p-4 flex flex-col justify-between space-y-2 transition-colors shadow-[0_0_10px_rgba(0,0,0,0.03)] cursor-pointer"
         >
-          <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
-            <Inbox className="w-4 h-4 text-emerald-400" />
+          <div className="flex items-center gap-2 text-[var(--text-muted)] text-xs font-medium">
+            <Inbox className="w-4 h-4 text-[var(--primary)]" />
             <span>Available Queue</span>
           </div>
-          <div className="text-xl font-bold text-white">5 in Queue</div>
-          <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-            <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <div className="text-xl font-bold text-[var(--text-heading)]">5 in Queue</div>
+          <div className="flex items-center gap-1.5 text-xs text-[var(--primary)] font-medium">
+            <MapPin className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
             <span>2 Near You (&lt;3km)</span>
           </div>
         </Link>
       </div>
 
-      {/* 6. In-Progress Task Draft Resume Card (from Screen 2) */}
-      <div className="bg-[#121c16] border border-[#1b3323] rounded-3xl p-4 space-y-3">
-        <div className="bg-[#16261d] rounded-2xl p-3 flex items-center gap-3.5">
+      {/* 6. In-Progress Task Draft Resume Card */}
+      <div className="bg-[var(--bg-card)] border border-[var(--primary-border)] rounded-[24px] p-4 space-y-3 shadow-[0_0_10px_rgba(0,0,0,0.03)]">
+        <div className="bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] rounded-2xl p-3 flex items-center gap-3.5">
           {/* Circular 85% Progress Ring */}
           <div className="relative w-11 h-11 shrink-0 flex items-center justify-center">
             <svg className="w-11 h-11 -rotate-90" viewBox="0 0 36 36">
               <path
-                className="text-[#1a3324]"
+                className="text-[var(--border-color)]"
                 strokeWidth="3.5"
                 stroke="currentColor"
                 fill="none"
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
               <path
-                className="text-emerald-400"
+                className="text-[var(--primary)]"
                 strokeDasharray="85, 100"
                 strokeWidth="3.5"
                 strokeLinecap="round"
@@ -357,11 +367,11 @@ export default function AgentDashboardPage() {
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
             </svg>
-            <span className="absolute text-[10px] font-bold text-emerald-300">85%</span>
+            <span className="absolute text-[10px] font-bold text-[var(--primary)]">85%</span>
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-slate-200">
+            <p className="text-xs font-medium text-[var(--text-heading)]">
               9 of 10 photos captured (Draft saved)
             </p>
           </div>
@@ -371,14 +381,14 @@ export default function AgentDashboardPage() {
           <button
             type="button"
             onClick={() => setShowRemarkModal(true)}
-            className="border border-[#263e2e] bg-[#121c16] hover:bg-[#182a1e] text-emerald-400 text-xs font-semibold px-4 py-2.5 rounded-full flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="border border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-secondary)] text-[var(--primary)] text-xs font-semibold px-4 py-2.5 rounded-full flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <MessageSquare className="w-3.5 h-3.5" />
             <span>Remark</span>
           </button>
           <Link
             href="/agent/tasks/task-draft-ikoyi"
-            className="bg-[#10b981] hover:bg-[#059669] text-black font-bold text-xs py-2.5 px-6 rounded-full flex-1 text-center transition-colors shadow-sm cursor-pointer"
+            className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-xs py-2.5 px-6 rounded-full flex-1 text-center transition-colors shadow-xs cursor-pointer"
           >
             Continue task
           </Link>
@@ -389,33 +399,33 @@ export default function AgentDashboardPage() {
       <div className="space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="text-white font-bold text-base">Happening now</h3>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#14261b] border border-emerald-800/40 text-emerald-400 text-[11px] font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <h3 className="text-[var(--text-heading)] font-bold text-base">Happening now</h3>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--primary-light)] border border-[var(--primary-border)] text-[var(--primary)] text-[11px] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-pulse" />
               Active
             </span>
           </div>
           <Link
             href="/agent/tasks"
-            className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+            className="text-xs font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors"
           >
             My tasks
           </Link>
         </div>
 
-        <div className="bg-[#121c16] border border-[#1b2b20] rounded-3xl p-4 space-y-2">
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-[24px] p-4 space-y-2 shadow-[0_0_10px_rgba(0,0,0,0.03)]">
           <div className="flex items-center justify-between">
-            <span className="bg-[#18291f] text-emerald-400 border border-emerald-800/40 text-xs px-2.5 py-0.5 rounded-full font-medium">
+            <span className="bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary-border)] text-xs px-2.5 py-0.5 rounded-full font-medium">
               Document Processing
             </span>
-            <span className="text-xs text-slate-400 flex items-center gap-1 font-medium">
-              <Clock className="w-3 h-3 text-slate-400" />
+            <span className="text-xs text-[var(--text-muted)] flex items-center gap-1 font-medium">
+              <Clock className="w-3 h-3 text-[var(--text-muted)]" />
               <span>2h left</span>
             </span>
           </div>
-          <h4 className="text-white font-bold text-base leading-snug">Ikoyi site visit</h4>
-          <p className="text-xs text-slate-400 flex items-center gap-1">
-            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <h4 className="text-[var(--text-heading)] font-bold text-base leading-snug">Ikoyi site visit</h4>
+          <p className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+            <MapPin className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
             <span>4 Bourdillon Close · Adaeze O...</span>
           </p>
         </div>
@@ -424,62 +434,62 @@ export default function AgentDashboardPage() {
       {/* 8. New Offers Section (Task Radar) */}
       <div className="space-y-2.5">
         <div className="flex items-center justify-between">
-          <h3 className="text-white font-bold text-base">New offers</h3>
+          <h3 className="text-[var(--text-heading)] font-bold text-base">New offers</h3>
           <Link
             href="/agent/queue"
-            className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+            className="text-xs font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors"
           >
             See all {offers.length}
           </Link>
         </div>
 
         {offers.length === 0 ? (
-          <div className="bg-[#121c16] border border-[#1b2b20] rounded-3xl p-6 text-center text-xs text-slate-400">
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-[24px] p-6 text-center text-xs text-[var(--text-muted)] shadow-[0_0_10px_rgba(0,0,0,0.03)]">
             No pending offers right now. Stay online to receive live matches.
           </div>
         ) : (
           offers.map((offer) => (
             <div
               key={offer.id}
-              className="bg-[#121c16] border border-[#1b2b20] rounded-3xl p-4 space-y-2.5"
+              className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-[24px] p-4 space-y-2.5 shadow-[0_0_10px_rgba(0,0,0,0.03)]"
             >
               <div className="flex items-center justify-between">
-                <span className="bg-[#19271e] text-slate-300 text-xs px-2.5 py-0.5 rounded-full font-medium">
+                <span className="bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] text-[var(--text-body)] text-xs px-2.5 py-0.5 rounded-full font-medium">
                   {offer.category}
                 </span>
-                <span className="bg-[#291e13] border border-amber-800/40 text-amber-400 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-amber-400" />
+                <span className="bg-[var(--warning-light)] border border-[var(--warning)]/30 text-[var(--warning)] text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-[var(--warning)]" />
                   <span>{formatTimer(offer.secondsRemaining)}</span>
                 </span>
               </div>
 
               <div>
-                <h4 className="text-white font-bold text-sm leading-snug">{offer.title}</h4>
-                <p className="text-xs text-slate-400 mt-1 flex items-center gap-1 flex-wrap">
-                  <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                <h4 className="text-[var(--text-heading)] font-bold text-sm leading-snug">{offer.title}</h4>
+                <p className="text-xs text-[var(--text-muted)] mt-1 flex items-center gap-1 flex-wrap">
+                  <MapPin className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
                   <span>{offer.distance} · {offer.location}</span>
                   <span className="mx-1">·</span>
-                  <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                  <Clock className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
                   <span>{offer.duration}</span>
                 </p>
               </div>
 
               <div className="flex items-center justify-between pt-1">
-                <div className="text-lg font-extrabold text-emerald-400">
+                <div className="text-lg font-extrabold text-[var(--primary)]">
                   ₦{offer.amount.toLocaleString()}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => handleDeclineOffer(offer.id)}
-                    className="bg-[#19271e] hover:bg-[#203126] text-slate-300 text-xs font-semibold px-4 py-2 rounded-xl border border-[#233529] cursor-pointer transition-colors"
+                    className="bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] hover:bg-[var(--border-color)]/40 text-[var(--text-heading)] text-xs font-semibold px-4 py-2 rounded-xl border border-[var(--border-color)] cursor-pointer transition-colors"
                   >
                     Decline
                   </button>
                   <button
                     type="button"
                     onClick={() => handleAcceptOffer(offer)}
-                    className="bg-[#10b981] hover:bg-[#059669] text-black text-xs font-bold px-5 py-2 rounded-xl cursor-pointer transition-colors shadow-sm"
+                    className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-bold px-5 py-2 rounded-xl cursor-pointer transition-colors shadow-xs"
                   >
                     Accept
                   </button>
@@ -493,38 +503,39 @@ export default function AgentDashboardPage() {
       {/* 9. Sponsored Perk Card */}
       <div
         onClick={() => showToast("Opening Equipment Discount partner portal...")}
-        className="bg-[#121c16] border border-[#1b2b20] hover:border-emerald-500/30 rounded-3xl p-4 flex items-center gap-3.5 transition-all cursor-pointer group"
+        className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 hover:border-[var(--primary-border)] rounded-[24px] p-4 flex items-center gap-3.5 transition-all cursor-pointer group shadow-[0_0_10px_rgba(0,0,0,0.03)]"
       >
-        <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+        <div className="w-12 h-12 rounded-2xl bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center shrink-0">
           <Tag className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <span className="bg-emerald-950/80 border border-emerald-800/40 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mb-1">
+          <span className="bg-[var(--primary-light)] border border-[var(--primary-border)] text-[var(--primary)] text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mb-1">
             Sponsored Perk
           </span>
-          <h4 className="text-white font-bold text-xs leading-snug">
+          <h4 className="text-[var(--text-heading)] font-bold text-xs leading-snug">
             Equipment & Tool Rental Discount
           </h4>
-          <p className="text-[11px] text-slate-400 leading-snug mt-0.5">
+          <p className="text-[11px] text-[var(--text-muted)] leading-snug mt-0.5">
             Save 15% on laser distance meters & safety kits with your Agent ID.
           </p>
         </div>
-        <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors shrink-0" />
+        <ArrowRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--text-heading)] transition-colors shrink-0" />
       </div>
 
       {/* Remark Modal */}
       {showRemarkModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#101913] border border-[#1b2b20] rounded-3xl p-5 max-w-sm w-full space-y-4 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/50 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-sm font-bold text-[var(--text-heading)] flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-[var(--primary)]" />
                 Add Inspection Remark
               </h3>
               <button
                 type="button"
                 onClick={() => setShowRemarkModal(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-[var(--text-muted)] hover:text-[var(--text-heading)] cursor-pointer"
+                aria-label="Close modal"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -534,13 +545,13 @@ export default function AgentDashboardPage() {
               onChange={(e) => setRemarkText(e.target.value)}
               placeholder="e.g. Completed boundary fence check, waiting for gate access..."
               rows={3}
-              className="w-full bg-[#15231a] border border-[#203628] rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              className="w-full bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] rounded-2xl p-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowRemarkModal(false)}
-                className="px-4 py-2 text-xs text-slate-400 hover:text-white"
+                className="px-4 py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-heading)] cursor-pointer"
               >
                 Cancel
               </button>
@@ -551,7 +562,7 @@ export default function AgentDashboardPage() {
                   setShowRemarkModal(false);
                   setRemarkText("");
                 }}
-                className="bg-[#10b981] hover:bg-[#059669] text-black font-bold text-xs px-4 py-2 rounded-xl"
+                className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-xs px-4 py-2 rounded-xl cursor-pointer transition-colors"
               >
                 Save Remark
               </button>
