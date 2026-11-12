@@ -3,9 +3,12 @@ name: Deploy to AWS EC2
 on:
   push:
     branches:
-      - main
-      - staging
       - dev
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'docs/**'
+  workflow_dispatch:
 
 # Ensures only one deployment runs on the VPS at a time, cancelling older queued runs
 concurrency:
@@ -104,5 +107,8 @@ jobs:
               sudo docker logs --tail 200 "${CONTAINER_NAME}" || true
               exit 1
             fi
+
+            # Clean up old build cache to prevent EBS storage overfills
+            sudo docker builder prune -af --filter until=24h > /dev/null 2>&1 || true
 
             echo "✅ Single unified dev environment deployed successfully!"
