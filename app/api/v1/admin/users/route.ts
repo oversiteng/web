@@ -2,47 +2,63 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { PaginatedResponse } from "@/lib/types/api";
 import { getDbReady } from "@/lib/db/client";
-import { users } from "@/db/schema";
-import { desc, eq, sql } from "drizzle-orm";
+import { users, agentProfiles } from "@/db/schema";
+import { desc, eq, and, sql } from "drizzle-orm";
+import { formatOperativeCode } from "@/lib/services/pricing";
 
 export const GET = withAuth(
   async (req: NextRequest) => {
     try {
       const searchParams = req.nextUrl.searchParams;
       const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-      const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
+      const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)));
       const roleFilter = searchParams.get("role");
+      const kycFilter = searchParams.get("kycStatus");
 
       const db = await getDbReady();
       const offset = (page - 1) * limit;
 
-      let query = db
-        .select({
-          id: users.id,
-          name: users.name,
-          email: users.email,
-          phone: users.phone,
-          role: users.role,
-          kycStatus: users.kycStatus,
-          ninVerificationStatus: users.ninVerificationStatus,
-          nbaVerificationStatus: users.nbaVerificationStatus,
-          isActive: users.isActive,
-          createdAt: users.createdAt,
-        })
-        .from(users);
-
-      let countQuery = db.select({ count: sql<number>`count(*)` }).from(users);
-
+      const conditions = [];
       if (roleFilter && ["USER", "AGENT", "ADMIN", "SUPER_ADMIN"].includes(roleFilter)) {
-        // @ts-expect-error drizzle enum filter
-        query = query.where(eq(users.role, roleFilter));
-        // @ts-expect-error drizzle enum filter
-        countQuery = countQuery.where(eq(users.role, roleFilter));
+        conditions.push(eq(users.role, roleFilter as any));
+      }
+      if (kycFilter && ["PENDING", "SUBMITTED", "VERIFIED", "REJECTED"].includes(kycFilter)) {
+        conditions.push(eq(users.kycStatus, kycFilter as any));
       }
 
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
       const [userList, countResult] = await Promise.all([
-        query.orderBy(desc(users.createdAt)).limit(limit).offset(offset),
-        countQuery,
+        db
+          .select({
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            phone: users.phone,
+            state: users.state,
+            location: users.location,
+            role: users.role,
+            kycStatus: users.kycStatus,
+            ninVerificationStatus: users.ninVerificationStatus,
+            nbaVerificationStatus: users.nbaVerificationStatus,
+            addressVerificationStatus: users.addressVerificationStatus,
+            isActive: users.isActive,
+            createdAt: users.createdAt,
+            agentTier: agentProfiles.tier,
+            isAvailable: agentProfiles.isAvailable,
+            rating: agentProfiles.rating,
+            totalTasks: agentProfiles.totalTasks,
+          })
+          .from(users)
+          .leftJoin(agentProfiles, eq(users.id, agentProfiles.userId))
+          .where(whereClause)
+          .orderBy(desc(users.createdAt))
+          .limit(limit)
+          .offset(offset),
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(users)
+          .where(whereClause),
       ]);
 
       const total = Number(countResult[0]?.count || 0);
@@ -52,6 +68,7 @@ export const GET = withAuth(
         success: true,
         data: userList.map((u) => ({
           ...u,
+          operativeCode: u.role === "AGENT" ? formatOperativeCode(u.id) : null,
           createdAt: u.createdAt.toISOString(),
         })),
         pagination: {
