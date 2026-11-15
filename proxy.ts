@@ -86,7 +86,7 @@ export function proxy(request: NextRequest) {
       );
       response.headers.set(
         "Access-Control-Allow-Headers",
-        "Content-Type, Authorization, X-Requested-With, X-API-Key, Accept, Origin, Content-Length"
+        "Content-Type, Authorization, X-API-Key, X-Requested-With, Accept, Origin, Content-Length"
       );
       response.headers.set("Access-Control-Allow-Credentials", "true");
       response.headers.set("Access-Control-Max-Age", "86400");
@@ -101,7 +101,7 @@ export function proxy(request: NextRequest) {
     );
     response.headers.set(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Requested-With, X-API-Key, Accept, Origin, Content-Length"
+      "Content-Type, Authorization, X-API-Key, X-Requested-With, Accept, Origin, Content-Length"
     );
     response.headers.set("Access-Control-Allow-Credentials", "true");
     return response;
@@ -116,6 +116,11 @@ export function proxy(request: NextRequest) {
   const token = tokenCookie || bearerToken;
   const payload = token ? getValidPayload(token) : null;
 
+  // Allow public access to /admin/login for staff authentication & onboarding
+  if (pathname === "/admin/login") {
+    return NextResponse.next();
+  }
+
   // 2. Protect authenticated dashboard routes
   const isProtected = PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
@@ -123,7 +128,8 @@ export function proxy(request: NextRequest) {
 
   if (isProtected) {
     if (!payload) {
-      const loginUrl = new URL("/login", request.url);
+      const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
+      const loginUrl = new URL(isAdminPath ? "/admin/login" : "/login", request.url);
       loginUrl.searchParams.set("returnUrl", pathname);
 
       const response = NextResponse.redirect(loginUrl);

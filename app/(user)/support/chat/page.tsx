@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Paperclip, Send } from "lucide-react";
+import { ArrowLeft, Paperclip, Send, Loader2 } from "lucide-react";
+import { apiClient } from "@/lib/api/client";
 
 interface ChatMessage {
   id: string;
   sender: "agent" | "user";
+  senderName?: string;
   text: string;
   time: string;
 }
@@ -16,14 +18,60 @@ export default function SupportChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [inputMessage, setInputMessage] = useState("");
+  const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "m-1",
       sender: "agent",
-      text: "Hello there!, Welcome to Oversite support!. How can we help you?",
-      time: "2:04 PM",
+      senderName: "Oversite CRS Support",
+      text: "Hello there! Welcome to Oversite Support. How can our Customer Relations & Support team assist you today?",
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
     },
   ]);
+
+  const formatTime = (iso?: string) => {
+    if (!iso) {
+      return new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const loadTicketThread = useCallback(async () => {
+    try {
+      const res: any = await apiClient.get("/api/v1/support/tickets");
+      const rawMessages = res?.data?.ticket?.messages || res?.ticket?.messages;
+      if (Array.isArray(rawMessages) && rawMessages.length > 0) {
+        setMessages(
+          rawMessages.map((m: any) => ({
+            id: m.id,
+            sender: m.sender === "agent" ? "agent" : "user",
+            senderName: m.senderName,
+            text: m.text,
+            time: formatTime(m.createdAt),
+          }))
+        );
+      }
+    } catch {
+      // Keep local messages if offline
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTicketThread();
+    const interval = setInterval(loadTicketThread, 6000);
+    return () => clearInterval(interval);
+  }, [loadTicketThread]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -31,45 +79,45 @@ export default function SupportChatPage() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages.length]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || sending) return;
 
+    const text = inputMessage.trim();
     const currentTime = new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
 
-    const userMsg: ChatMessage = {
+    const optimisticMsg: ChatMessage = {
       id: `u-${Date.now()}`,
       sender: "user",
-      text: inputMessage.trim(),
+      text,
       time: currentTime,
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => [...prev, optimisticMsg]);
     setInputMessage("");
+    setSending(true);
 
-    // Simulate realistic agent reply after 1.2s
-    setTimeout(() => {
-      const agentReply: ChatMessage = {
-        id: `a-${Date.now()}`,
-        sender: "agent",
-        text: "Thank you for reaching out! A support specialist is reviewing your inquiry and will follow up shortly.",
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-      setMessages((prev) => [...prev, agentReply]);
-    }, 1200);
+    try {
+      await apiClient.post("/api/v1/support/tickets", {
+        text,
+        category: "Live Support",
+      });
+      await loadTicketThread();
+    } catch {
+      // Fallback confirmation if offline
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
     <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] h-[calc(100vh-140px)] md:h-[calc(100vh-90px)] flex flex-col justify-between select-none">
-      {/* ── Top Header matching Screenshot 1 ── */}
+      {/* ── Top Header ── */}
       <div className="flex items-center gap-3 py-3 border-b border-zinc-100 dark:border-zinc-800/80 mb-4 shrink-0">
         <button
           type="button"
@@ -100,17 +148,16 @@ export default function SupportChatPage() {
 
         <div>
           <h1 className="text-[15px] font-bold text-[var(--text-heading)] leading-snug">
-            Oversite Support
+            Oversite Support (CRS)
           </h1>
           <p className="text-[12px] text-[var(--text-muted)]">
-            Chat with us and we reply in minutes.
+            Live Customer Relations &amp; Support Helpdesk
           </p>
         </div>
       </div>
 
       {/* ── Message Thread Feed ── */}
       <div className="flex-1 overflow-y-auto space-y-4 px-1 pb-4 no-scrollbar">
-        {/* Date Divider */}
         <div className="text-center my-4">
           <span className="text-[12px] font-medium text-zinc-400 dark:text-zinc-500">
             Today
@@ -131,6 +178,11 @@ export default function SupportChatPage() {
                     : "rounded-[24px] rounded-tr-xs bg-[var(--primary)] text-white"
                 }`}
               >
+                {isAgent && msg.senderName && (
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] mb-1">
+                    {msg.senderName}
+                  </span>
+                )}
                 <p>{msg.text}</p>
                 <span
                   className={`block text-[10.5px] mt-1.5 ${
@@ -148,7 +200,7 @@ export default function SupportChatPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ── Bottom Input Bar matching Screenshot 1 ── */}
+      {/* ── Bottom Input Bar ── */}
       <form
         onSubmit={handleSendMessage}
         className="flex items-center gap-2 pt-2 border-t border-[var(--border-color)] shrink-0 bg-[var(--bg-body)]"
@@ -158,7 +210,7 @@ export default function SupportChatPage() {
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Message"
+            placeholder="Message Oversite CRS Support..."
             className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
           />
           <button
@@ -173,15 +225,19 @@ export default function SupportChatPage() {
         {/* Send Button */}
         <button
           type="submit"
-          disabled={!inputMessage.trim()}
+          disabled={!inputMessage.trim() || sending}
           aria-label="Send message"
           className={`w-11 h-11 rounded-full flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-xs ${
-            inputMessage.trim()
+            inputMessage.trim() && !sending
               ? "bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white shadow-md active:scale-95"
               : "bg-[var(--bg-secondary)] text-[var(--text-muted)] cursor-not-allowed"
           }`}
         >
-          <Send className="w-4 h-4 ml-0.5" />
+          {sending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Send className="w-4 h-4 ml-0.5" />
+          )}
         </button>
       </form>
     </div>

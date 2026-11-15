@@ -4,8 +4,9 @@ import { ApiResponse } from "@/lib/types/api";
 import { getDbReady } from "@/lib/db/client";
 import { tasks, taskReports, payments, agentWallets, notifications } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { resolveTaskDualPricing } from "@/lib/services/pricing";
 
-// POST /api/v1/tasks/:id/reports/:reportId/approve — Client Final Approval & Secured Payment Settlement
+// POST /api/v1/tasks/:id/reports/:reportId/approve — Final Report Approval & Agent Task Pay Credit
 export const POST = withAuth<{ id: string; reportId: string }>(
   async (req: NextRequest, { user, params }) => {
     try {
@@ -35,7 +36,7 @@ export const POST = withAuth<{ id: string; reportId: string }>(
             success: false,
             error: {
               code: "FORBIDDEN",
-              message: "Only the task owner or Mission Control can approve deliverables.",
+              message: "Only the task owner or Oversite Command can approve deliverables.",
             },
           },
           { status: 403 }
@@ -79,10 +80,12 @@ export const POST = withAuth<{ id: string; reportId: string }>(
         .where(eq(tasks.id, taskId))
         .returning();
 
-      // 3. Financial Settlement
-      let settledAmountNgn = task.priceNgn ? parseFloat(task.priceNgn) : 25000;
+      // 3. Resolve Dual-Price Economics:
+      // Client paid `clientPriceNgn` (e.g. ₦1,000), Agent earns `agentPayoutNgn` (e.g. ₦700)
+      const dual = resolveTaskDualPricing(task);
+      const agentCreditNgn = dual.agentPayoutNgn > 0 ? dual.agentPayoutNgn : 15000;
 
-      // Update payment record to RELEASED if exists
+      // Mark payment record as settled (RELEASED in enum) if exists
       const taskPayments = await db
         .select()
         .from(payments)
@@ -90,7 +93,6 @@ export const POST = withAuth<{ id: string; reportId: string }>(
         .limit(1);
 
       if (taskPayments.length > 0) {
-        settledAmountNgn = parseFloat(taskPayments[0].amountNgn);
         await db
           .update(payments)
           .set({
@@ -101,7 +103,7 @@ export const POST = withAuth<{ id: string; reportId: string }>(
           .where(eq(payments.id, taskPayments[0].id));
       }
 
-      // Credit operative wallet if assigned
+      // 4. Credit Operative Wallet with exact `agentPayoutNgn` shown to the operative
       if (task.agentId) {
         const agentWallet = await db
           .select()
@@ -115,25 +117,25 @@ export const POST = withAuth<{ id: string; reportId: string }>(
           await db
             .update(agentWallets)
             .set({
-              balanceNgn: (prevBal + settledAmountNgn).toFixed(2),
-              totalEarnedNgn: (prevEarned + settledAmountNgn).toFixed(2),
+              balanceNgn: (prevBal + agentCreditNgn).toFixed(2),
+              totalEarnedNgn: (prevEarned + agentCreditNgn).toFixed(2),
               updatedAt: now,
             })
             .where(eq(agentWallets.id, agentWallet[0].id));
         } else {
           await db.insert(agentWallets).values({
             agentId: task.agentId,
-            balanceNgn: settledAmountNgn.toFixed(2),
-            totalEarnedNgn: settledAmountNgn.toFixed(2),
+            balanceNgn: agentCreditNgn.toFixed(2),
+            totalEarnedNgn: agentCreditNgn.toFixed(2),
           });
         }
 
-        // Notify Operative
+        // Notify Operative with their exact Agent Task Pay
         await db.insert(notifications).values({
           userId: task.agentId,
           type: "PAYMENT",
-          title: "Earnings Credited",
-          body: `₦${settledAmountNgn.toLocaleString()} has been credited to your Oversite wallet for completing "${task.title}".`,
+          title: "Task Pay Credited to Wallet",
+          body: `₦${agentCreditNgn.toLocaleString()} has been credited to your Oversite wallet for completing "${task.title}".`,
           taskId: task.id,
         });
       }
@@ -143,22 +145,23 @@ export const POST = withAuth<{ id: string; reportId: string }>(
         userId: task.userId,
         type: "TASK_UPDATE",
         title: "Mission Completed & Certified",
-        body: `You have approved the deliverables for "${task.title}". Thank you for trusting Oversite.`,
+        body: `The deliverables for "${task.title}" have been certified and completed. Thank you for choosing Oversite.`,
         taskId: task.id,
       });
 
       return NextResponse.json<ApiResponse<any>>({
         success: true,
         data: {
-          taskId: completedTask.id,
           reportId: approvedReport.id,
-          status: completedTask.status,
+          taskId: completedTask.id,
           reportStatus: approvedReport.status,
-          approvedAt: now.toISOString(),
-          settledAmountNgn,
-          guaranteeApplied: true,
+          taskStatus: completedTask.status,
+          clientPaidNgn: dual.clientPriceNgn,
+          agentCreditedNgn: agentCreditNgn,
+          platformMarginNgn: dual.platformMarginNgn,
+          completedAt: now.toISOString(),
         },
-        message: "Deliverables approved. Task marked COMPLETED and payment settled with Oversite Satisfaction Guarantee.",
+        message: "Report approved, task completed, and operative wallet credited with Agent Task Pay.",
       });
     } catch (error) {
       return NextResponse.json(
@@ -169,6 +172,5 @@ export const POST = withAuth<{ id: string; reportId: string }>(
         { status: 500 }
       );
     }
-  },
-  { roles: ["USER", "ADMIN", "SUPER_ADMIN"] }
+  }
 );

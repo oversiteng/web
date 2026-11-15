@@ -3,9 +3,16 @@ import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse, PaginatedResponse } from "@/lib/types/api";
 import { Task, TaskModule, TaskStatus } from "@/lib/types/task";
 import { getDbReady } from "@/lib/db/client";
-import { tasks, properties, users } from "@/db/schema";
+import { tasks, properties, users, payments } from "@/db/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
-import { calculateTaskPricing } from "@/lib/services/pricing";
+import { alias } from "drizzle-orm/pg-core";
+import {
+  calculateTaskPricing,
+  resolveTaskDualPricing,
+  formatOperativeCode,
+} from "@/lib/services/pricing";
+
+const clientUserAlias = alias(users, "client_user");
 
 export const GET = withAuth(async (req: NextRequest, { user }) => {
   try {
@@ -23,7 +30,9 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
     } else if (user.role === "AGENT") {
       if (status === "open" || status === "PENDING") {
         // Unassigned open tasks available for agents to claim
-        conditions.push(sql`${tasks.agentId} IS NULL AND ${tasks.status} IN ('PENDING', 'MATCHED')`);
+        conditions.push(
+          sql`${tasks.agentId} IS NULL AND ${tasks.status} IN ('PENDING', 'MATCHED')`
+        );
       } else {
         // Default: tasks assigned to this agent
         conditions.push(eq(tasks.agentId, user.sub));
@@ -49,29 +58,135 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
       .select({
         task: tasks,
         agentName: users.name,
+        clientName: clientUserAlias.name,
+        clientEmail: clientUserAlias.email,
       })
       .from(tasks)
       .leftJoin(users, eq(tasks.agentId, users.id))
+      .leftJoin(clientUserAlias, eq(tasks.userId, clientUserAlias.id))
       .where(whereClause)
       .orderBy(desc(tasks.createdAt))
       .limit(limit)
       .offset((page - 1) * limit);
 
-    const mappedTasks: Task[] = dbTasks.map(({ task: t, agentName }) => ({
-      ...t,
-      moduleType: t.moduleType as TaskModule,
-      status: t.status as TaskStatus,
-      priority: t.priority ?? "normal",
-      formData: (t.formData as Record<string, unknown>) ?? null,
-      locationLat: t.locationLat ? parseFloat(t.locationLat) : undefined,
-      locationLng: t.locationLng ? parseFloat(t.locationLng) : undefined,
-      priceNgn: t.priceNgn ? parseFloat(t.priceNgn) : undefined,
-      scheduledAt: t.scheduledAt ? t.scheduledAt.toISOString() : null,
-      completedAt: t.completedAt ? t.completedAt.toISOString() : null,
-      createdAt: t.createdAt.toISOString(),
-      updatedAt: t.updatedAt ? t.updatedAt.toISOString() : undefined,
-      agentName: agentName || null,
-    }));
+    // Reconcile any DRAFT tasks that have a completed Paystack payment
+    const secretKey = process.env.PAYSTACK_SECRET_KEY;
+    for (const row of dbTasks) {
+      const t = row.task;
+      if (t.status === "DRAFT") {
+        const taskPayments = await db
+          .select()
+          .from(payments)
+          .where(eq(payments.taskId, t.id))
+          .orderBy(desc(payments.createdAt))
+          .limit(2);
+
+        const captured = taskPayments.find((p) => p.status === "CAPTURED");
+        if (captured) {
+          await db
+            .update(tasks)
+            .set({ status: "PENDING", updatedAt: new Date() })
+            .where(eq(tasks.id, t.id));
+          t.status = "PENDING";
+        } else if (secretKey) {
+          const pendingWithRef = taskPayments.find(
+            (p) => p.status === "PENDING" && p.gatewayRef
+          );
+          if (pendingWithRef?.gatewayRef) {
+            try {
+              const verifyRes = await fetch(
+                `https://api.paystack.co/transaction/verify/${encodeURIComponent(
+                  pendingWithRef.gatewayRef
+                )}`,
+                {
+                  headers: { Authorization: `Bearer ${secretKey}` },
+                }
+              );
+              const verifyJson = await verifyRes.json();
+              if (
+                verifyRes.ok &&
+                verifyJson.status &&
+                verifyJson.data?.status === "success"
+              ) {
+                await Promise.all([
+                  db
+                    .update(payments)
+                    .set({ status: "CAPTURED" })
+                    .where(eq(payments.id, pendingWithRef.id)),
+                  db
+                    .update(tasks)
+                    .set({ status: "PENDING", updatedAt: new Date() })
+                    .where(eq(tasks.id, t.id)),
+                ]);
+                t.status = "PENDING";
+              }
+            } catch {
+              // Non-blocking fallback
+            }
+          }
+        }
+      }
+    }
+
+    const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(user.role);
+    const isAgent = user.role === "AGENT";
+
+    const mappedTasks: Task[] = dbTasks.map(({ task: t, agentName, clientName, clientEmail }) => {
+      const dual = resolveTaskDualPricing(t);
+      const operativeCode = t.agentId ? formatOperativeCode(t.agentId) : null;
+
+      // Role-specific price & identity exposure:
+      // - AGENT only ever sees `agentPayoutNgn` as `priceNgn`
+      // - USER only ever sees `clientPriceNgn` and anonymized `OS-XXXXXX` code (never agent real name)
+      // - ADMIN sees both `clientPriceNgn`, `agentPayoutNgn`, `platformMarginNgn`, real agent name, and `OS-XXXXXX`
+      const visiblePriceNgn = isAgent ? dual.agentPayoutNgn : dual.clientPriceNgn;
+      const visibleAgentName = isAdmin
+        ? agentName || null
+        : operativeCode
+          ? `Operative ${operativeCode}`
+          : null;
+
+      return {
+        ...t,
+        moduleType: t.moduleType as TaskModule,
+        status: t.status as TaskStatus,
+        priority: t.priority ?? "normal",
+        formData: (t.formData as Record<string, unknown>) ?? null,
+        pricingBreakdown: (t.pricingBreakdown as Record<string, any>) ?? null,
+        locationLat: t.locationLat ? parseFloat(t.locationLat) : undefined,
+        locationLng: t.locationLng ? parseFloat(t.locationLng) : undefined,
+        priceNgn: visiblePriceNgn,
+        clientPriceNgn: isAdmin ? dual.clientPriceNgn : undefined,
+        agentPayoutNgn: isAdmin || isAgent ? dual.agentPayoutNgn : undefined,
+        platformMarginNgn: isAdmin ? dual.platformMarginNgn : undefined,
+        isAgentPayExplicitlySet: isAdmin ? dual.isAgentPayExplicitlySet : undefined,
+        clientPromisedDeliveryDate: t.clientPromisedDeliveryDate
+          ? t.clientPromisedDeliveryDate.toISOString()
+          : null,
+        scheduledAt: t.scheduledAt ? t.scheduledAt.toISOString() : null,
+        completedAt: t.completedAt ? t.completedAt.toISOString() : null,
+        createdAt: t.createdAt.toISOString(),
+        updatedAt: t.updatedAt ? t.updatedAt.toISOString() : undefined,
+        agentName: visibleAgentName,
+        agentCode: operativeCode,
+        clientName: isAdmin
+          ? clientName || clientEmail?.split("@")[0] || "Client"
+          : undefined,
+        assignee: t.agentId
+          ? {
+              id: t.agentId,
+              name: visibleAgentName || operativeCode || "Operative",
+              badge: operativeCode || undefined,
+            }
+          : null,
+        property: t.locationAddress
+          ? {
+              id: t.propertyId || undefined,
+              address: t.locationAddress,
+            }
+          : null,
+      };
+    });
 
     return NextResponse.json<PaginatedResponse<Task>>({
       success: true,
@@ -131,7 +246,11 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
 
     // Automatically inherit location from property if not provided
     if (propertyId && !finalAddress) {
-      const linkedProps = await db.select().from(properties).where(eq(properties.id, propertyId)).limit(1);
+      const linkedProps = await db
+        .select()
+        .from(properties)
+        .where(eq(properties.id, propertyId))
+        .limit(1);
       if (linkedProps.length > 0) {
         finalAddress = linkedProps[0].address;
         finalLat = linkedProps[0].latitude;
@@ -152,7 +271,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
           success: false,
           error: {
             code: "UNAUTHORIZED",
-            message: "User account associated with this session no longer exists in database. Please re-authenticate.",
+            message:
+              "User account associated with this session no longer exists in database. Please re-authenticate.",
           },
         },
         { status: 401 }
@@ -184,31 +304,36 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     });
 
     const now = new Date();
-    const promisedDeliveryDate = new Date(now.getTime() + quote.clientPromisedHours * 60 * 60 * 1000);
+    const promisedDeliveryDate = new Date(
+      now.getTime() + quote.clientPromisedHours * 60 * 60 * 1000
+    );
 
-    const [newTask] = await db.insert(tasks).values({
-      userId: user.sub,
-      moduleType,
-      status: "PENDING",
-      priority: isExpress ? "urgent" : "normal",
-      title,
-      description,
-      locationAddress: finalAddress,
-      locationLat: finalLat ? String(finalLat) : null,
-      locationLng: finalLng ? String(finalLng) : null,
-      propertyId,
-      pricingMode: quote.pricingMode,
-      quoteStatus: quote.requiresAdminQuote ? "PENDING_ADMIN_PRICE" : "ESTIMATED",
-      agentTargetHours: quote.agentTargetHours,
-      clientPromisedHours: quote.clientPromisedHours,
-      clientPromisedDeliveryDate: promisedDeliveryDate,
-      waypoints: waypoints.length > 0 ? waypoints : null,
-      purchaseItems: purchaseItems.length > 0 ? purchaseItems : null,
-      requiresOfficialDocs,
-      pricingBreakdown: quote,
-      formData,
-      priceNgn: String(quote.totalNgn),
-    }).returning();
+    const [newTask] = await db
+      .insert(tasks)
+      .values({
+        userId: user.sub,
+        moduleType,
+        status: "PENDING",
+        priority: isExpress ? "urgent" : "normal",
+        title,
+        description,
+        locationAddress: finalAddress,
+        locationLat: finalLat ? String(finalLat) : null,
+        locationLng: finalLng ? String(finalLng) : null,
+        propertyId,
+        pricingMode: quote.pricingMode,
+        quoteStatus: quote.requiresAdminQuote ? "PENDING_ADMIN_PRICE" : "ESTIMATED",
+        agentTargetHours: quote.agentTargetHours,
+        clientPromisedHours: quote.clientPromisedHours,
+        clientPromisedDeliveryDate: promisedDeliveryDate,
+        waypoints: waypoints.length > 0 ? waypoints : null,
+        purchaseItems: purchaseItems.length > 0 ? purchaseItems : null,
+        requiresOfficialDocs,
+        pricingBreakdown: quote,
+        formData,
+        priceNgn: String(quote.totalNgn),
+      })
+      .returning();
 
     const createdTask: Task = {
       ...newTask,
@@ -236,13 +361,18 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     const fullErrorStr = `${error?.message || ""} ${error?.cause?.message || ""} ${error?.cause?.detail || ""}`;
     const errCode = error?.code || error?.cause?.code;
 
-    if (errCode === "23503" || fullErrorStr.includes("foreign key constraint") || fullErrorStr.includes("tasks_user_id_users_id_fk")) {
+    if (
+      errCode === "23503" ||
+      fullErrorStr.includes("foreign key constraint") ||
+      fullErrorStr.includes("tasks_user_id_users_id_fk")
+    ) {
       return NextResponse.json(
         {
           success: false,
           error: {
             code: "UNAUTHORIZED",
-            message: "User account associated with this session no longer exists in database. Please re-authenticate.",
+            message:
+              "User account associated with this session no longer exists in database. Please re-authenticate.",
           },
         },
         { status: 401 }

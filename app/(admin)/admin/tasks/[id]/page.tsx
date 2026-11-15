@@ -43,9 +43,32 @@ export default function AdminTaskMissionControlPage() {
   const [agents, setAgents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
-    "pricing" | "dispatch" | "milestones" | "intake"
+    "pricing" | "dispatch" | "milestones" | "intake" | "property_intel"
   >("pricing");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Property Intelligence Timeline Publisher state (Admin -> Property Overview)
+  const [intelSection, setIntelSection] = useState<
+    "SITE_SUMMARY" | "WORD_ON_STREET" | "EXPERT_REVIEW" | "POLICY_UPDATE" | "LANDMARK"
+  >("SITE_SUMMARY");
+  const [intelAgentName, setIntelAgentName] = useState("Tunde C.");
+  const [intelPhotosLabel, setIntelPhotosLabel] = useState("12 photos geo-tagged");
+  const [intelSummary, setIntelSummary] = useState("");
+  const [intelTags, setIntelTags] = useState(
+    "Occupancy: Vacant, Fence: Intact, Setback: 3.5m OK"
+  );
+  const [intelHeading, setIntelHeading] = useState("Community & Neighbor Inquiries");
+  const [intelConfidence, setIntelConfidence] = useState(
+    "Confidence Score: 98% · 3 Local Sources Checked"
+  );
+  const [intelRating, setIntelRating] = useState("9.6 / 10");
+  const [intelReviewer, setIntelReviewer] = useState(
+    "Engr. Babatunde A. (COREN, Lead Civil Reviewer)"
+  );
+  const [intelLandmarkName, setIntelLandmarkName] = useState("");
+  const [intelLandmarkDistance, setIntelLandmarkDistance] = useState("");
+  const [intelLandmarkFeature, setIntelLandmarkFeature] = useState("");
+  const [isPublishingIntel, setIsPublishingIntel] = useState(false);
 
   // Dual-Price & SLA state
   const [clientPriceInput, setClientPriceInput] = useState("");
@@ -266,6 +289,59 @@ export default function AdminTaskMissionControlPage() {
     }
   };
 
+  const handlePublishPropertyIntel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!task?.propertyId || isPublishingIntel) return;
+    setIsPublishingIntel(true);
+    try {
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/v1/admin/properties/${task.propertyId}/intel`, {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({
+          section: intelSection,
+          agentName: intelAgentName,
+          photosLabel: intelPhotosLabel,
+          summary: intelSummary,
+          text: intelSummary,
+          tags: intelTags
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
+          heading: intelHeading,
+          confidenceLabel: intelConfidence,
+          rating: intelRating,
+          reviewer: intelReviewer,
+          name: intelLandmarkName,
+          distance: intelLandmarkDistance,
+          feature: intelLandmarkFeature,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setIntelSummary("");
+        setIntelLandmarkName("");
+        setIntelLandmarkDistance("");
+        setIntelLandmarkFeature("");
+        showToast(
+          json.message ||
+            "Timeline update published to Property Overview (newest at top) & sent to Oversite Chat!"
+        );
+      } else {
+        showToast(json.error?.message || "Failed to publish property timeline update");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Error publishing property intelligence");
+    } finally {
+      setIsPublishingIntel(false);
+    }
+  };
+
   if (isLoading) {
     return <DynamicLoadingState variant="documents" count={4} />;
   }
@@ -361,6 +437,15 @@ export default function AdminTaskMissionControlPage() {
           { id: "dispatch", label: "2. Operative Assignment (OS-ID)", icon: UserCheck },
           { id: "milestones", label: "3. Directives & Milestones", icon: CheckCircle2 },
           { id: "intake", label: "4. Intake Data & Telemetry", icon: Layers },
+          ...(task.propertyId
+            ? [
+                {
+                  id: "property_intel",
+                  label: "5. Property Intel Timeline Publisher",
+                  icon: ShieldCheck,
+                },
+              ]
+            : []),
         ].map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
@@ -778,6 +863,253 @@ export default function AdminTaskMissionControlPage() {
                 <p className="text-xs text-[var(--text-muted)]">No purchase items attached.</p>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: PROPERTY INTELLIGENCE TIMELINE PUBLISHER (ADMIN -> END USER PROPERTY OVERVIEW) */}
+      {activeTab === "property_intel" && task.propertyId && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <form
+            onSubmit={handlePublishPropertyIntel}
+            className="lg:col-span-2 p-6 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-5 shadow-xs"
+          >
+            <div>
+              <h2 className="text-base font-bold text-[var(--text-heading)]">
+                Publish Property Intelligence Update (Timeline — Newest at Top)
+              </h2>
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                Submit a new update to the client&apos;s{" "}
+                <strong>Property Overview</strong> page (Latest Site Summary,
+                Word on the Street, Expert Review Report, States Policy Updates,
+                or Landmarks). New updates are prepended to the top of the
+                timeline and broadcast to the client&apos;s Oversite chat.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[var(--text-heading)] mb-1.5">
+                Target Property Overview Section
+              </label>
+              <select
+                value={intelSection}
+                onChange={(e) => setIntelSection(e.target.value as any)}
+                className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+              >
+                <option value="SITE_SUMMARY">1. Latest Site Summary</option>
+                <option value="WORD_ON_STREET">
+                  2. Word on the Street (Community &amp; Neighbor Inquiries)
+                </option>
+                <option value="EXPERT_REVIEW">
+                  3. Expert Review Report (Unified Recommendation)
+                </option>
+                <option value="POLICY_UPDATE">
+                  4. States Policy Updates (Statutory Layout &amp; Directives)
+                </option>
+                <option value="LANDMARK">
+                  5. Vicinity Landmarks &amp; Transit
+                </option>
+              </select>
+            </div>
+
+            {intelSection === "SITE_SUMMARY" && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1">
+                      Field Agent Display Name
+                    </label>
+                    <input
+                      type="text"
+                      value={intelAgentName}
+                      onChange={(e) => setIntelAgentName(e.target.value)}
+                      className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-heading)]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1">
+                      Geo-Tagged Evidence Badge
+                    </label>
+                    <input
+                      type="text"
+                      value={intelPhotosLabel}
+                      onChange={(e) => setIntelPhotosLabel(e.target.value)}
+                      className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-heading)]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1">
+                    Status Pills (Comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={intelTags}
+                    onChange={(e) => setIntelTags(e.target.value)}
+                    placeholder="Occupancy: Vacant, Fence: Intact, Setback: 3.5m OK"
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-heading)]"
+                  />
+                </div>
+              </>
+            )}
+
+            {intelSection === "WORD_ON_STREET" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1">
+                    Inquiry Heading
+                  </label>
+                  <input
+                    type="text"
+                    value={intelHeading}
+                    onChange={(e) => setIntelHeading(e.target.value)}
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-heading)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1">
+                    Confidence Score &amp; Sources Checked
+                  </label>
+                  <input
+                    type="text"
+                    value={intelConfidence}
+                    onChange={(e) => setIntelConfidence(e.target.value)}
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-heading)]"
+                  />
+                </div>
+              </div>
+            )}
+
+            {intelSection === "EXPERT_REVIEW" && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1">
+                    Review Heading
+                  </label>
+                  <input
+                    type="text"
+                    value={intelHeading}
+                    onChange={(e) => setIntelHeading(e.target.value)}
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-heading)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1">
+                    Rating Score
+                  </label>
+                  <input
+                    type="text"
+                    value={intelRating}
+                    onChange={(e) => setIntelRating(e.target.value)}
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-heading)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1">
+                    Reviewed By (COREN / Lead Reviewer)
+                  </label>
+                  <input
+                    type="text"
+                    value={intelReviewer}
+                    onChange={(e) => setIntelReviewer(e.target.value)}
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-heading)]"
+                  />
+                </div>
+              </div>
+            )}
+
+            {intelSection === "LANDMARK" ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1">
+                      Landmark Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={intelLandmarkName}
+                      onChange={(e) => setIntelLandmarkName(e.target.value)}
+                      placeholder="e.g. Lagos State Secretariat"
+                      className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-heading)]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1">
+                      Distance &amp; Est. Time
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={intelLandmarkDistance}
+                      onChange={(e) => setIntelLandmarkDistance(e.target.value)}
+                      placeholder="e.g. 1.2 km (4 mins)"
+                      className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-heading)]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1">
+                    Interesting Feature
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={intelLandmarkFeature}
+                    onChange={(e) => setIntelLandmarkFeature(e.target.value)}
+                    placeholder="e.g. Modernist government administrative complex & central ministry district"
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-heading)]"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1">
+                  Intelligence Update Body (Published to Top of Timeline)
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  value={intelSummary}
+                  onChange={(e) => setIntelSummary(e.target.value)}
+                  placeholder="Enter the verified findings or statutory update to prepend to the property's timeline..."
+                  className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl p-3 text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                />
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isPublishingIntel}
+              className="px-5 py-2.5 rounded-xl bg-[var(--primary)] text-white text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <Send className="w-4 h-4" />
+              <span>
+                {isPublishingIntel
+                  ? "Publishing Update..."
+                  : "Publish Update to Property Overview Timeline"}
+              </span>
+            </button>
+          </form>
+
+          <div className="p-6 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-3 h-fit shadow-xs">
+            <h3 className="text-sm font-bold text-[var(--text-heading)]">
+              How Property Oversight Works
+            </h3>
+            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+              1. When a user adds a property, this{" "}
+              <strong>PROPERTY_OVERSITE</strong> task is dispensed immediately.
+            </p>
+            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+              2. Assign an agent in Tab 2 to gather ground truth. Both the end
+              user and the agent see that they are chatting directly with{" "}
+              <strong>Oversite</strong> regarding this property.
+            </p>
+            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+              3. Use this publisher to push new updates to any of the 5 sections
+              on the user&apos;s Property Overview page. New updates always
+              appear at the top of the timeline.
+            </p>
           </div>
         </div>
       )}

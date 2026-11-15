@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
 import { getDbReady } from "@/lib/db/client";
-import { tasks, payments, agentWallets } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { tasks, payments, agentWallets, notifications } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { resolveTaskDualPricing } from "@/lib/services/pricing";
 
 // POST /api/v1/payments/disburse
-// Authorizes the release of secured funds to the assigned Agent upon task completion or milestone approval.
+// Credits the assigned Operative's wallet with the agreed Agent Task Pay (`agentPayoutNgn`) upon task completion.
 export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
     const body = await req.json();
-    const { taskId, milestoneId } = body;
+    const { taskId, milestoneId, customAgentPayoutNgn } = body;
 
     if (!taskId) {
       return NextResponse.json(
@@ -24,7 +25,6 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
 
     const db = await getDbReady();
 
-    // Verify task belongs to user (or caller is admin)
     const existingTasks = await db
       .select()
       .from(tasks)
@@ -47,7 +47,10 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       return NextResponse.json(
         {
           success: false,
-          error: { code: "FORBIDDEN", message: "You are not authorized to disburse funds for this task." },
+          error: {
+            code: "FORBIDDEN",
+            message: "You are not authorized to credit operative pay for this task.",
+          },
         },
         { status: 403 }
       );
@@ -57,34 +60,52 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       return NextResponse.json(
         {
           success: false,
-          error: { code: "BAD_REQUEST", message: "Cannot disburse funds: no agent assigned to task." },
+          error: {
+            code: "BAD_REQUEST",
+            message: "Cannot credit operative wallet: no operative assigned to task.",
+          },
         },
         { status: 400 }
       );
     }
 
-    // Find captured payment for this task
+    const dual = resolveTaskDualPricing(task);
+    const agentCreditNgn =
+      customAgentPayoutNgn !== undefined && Number(customAgentPayoutNgn) > 0
+        ? Number(customAgentPayoutNgn)
+        : dual.agentPayoutNgn > 0
+          ? dual.agentPayoutNgn
+          : 15000;
+
+    // Mark client payment record as settled (`RELEASED`) and task as `COMPLETED`
     const taskPayments = await db
       .select()
       .from(payments)
       .where(eq(payments.taskId, taskId))
       .limit(1);
 
-    const amountNgn = taskPayments.length > 0 ? parseFloat(taskPayments[0].amountNgn) : (task.priceNgn ? parseFloat(task.priceNgn) : 20000);
-
-    // Update payment record to RELEASED
+    const now = new Date();
     if (taskPayments.length > 0) {
       await db
         .update(payments)
         .set({
           status: "RELEASED",
-          escrowReleasedAt: new Date(),
-          updatedAt: new Date(),
+          escrowReleasedAt: now,
+          updatedAt: now,
         })
         .where(eq(payments.id, taskPayments[0].id));
     }
 
-    // Credit agent's wallet
+    await db
+      .update(tasks)
+      .set({
+        status: "COMPLETED",
+        completedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(tasks.id, taskId));
+
+    // Credit operative's wallet with `agentCreditNgn`
     const agentWallet = await db
       .select()
       .from(agentWallets)
@@ -97,24 +118,34 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       await db
         .update(agentWallets)
         .set({
-          balanceNgn: String(currentBalance + amountNgn),
-          totalEarnedNgn: String(currentEarned + amountNgn),
-          updatedAt: new Date(),
+          balanceNgn: (currentBalance + agentCreditNgn).toFixed(2),
+          totalEarnedNgn: (currentEarned + agentCreditNgn).toFixed(2),
+          updatedAt: now,
         })
         .where(eq(agentWallets.id, agentWallet[0].id));
     } else {
       await db.insert(agentWallets).values({
         agentId: task.agentId,
-        balanceNgn: String(amountNgn),
-        totalEarnedNgn: String(amountNgn),
+        balanceNgn: agentCreditNgn.toFixed(2),
+        totalEarnedNgn: agentCreditNgn.toFixed(2),
       });
     }
+
+    await db.insert(notifications).values({
+      userId: task.agentId,
+      type: "PAYMENT",
+      title: "Task Pay Credited",
+      body: `₦${agentCreditNgn.toLocaleString()} has been credited to your Oversite wallet for "${task.title}".`,
+      taskId: task.id,
+    });
 
     return NextResponse.json<
       ApiResponse<{
         taskId: string;
         milestoneId?: string;
+        clientPaidNgn: number;
         disbursedAmount: number;
+        platformMarginNgn: number;
         status: string;
         message: string;
       }>
@@ -123,9 +154,11 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       data: {
         taskId,
         milestoneId,
-        disbursedAmount: amountNgn,
-        status: "RELEASED",
-        message: "Service payment disbursed to agent successfully.",
+        clientPaidNgn: dual.clientPriceNgn,
+        disbursedAmount: agentCreditNgn,
+        platformMarginNgn: Math.max(0, dual.clientPriceNgn - agentCreditNgn),
+        status: "COMPLETED",
+        message: `Agent Task Pay (₦${agentCreditNgn.toLocaleString()}) credited to operative wallet.`,
       },
     });
   } catch (error) {

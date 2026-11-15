@@ -4,9 +4,9 @@ import { ApiResponse } from "@/lib/types/api";
 import { TaskChat } from "@/lib/types/task";
 import { getDbReady } from "@/lib/db/client";
 import { taskChats, tasks } from "@/db/schema";
-import { eq, and, or, inArray, desc, asc } from "drizzle-orm";
+import { eq, and, or, inArray, asc } from "drizzle-orm";
 
-// GET /api/v1/chat/:taskId/messages — Role-aware, hub-and-spoke filtered thread retrieval
+// GET /api/v1/chat/:taskId/messages — Role-aware, hub-and-spoke Admin-moderated thread retrieval
 export const GET = withAuth<{ taskId: string }>(
   async (req: NextRequest, { user, params }) => {
     try {
@@ -39,25 +39,56 @@ export const GET = withAuth<{ taskId: string }>(
         return NextResponse.json(
           {
             success: false,
-            error: { code: "FORBIDDEN", message: "You are not authorized to access this conversation thread." },
+            error: {
+              code: "FORBIDDEN",
+              message: "You are not authorized to access this conversation thread.",
+            },
           },
           { status: 403 }
         );
       }
 
-      // 2. Query messages
+      // Clean up any legacy fake seed rows for this task
+      try {
+        await db
+          .delete(taskChats)
+          .where(
+            and(
+              eq(taskChats.taskId, taskId),
+              or(
+                eq(taskChats.senderId, "agent-tunde-coker"),
+                eq(taskChats.receiverId, "agent-tunde-coker")
+              )
+            )
+          );
+      } catch {
+        // Ignore
+      }
+
+      const isPropertyOversite = task.moduleType === "PROPERTY_OVERSITE";
+
+      // If no agent has accepted/been assigned yet (and not a Property Oversight desk thread), conversation does not exist yet
+      if (!task.agentId && !isPropertyOversite && !isAdmin) {
+        return NextResponse.json<ApiResponse<TaskChat[]>>({
+          success: true,
+          data: [],
+          message: "Conversation will open once an accredited agent accepts this task.",
+        });
+      }
+
+      // 2. Query messages with strict Hub-and-Spoke Admin Moderation visibility
       let messages;
       if (isAdmin) {
-        // Admin / Mission Control sees all messages, including pending review & rejected
         messages = await db
           .select()
           .from(taskChats)
           .where(eq(taskChats.taskId, taskId))
           .orderBy(asc(taskChats.createdAt));
       } else {
-        // Hub-and-spoke moderation filter for User and Agent:
-        // Sender sees their own messages (even if PENDING_REVIEW);
-        // Recipient ONLY sees messages that have been approved or refined by Mission Control.
+        // Non-admin participants see:
+        // a) Messages they sent themselves (including PENDING_REVIEW and REJECTED so they see status/warnings)
+        // b) Messages sent to them ONLY AFTER Admin has approved (APPROVED_AS_IS) or modified (REFINED_BY_ADMIN)
+        // c) Automated MILESTONE_UPDATE or SYSTEM events
         messages = await db
           .select()
           .from(taskChats)
@@ -65,11 +96,13 @@ export const GET = withAuth<{ taskId: string }>(
             and(
               eq(taskChats.taskId, taskId),
               or(
-                // Sent by caller
                 eq(taskChats.senderId, user.sub),
-                // Received by caller AND approved/refined
                 and(
                   eq(taskChats.receiverId, user.sub),
+                  inArray(taskChats.moderationStatus, ["APPROVED_AS_IS", "REFINED_BY_ADMIN"])
+                ),
+                and(
+                  inArray(taskChats.messageType, ["MILESTONE_UPDATE", "SYSTEM"]),
                   inArray(taskChats.moderationStatus, ["APPROVED_AS_IS", "REFINED_BY_ADMIN"])
                 )
               )
@@ -79,10 +112,10 @@ export const GET = withAuth<{ taskId: string }>(
       }
 
       // 3. Format curated message text
-      const mappedMessages: TaskChat[] = messages.map((m) => {
-        // For recipient, display moderatedMessage if curated; otherwise fallback to raw text
+      const mappedMessages: TaskChat[] = messages.map((m: any) => {
+        // If Admin modified the message, show the refined message to both recipient and sender
         const displayMessage =
-          m.receiverId === user.sub && m.moderatedMessage
+          m.moderationStatus === "REFINED_BY_ADMIN" && m.moderatedMessage
             ? m.moderatedMessage
             : m.moderatedMessage || m.message || m.rawMessage;
 
@@ -92,7 +125,7 @@ export const GET = withAuth<{ taskId: string }>(
           senderId: m.senderId,
           receiverId: m.receiverId,
           message: displayMessage,
-          rawMessage: isAdmin ? m.rawMessage || m.message : undefined,
+          rawMessage: isAdmin || m.senderId === user.sub ? m.rawMessage || m.message : undefined,
           moderatedMessage: m.moderatedMessage || undefined,
           fileUrl: m.fileUrl,
           messageType: m.messageType || "TEXT",
@@ -100,8 +133,10 @@ export const GET = withAuth<{ taskId: string }>(
           moderationStatus: m.moderationStatus as any,
           moderatedBy: m.moderatedBy || undefined,
           moderatedAt: m.moderatedAt ? m.moderatedAt.toISOString() : undefined,
-          rejectionReason: isAdmin || m.senderId === user.sub ? m.rejectionReason || undefined : undefined,
-          createdAt: m.createdAt.toISOString(),
+          rejectionReason:
+            isAdmin || m.senderId === user.sub ? m.rejectionReason || undefined : undefined,
+          createdAt:
+            m.createdAt instanceof Date ? m.createdAt.toISOString() : String(m.createdAt),
         };
       });
 
@@ -122,7 +157,7 @@ export const GET = withAuth<{ taskId: string }>(
   }
 );
 
-// POST /api/v1/chat/:taskId/messages — Send message into Mission Control moderation queue
+// POST /api/v1/chat/:taskId/messages — Route message to Admin Moderation Queue
 export const POST = withAuth<{ taskId: string }>(
   async (req: NextRequest, { user, params }) => {
     try {
@@ -130,16 +165,22 @@ export const POST = withAuth<{ taskId: string }>(
       const textMessage = body.content || body.message || body.rawMessage;
       const fileUrl =
         body.fileUrl ||
-        (body.messageType !== "TEXT" && typeof textMessage === "string" && textMessage.startsWith("http")
+        (body.messageType !== "TEXT" &&
+        typeof textMessage === "string" &&
+        textMessage.startsWith("http")
           ? textMessage
           : undefined);
       let receiverId = body.receiverId;
+      const requestedMessageType = body.messageType || (fileUrl ? "ATTACHMENT" : "TEXT");
 
       if (!textMessage && !fileUrl) {
         return NextResponse.json(
           {
             success: false,
-            error: { code: "VALIDATION_ERROR", message: "Message content or fileUrl is required" },
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Message content or fileUrl is required",
+            },
           },
           { status: 400 }
         );
@@ -148,7 +189,6 @@ export const POST = withAuth<{ taskId: string }>(
       const { taskId } = await params;
       const db = await getDbReady();
 
-      // Verify task exists
       const existingTasks = await db
         .select()
         .from(tasks)
@@ -174,16 +214,36 @@ export const POST = withAuth<{ taskId: string }>(
         return NextResponse.json(
           {
             success: false,
-            error: { code: "FORBIDDEN", message: "You are not authorized to post messages in this task." },
+            error: {
+              code: "FORBIDDEN",
+              message: "You are not authorized to post messages in this task.",
+            },
           },
           { status: 403 }
+        );
+      }
+
+      const isPropertyOversite = task.moduleType === "PROPERTY_OVERSITE";
+
+      // Conversations do not start until an agent has accepted/been assigned to the task (except Property Oversight tasks, which chat directly with Oversite)
+      if (!task.agentId && !isPropertyOversite && !isAdmin) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "AGENT_NOT_ASSIGNED",
+              message:
+                "Conversation cannot be started until an accredited field agent accepts this task.",
+            },
+          },
+          { status: 400 }
         );
       }
 
       // Auto-resolve receiverId if not explicitly provided
       if (!receiverId) {
         if (isOwner) {
-          receiverId = task.agentId || task.userId;
+          receiverId = task.agentId || "oversite-property-desk";
         } else if (isAssignedAgent) {
           receiverId = task.userId;
         } else {
@@ -191,11 +251,12 @@ export const POST = withAuth<{ taskId: string }>(
         }
       }
 
-      // Determine initial moderation state
-      // Admin messages are pre-approved; User & Agent messages are intercepted for Mission Control review
-      const moderationStatus = isAdmin ? "APPROVED_AS_IS" : "PENDING_REVIEW";
-      const isModerated = isAdmin;
-      const messageType = fileUrl ? "ATTACHMENT" : "TEXT";
+      // Hub-and-Spoke Rule:
+      // All user & agent messages and milestone submissions are routed to Admin (PENDING_REVIEW) first.
+      // Only Admin actions are immediately APPROVED_AS_IS.
+      const isAutoApproved = isAdmin;
+      const moderationStatus = isAutoApproved ? "APPROVED_AS_IS" : "PENDING_REVIEW";
+      const isModerated = isAutoApproved;
 
       const [newMessage] = await db
         .insert(taskChats)
@@ -205,13 +266,13 @@ export const POST = withAuth<{ taskId: string }>(
           receiverId,
           message: textMessage || null,
           rawMessage: textMessage || null,
-          moderatedMessage: isAdmin ? textMessage || null : null,
+          moderatedMessage: isAutoApproved ? textMessage || null : null,
           fileUrl: fileUrl || null,
-          messageType,
+          messageType: requestedMessageType,
           isModerated,
           moderationStatus,
-          moderatedBy: isAdmin ? user.sub : null,
-          moderatedAt: isAdmin ? new Date() : null,
+          moderatedBy: isAutoApproved ? user.sub : null,
+          moderatedAt: isAutoApproved ? new Date() : null,
         })
         .returning();
 
@@ -230,16 +291,18 @@ export const POST = withAuth<{ taskId: string }>(
         moderatedBy: newMessage.moderatedBy || undefined,
         moderatedAt: newMessage.moderatedAt ? newMessage.moderatedAt.toISOString() : undefined,
         createdAt: newMessage.createdAt.toISOString(),
-        deliveryStatus: "Secured", // Institutional reassurance indicator for UI
+        deliveryStatus: isAutoApproved
+          ? "Delivered"
+          : "Routed to Oversite Admin for review",
       };
 
       return NextResponse.json<ApiResponse<TaskChat & { deliveryStatus: string }>>(
         {
           success: true,
           data: createdChat,
-          message: isAdmin
-            ? "Message posted directly by Central Operations."
-            : "Message received and secured in Mission Control queue for review.",
+          message: isAutoApproved
+            ? "Message delivered."
+            : "Message routed to Oversite Admin for review before delivery.",
         },
         { status: 201 }
       );

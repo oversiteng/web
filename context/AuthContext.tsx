@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import type { AdminPolicy } from "@/lib/auth/adminPermissions";
 import {
   getStoredUser,
   setStoredUser,
@@ -27,6 +28,7 @@ export interface AuthUser {
   avatarUrl?: string | null;
   avatar?: string;
   kycStatus?: string;
+  adminPolicy?: AdminPolicy | null;
   agentProfile?: {
     tier?: string;
     nbaNumber?: string | null;
@@ -66,6 +68,7 @@ export function extractNonSensitiveUser(raw: any): AuthUser | null {
     avatarUrl: raw.avatarUrl || raw.avatar || null,
     avatar: raw.avatar || raw.avatarUrl || undefined,
     kycStatus: raw.kycStatus || "PENDING",
+    adminPolicy: raw.adminPolicy || null,
     agentProfile: raw.agentProfile || null,
   };
 }
@@ -214,4 +217,3 @@ export function useAuth() {
   }
   return context;
 }
-

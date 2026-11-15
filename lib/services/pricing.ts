@@ -74,6 +74,7 @@ export interface PricingBreakdown {
   urgencyMultiplier: number;
   urgencySurcharge: number;
   totalNgn: number;
+  agentPayoutNgn?: number;
   pricingMode: "AUTOMATED" | "MANUAL_QUOTE";
   agentTargetHours: number;
   clientPromisedHours: number;
@@ -84,7 +85,7 @@ export interface PricingBreakdown {
 /**
  * Base service charges (in NGN)
  */
-const BASE_FEES: Record<TaskModule, number> = {
+export const BASE_FEES: Record<TaskModule, number> = {
   QUICK_ERRANDS: 15000,
   PROPERTY_OVERSITE: 35000,
   PROJECT_WATCH: 45000,
@@ -94,8 +95,80 @@ const BASE_FEES: Record<TaskModule, number> = {
   VULNERABILITY_TEST: 65000,
 };
 
-const EXTRA_STOP_FEE = 7500; // Flat transport stipend per extra waypoint
-const OFFICIAL_DOCS_FEE = 15000; // Registry & certification filing fee allowance
+export const EXTRA_STOP_FEE = 7500; // Flat transport stipend per extra waypoint
+export const OFFICIAL_DOCS_FEE = 15000; // Registry & certification filing fee allowance
+
+/**
+ * Default platform margin / deduction percentage when auto-suggesting Agent Task Pay
+ * before Admin sets an explicit custom `agentPayoutNgn`.
+ * E.g. Client pays ₦1,000 -> default 30% deduction -> Agent Task Pay defaults to ₦700 until Admin overrides.
+ */
+export const DEFAULT_PLATFORM_DEDUCTION_PCT = 30;
+
+/**
+ * Resolves the Dual-Pricing values for a task:
+ * - `clientPriceNgn`: What the End User pays Oversite (e.g. ₦1,000)
+ * - `agentPayoutNgn`: What the Field Operative sees and gets credited upon completion (e.g. ₦700)
+ * - `platformMarginNgn`: Oversite's retained gross margin (`clientPriceNgn - agentPayoutNgn`)
+ * - `isAgentPayExplicitlySet`: Whether Admin has explicitly set `agentPayoutNgn` on this task
+ */
+export function resolveTaskDualPricing(
+  taskRow: {
+    priceNgn?: string | number | null;
+    pricingBreakdown?: unknown;
+    formData?: unknown;
+  },
+  deductionPct: number = DEFAULT_PLATFORM_DEDUCTION_PCT
+): {
+  clientPriceNgn: number;
+  agentPayoutNgn: number;
+  platformMarginNgn: number;
+  isAgentPayExplicitlySet: boolean;
+} {
+  const clientPriceNgn = taskRow.priceNgn ? parseFloat(String(taskRow.priceNgn)) : 0;
+  const breakdown =
+    taskRow.pricingBreakdown && typeof taskRow.pricingBreakdown === "object"
+      ? (taskRow.pricingBreakdown as Record<string, any>)
+      : {};
+  const form =
+    taskRow.formData && typeof taskRow.formData === "object"
+      ? (taskRow.formData as Record<string, any>)
+      : {};
+
+  const explicitAgentPay =
+    breakdown.agentPayoutNgn !== undefined && breakdown.agentPayoutNgn !== null
+      ? Number(breakdown.agentPayoutNgn)
+      : form.agentPayoutNgn !== undefined && form.agentPayoutNgn !== null
+        ? Number(form.agentPayoutNgn)
+        : null;
+
+  const isAgentPayExplicitlySet =
+    explicitAgentPay !== null && !Number.isNaN(explicitAgentPay) && explicitAgentPay >= 0;
+
+  const agentPayoutNgn = isAgentPayExplicitlySet
+    ? explicitAgentPay!
+    : clientPriceNgn > 0
+      ? Math.round(clientPriceNgn * ((100 - deductionPct) / 100))
+      : 0;
+
+  const platformMarginNgn = Math.max(0, clientPriceNgn - agentPayoutNgn);
+
+  return {
+    clientPriceNgn,
+    agentPayoutNgn,
+    platformMarginNgn,
+    isAgentPayExplicitlySet,
+  };
+}
+
+/**
+ * Formats an anonymized Operative ID badge from a UUID or string (`OS-123ABC`).
+ */
+export function formatOperativeCode(agentId?: string | null): string {
+  if (!agentId) return "OS-UNASSIGNED";
+  const clean = agentId.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  return `OS-${clean.slice(0, 6) || "000000"}`;
+}
 
 /**
  * Computes the itemized quotation and SLA metrics.
@@ -143,10 +216,6 @@ export function calculateTaskPricing(input: PricingCalculationInput): PricingBre
   const urgencySurcharge = isExpress ? Math.round(subtotal * 0.3) : 0;
 
   // 7. Check if task needs Manual Admin Pricing Review
-  // Rules for manual quoting:
-  // - High-budget purchases (> ₦100,000)
-  // - Extensive multi-stops (> 4 stops)
-  // - Law Enforcement liaison tasks
   let requiresAdminQuote = false;
   let manualQuoteReason: string | undefined;
 
@@ -162,6 +231,7 @@ export function calculateTaskPricing(input: PricingCalculationInput): PricingBre
   }
 
   const totalNgn = subtotal + urgencySurcharge + purchaseItemsTotal;
+  const agentPayoutNgn = Math.round(totalNgn * ((100 - DEFAULT_PLATFORM_DEDUCTION_PCT) / 100));
 
   return {
     baseFee,
@@ -172,6 +242,7 @@ export function calculateTaskPricing(input: PricingCalculationInput): PricingBre
     urgencyMultiplier,
     urgencySurcharge,
     totalNgn,
+    agentPayoutNgn,
     pricingMode: requiresAdminQuote ? "MANUAL_QUOTE" : "AUTOMATED",
     agentTargetHours,
     clientPromisedHours,

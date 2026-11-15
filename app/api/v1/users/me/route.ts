@@ -4,6 +4,7 @@ import { ApiResponse } from "@/lib/types/api";
 import { getDbReady } from "@/lib/db/client";
 import { users, agentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { extractAdminPolicy, AdminPolicy } from "@/lib/auth/adminPermissions";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,7 @@ export interface FullUserProfileResponse {
   joinedDate: string;
   createdAt: string;
   updatedAt: string;
+  adminPolicy?: AdminPolicy | null;
   agentProfile?: {
     tier: string;
     nbaNumber?: string | null;
@@ -86,6 +88,11 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
       }
     }
 
+    const adminPolicy =
+      dbUser.role === "ADMIN" || dbUser.role === "SUPER_ADMIN"
+        ? extractAdminPolicy(dbUser)
+        : null;
+
     const profileData: FullUserProfileResponse = {
       id: dbUser.id,
       email: dbUser.email,
@@ -110,6 +117,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
       joinedDate: dbUser.createdAt.toISOString(),
       createdAt: dbUser.createdAt.toISOString(),
       updatedAt: dbUser.updatedAt.toISOString(),
+      adminPolicy,
       agentProfile: agentProfileData,
     };
 

@@ -6,6 +6,7 @@ import { eq, or, ilike, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { getDbReady } from "@/lib/db/client";
 import { users } from "@/db/schema";
+import { extractAdminPolicy, AdminPolicy } from "@/lib/auth/adminPermissions";
 
 export interface LoginResponseData {
   user: Partial<User> & {
@@ -20,6 +21,7 @@ export interface LoginResponseData {
     avatarUrl?: string | null;
     ninVerificationStatus?: string;
     nbaVerificationStatus?: string;
+    adminPolicy?: AdminPolicy | null;
   };
   token: string;
   accessToken: string;
@@ -84,6 +86,7 @@ export async function POST(
         kycStatus: users.kycStatus,
         ninVerificationStatus: users.ninVerificationStatus,
         nbaVerificationStatus: users.nbaVerificationStatus,
+        accreditationDocuments: users.accreditationDocuments,
         passwordHash: users.passwordHash,
         isActive: users.isActive,
         createdAt: users.createdAt,
@@ -153,6 +156,24 @@ export async function POST(
       );
     }
 
+    const adminPolicy =
+      user.role === "ADMIN" || user.role === "SUPER_ADMIN"
+        ? extractAdminPolicy(user)
+        : null;
+
+    if (adminPolicy && adminPolicy.onboardingStatus === "SUSPENDED") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "Your administrative access has been suspended by the Super Admin.",
+          },
+        },
+        { status: 403 }
+      );
+    }
+
     // Sign JWT tokens
     const token = signToken({
       sub: user.id,
@@ -185,6 +206,7 @@ export async function POST(
           ninVerificationStatus: user.ninVerificationStatus,
           nbaVerificationStatus: user.nbaVerificationStatus,
           isActive: user.isActive,
+          adminPolicy,
           createdAt: user.createdAt ? user.createdAt.toISOString() : undefined,
         },
         token,

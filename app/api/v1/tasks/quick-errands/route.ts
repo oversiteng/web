@@ -15,10 +15,12 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       title: customTitle,
       categoryId,
       location,
+      deliveryAddress,
       timeWindow,
       instructions,
       priceNgn,
       propertyId,
+      asDraft,
     } = body;
 
     if (!location && !instructions) {
@@ -39,23 +41,28 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
         ? customTitle.trim()
         : getErrandTitle(categoryId);
 
+    // asDraft=true → create as DRAFT (payment not yet confirmed)
+    // asDraft=false/undefined → create as PENDING (legacy / admin-waived payment)
+    const taskStatus: "DRAFT" | "PENDING" = asDraft ? "DRAFT" : "PENDING";
+
     const [newTask] = await db
       .insert(tasks)
       .values({
         userId: user.sub,
         propertyId: propertyId || null,
         moduleType: "QUICK_ERRANDS",
-        status: "PENDING",
+        status: taskStatus,
         priority: "normal",
         title,
         description: instructions || null,
-        locationAddress: typeof location === "string" ? location : location?.address || null,
+        locationAddress: typeof location === "string" ? location : (location?.address || null),
         locationLat: location?.latitude ? String(location.latitude) : null,
         locationLng: location?.longitude ? String(location.longitude) : null,
         formData: {
           categoryId,
           timeWindow,
           instructions,
+          deliveryAddress: deliveryAddress || null,
         },
         priceNgn: priceNgn || 15000,
       })

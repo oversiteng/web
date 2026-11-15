@@ -28,10 +28,12 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     const validTypes = [
       "UTILITY_BILL",
       "PROOF_OF_ADDRESS",
+      "PASSPORT_PHOTO",
       "GUARANTOR_FORM",
       "GOVERNMENT_ID",
       "CAC_CERTIFICATE",
       "BAR_PRACTICING_LICENSE",
+      "BACKGROUND_CHECK",
     ];
 
     const normalizedType = String(documentType).toUpperCase();
@@ -73,6 +75,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       uploadedAt: now.toISOString(),
       metadata: metadata || null,
       status: "SUBMITTED",
+      rejectionReason: null,
     };
 
     const updatedDocs = {
@@ -81,12 +84,14 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     };
 
     const isAddressDoc = ["UTILITY_BILL", "PROOF_OF_ADDRESS"].includes(normalizedType);
+    const isBackgroundDoc = normalizedType === "BACKGROUND_CHECK";
 
     await db
       .update(users)
       .set({
         accreditationDocuments: updatedDocs,
         addressVerificationStatus: isAddressDoc ? "submitted" : currentUser.addressVerificationStatus,
+        consentSignedAt: isBackgroundDoc && !currentUser.consentSignedAt ? now : currentUser.consentSignedAt,
         updatedAt: now,
       })
       .where(eq(users.id, user.sub));

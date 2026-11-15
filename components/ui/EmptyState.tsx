@@ -27,6 +27,7 @@ export type EmptyStatePreset =
   | "chat"
   | "notifications"
   | "search"
+  | "payouts"
   | "filter"
   | "billing"
   | "custom";
@@ -202,6 +203,16 @@ export function EmptyState({
       action: {
         label: "Browse Services",
         href: "/dashboard",
+        icon: ArrowRight,
+      },
+    },
+    payouts: {
+      title: "No payout history yet",
+      description: "Completed task earnings and bank disbursements will be recorded here automatically.",
+      icon: <CreditCard className="w-8 h-8 text-[var(--primary)] stroke-[1.8]" />,
+      action: {
+        label: "View Available Missions",
+        href: "/agent/queue",
         icon: ArrowRight,
       },
     },

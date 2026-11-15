@@ -1,8 +1,8 @@
 import { eq, inArray } from "drizzle-orm";
-import { tasks, users, agentProfiles, properties } from "@/db/schema";
+import { tasks, users, agentProfiles } from "@/db/schema";
 import {
-  Property,
   PropertyCurrentTask,
+  PropertyIntelTimeline,
   PropertyWithCurrentTask,
   TaskModule,
   TaskStatus,
@@ -25,9 +25,211 @@ export interface RawTaskJoin {
   agentTier: string | null;
 }
 
-/**
- * Converts a date into human-readable relative time (e.g., "30mins ago", "3hrs ago", "yesterday")
- */
+export function getDefaultPropertyIntelTimeline(): PropertyIntelTimeline {
+  const nowIso = new Date().toISOString();
+  return {
+    clearanceStatus: "Clear",
+    siteSummaries: [
+      {
+        id: "ss-default-1",
+        agentName: "Tunde C.",
+        photoCountLabel: "12 photos geo-tagged",
+        summary:
+          "Physical site inspection completed. The perimeter fence remains intact. No unauthorized structures or temporary shelters observed. Soil condition is stable.",
+        occupancy: "Vacant",
+        fence: "Intact",
+        setback: "3.5m OK",
+        timeAgo: "2h ago",
+        createdAt: nowIso,
+      },
+    ],
+    wordOnStreet: [
+      {
+        id: "wos-default-1",
+        headline: "Community & Neighbor Inquiries",
+        badge: "Intel Verified",
+        summary:
+          "Caretaker and two adjacent property managers interviewed. No communal ownership claims, family disputes, or land grabber threats reported. Construction on adjoining Plot 13 conforms strictly to setback boundary.",
+        confidenceScore: "98%",
+        sourcesChecked: 3,
+        createdAt: nowIso,
+      },
+    ],
+    expertReviews: [
+      {
+        id: "er-default-1",
+        headline: "Unified Recommendation",
+        rating: "9.6 / 10",
+        summary:
+          "Site survey beacon coordinates match the approved state cadastral layout. Routine monthly oversite is recommended to maintain verified possession.",
+        reviewer: "Engr. Babatunde A. (COREN, Lead Civil Reviewer)",
+        createdAt: nowIso,
+      },
+    ],
+    policyUpdates: [
+      {
+        id: "pol-1",
+        dateLabel: "Feb 5, 2024 09:15AM",
+        text: "Lagos State Ministry of Physical Planning circular on setback regularisation and drainage buffer compliance along the coastal corridor. Mandatory 6m arterial setback confirmed.",
+        createdAt: "2024-02-05T09:15:00.000Z",
+      },
+      {
+        id: "pol-2",
+        dateLabel: "Feb 5, 2024 09:15AM",
+        text: "Lagos State Physical Planning Permit Authority (LASPPPA) revised statutory layout for Lekki Phase 1 cadastral zone. No excision or title revocation notices active.",
+        createdAt: "2024-02-05T09:14:00.000Z",
+      },
+      {
+        id: "pol-3",
+        dateLabel: "Feb 5, 2024 09:15AM",
+        text: "Digital land registry certificate scanning initiative instituted by Lands Bureau, Alausa. Routine biometric scanning verified for Governor's Consent records.",
+        createdAt: "2024-02-05T09:13:00.000Z",
+      },
+      {
+        id: "pol-4",
+        dateLabel: "Feb 5, 2024 09:15AM",
+        text: "LASBCA structural integrity audit protocol updated. All perimeter fencing exceeding 2.4 meters must maintain documented foundation approval and beacon certifications.",
+        createdAt: "2024-02-05T09:12:00.000Z",
+      },
+      {
+        id: "pol-5",
+        dateLabel: "Feb 5, 2024 09:15AM",
+        text: "Surveyor General digital beacon coordinate matching validated. Ground survey beacon coordinates match the approved state cadastral layout.",
+        createdAt: "2024-02-05T09:11:00.000Z",
+      },
+      {
+        id: "pol-6",
+        dateLabel: "Feb 5, 2024 09:15AM",
+        text: "Urban development gazette notice for Lekki Peninsula corridor confirms zoning designation remains Low-Density Mixed Residential.",
+        createdAt: "2024-02-05T09:10:00.000Z",
+      },
+    ],
+    landmarks: [
+      {
+        id: "lm-1",
+        name: "Lagos State Secretariat",
+        distance: "1.2 km (4 mins)",
+        feature:
+          "Modernist government administrative complex & central ministry district",
+        addedLabel: "Added Apr 21, 2024",
+        createdAt: "2024-04-21T10:00:00.000Z",
+      },
+      {
+        id: "lm-2",
+        name: "Lekki Conservation Centre",
+        distance: "2.8 km (8 mins)",
+        feature: "78-hectare natural coastal reserve with canopy walkway",
+        addedLabel: "Added Apr 21, 2024",
+        createdAt: "2024-04-21T09:00:00.000Z",
+      },
+      {
+        id: "lm-3",
+        name: "Nike Art Gallery & Cultural Centre",
+        distance: "3.5 km (12 mins)",
+        feature: "West Africa's largest art museum with over 8,000 curated exhibits",
+        addedLabel: "Added Apr 21, 2024",
+        createdAt: "2024-04-21T08:00:00.000Z",
+      },
+      {
+        id: "lm-4",
+        name: "Admiralty Way Toll Plaza",
+        distance: "900 m (2 mins)",
+        feature:
+          "Primary arterial expressway connector between Victoria Island and Lekki",
+        addedLabel: "Added Apr 15, 2024",
+        createdAt: "2024-04-15T10:00:00.000Z",
+      },
+      {
+        id: "lm-5",
+        name: "Elegushi Royal Beach",
+        distance: "4.1 km (14 mins)",
+        feature:
+          "Atlantic waterfront cultural shoreline & protected recreation zone",
+        addedLabel: "Added Apr 02, 2024",
+        createdAt: "2024-04-02T10:00:00.000Z",
+      },
+    ],
+  };
+}
+
+export function parsePropertyDescriptionMeta(
+  rawDescription?: string | null,
+  parcelNumber?: string | null
+): {
+  description?: string;
+  ownershipType: "OWNED" | "OTHER";
+  baselinePhotos: string[];
+  proofOfOwnershipUrl?: string | null;
+  intelTimeline: PropertyIntelTimeline;
+} {
+  const defaultOwnership: "OWNED" | "OTHER" =
+    parcelNumber === "OTHER_WATCH" ? "OTHER" : "OWNED";
+  const defaults = getDefaultPropertyIntelTimeline();
+
+  if (!rawDescription) {
+    return {
+      description: undefined,
+      ownershipType: defaultOwnership,
+      baselinePhotos: [],
+      proofOfOwnershipUrl: null,
+      intelTimeline: defaults,
+    };
+  }
+
+  if (rawDescription.trim().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(rawDescription);
+      if (parsed && parsed.__meta) {
+        const rawIntel = parsed.intelTimeline || {};
+        const intelTimeline: PropertyIntelTimeline = {
+          clearanceStatus: rawIntel.clearanceStatus || defaults.clearanceStatus,
+          siteSummaries:
+            Array.isArray(rawIntel.siteSummaries) && rawIntel.siteSummaries.length > 0
+              ? rawIntel.siteSummaries
+              : defaults.siteSummaries,
+          wordOnStreet:
+            Array.isArray(rawIntel.wordOnStreet) && rawIntel.wordOnStreet.length > 0
+              ? rawIntel.wordOnStreet
+              : defaults.wordOnStreet,
+          expertReviews:
+            Array.isArray(rawIntel.expertReviews) && rawIntel.expertReviews.length > 0
+              ? rawIntel.expertReviews
+              : defaults.expertReviews,
+          policyUpdates:
+            Array.isArray(rawIntel.policyUpdates) && rawIntel.policyUpdates.length > 0
+              ? rawIntel.policyUpdates
+              : defaults.policyUpdates,
+          landmarks:
+            Array.isArray(rawIntel.landmarks) && rawIntel.landmarks.length > 0
+              ? rawIntel.landmarks
+              : defaults.landmarks,
+        };
+
+        return {
+          description: parsed.landmarkDescription || undefined,
+          ownershipType:
+            parsed.ownershipType === "OTHER" ? "OTHER" : defaultOwnership,
+          baselinePhotos: Array.isArray(parsed.baselinePhotos)
+            ? parsed.baselinePhotos.filter(Boolean)
+            : [],
+          proofOfOwnershipUrl: parsed.proofOfOwnershipUrl || null,
+          intelTimeline,
+        };
+      }
+    } catch {
+      // Fallback to plain description string
+    }
+  }
+
+  return {
+    description: rawDescription,
+    ownershipType: defaultOwnership,
+    baselinePhotos: [],
+    proofOfOwnershipUrl: null,
+    intelTimeline: defaults,
+  };
+}
+
 export function formatTimeAgo(dateInput?: Date | string | null): string {
   if (!dateInput) return "recently";
 
@@ -37,7 +239,6 @@ export function formatTimeAgo(dateInput?: Date | string | null): string {
   const now = Date.now();
   const diffMs = now - date.getTime();
 
-  // If in future (e.g. scheduled date)
   if (diffMs < 0) {
     const futureMin = Math.round(Math.abs(diffMs) / 60000);
     if (futureMin < 60) return `in ${futureMin}m`;
@@ -65,10 +266,6 @@ export function formatTimeAgo(dateInput?: Date | string | null): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-/**
- * Returns professional title/designation based on agent tier and service module
- * e.g., "esquire" for legal counsel, "Engr" for technical supervisor, "Investigator" for due diligence
- */
 export function formatAgentTitle(
   tier?: string | null,
   moduleType?: string | null
@@ -88,7 +285,6 @@ export function formatAgentTitle(
     }
   }
 
-  // Fallback to domain-specific professional title from task module type
   if (moduleType) {
     switch (moduleType) {
       case "LEGAL_ADVISORY":
@@ -109,10 +305,6 @@ export function formatAgentTitle(
   return null;
 }
 
-/**
- * Formats agent display name according to Oversite standards
- * Examples: "Agent A", "Agent B (esquire)", "Folake A. (Engr)"
- */
 export function formatAgentDisplayName(
   agentName?: string | null,
   agentTier?: string | null,
@@ -129,7 +321,6 @@ export function formatAgentDisplayName(
     return name;
   }
 
-  // Avoid duplicate title if already present in user name
   if (name.toLowerCase().includes(title.toLowerCase())) {
     return name;
   }
@@ -137,9 +328,6 @@ export function formatAgentDisplayName(
   return `${name} (${title})`;
 }
 
-/**
- * Status priority weighting for determining which task is "active" or most urgent
- */
 export function getTaskStatusWeight(status: string): number {
   switch (status) {
     case "IN_PROGRESS":
@@ -169,11 +357,6 @@ export function getTaskStatusWeight(status: string): number {
   }
 }
 
-/**
- * Sorting Algorithm:
- * Selects the current task that is being done or linked to the property,
- * prioritizing active tasks, closest deadline / end date, and most recent activity.
- */
 export function rankTasksForProperty(tasksList: RawTaskJoin[]): RawTaskJoin | null {
   if (!tasksList || tasksList.length === 0) return null;
 
@@ -186,29 +369,25 @@ export function rankTasksForProperty(tasksList: RawTaskJoin[]): RawTaskJoin | nu
     const isActiveA = weightA >= 50;
     const isActiveB = weightB >= 50;
 
-    // 1. Active tasks always take priority over closed/completed tasks
     if (isActiveA && !isActiveB) return -1;
     if (!isActiveA && isActiveB) return 1;
 
-    // 2. Both are active: Check closest to end date / promised delivery date
     if (isActiveA && isActiveB) {
       const deadlineA =
         a.clientPromisedDeliveryDate?.getTime() || a.scheduledAt?.getTime();
       const deadlineB =
         b.clientPromisedDeliveryDate?.getTime() || b.scheduledAt?.getTime();
 
-      // If both have deadlines
       if (deadlineA && deadlineB) {
         const diffA = deadlineA - now;
         const diffB = deadlineB - now;
 
-        // Both in future: closest upcoming deadline wins
         if (diffA >= 0 && diffB >= 0) {
           if (diffA !== diffB) return diffA - diffB;
         } else if (diffA >= 0) {
-          return -1; // A is pending upcoming deadline
+          return -1;
         } else if (diffB >= 0) {
-          return 1; // B is pending upcoming deadline
+          return 1;
         }
       } else if (deadlineA && !deadlineB) {
         return -1;
@@ -216,18 +395,15 @@ export function rankTasksForProperty(tasksList: RawTaskJoin[]): RawTaskJoin | nu
         return 1;
       }
 
-      // If weight differs between active statuses (e.g. IN_PROGRESS vs PENDING)
       if (weightA !== weightB) {
         return weightB - weightA;
       }
 
-      // Otherwise, most recently updated / created wins
       const timeA = a.updatedAt?.getTime() || a.createdAt.getTime();
       const timeB = b.updatedAt?.getTime() || b.createdAt.getTime();
       return timeB - timeA;
     }
 
-    // 3. Both are inactive (e.g. COMPLETED): Most recently completed/updated wins
     const closeTimeA =
       a.completedAt?.getTime() || a.updatedAt?.getTime() || a.createdAt.getTime();
     const closeTimeB =
@@ -238,9 +414,6 @@ export function rankTasksForProperty(tasksList: RawTaskJoin[]): RawTaskJoin | nu
   return sorted[0];
 }
 
-/**
- * Maps a raw joined task record to the structured PropertyCurrentTask interface
- */
 export function buildPropertyCurrentTask(
   rawTask: RawTaskJoin
 ): PropertyCurrentTask {
@@ -256,8 +429,6 @@ export function buildPropertyCurrentTask(
       : rawTask.updatedAt || rawTask.createdAt;
 
   const timeAgo = formatTimeAgo(relevantDate);
-
-  // Example: "CAC request • Agent A • 30mins ago"
   const formattedDisplay = `${rawTask.title} • ${agentDisplayName} • ${timeAgo}`;
 
   return {
@@ -280,10 +451,6 @@ export function buildPropertyCurrentTask(
   };
 }
 
-/**
- * Batch-enriches a list of database property records with their current active/recent task
- * and orders the properties list by task urgency & recency.
- */
 export async function enrichPropertiesWithCurrentTasks(
   dbProperties: Array<any>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -295,7 +462,6 @@ export async function enrichPropertiesWithCurrentTasks(
 
   const propertyIds = dbProperties.map((p) => p.id);
 
-  // 1. Fetch all tasks linked to any of these properties, joining agent info
   const rawTasks = await db
     .select({
       id: tasks.id,
@@ -318,7 +484,6 @@ export async function enrichPropertiesWithCurrentTasks(
     .leftJoin(agentProfiles, eq(users.id, agentProfiles.userId))
     .where(inArray(tasks.propertyId, propertyIds));
 
-  // 2. Group tasks by propertyId
   const tasksByProperty = new Map<string, RawTaskJoin[]>();
   for (const raw of rawTasks) {
     if (!raw.propertyId) continue;
@@ -327,7 +492,6 @@ export async function enrichPropertiesWithCurrentTasks(
     tasksByProperty.set(raw.propertyId, existing);
   }
 
-  // 3. For each property, calculate currentTask, activeTaskCount, totalTaskCount
   const enriched: PropertyWithCurrentTask[] = dbProperties.map((p) => {
     const propTasks = tasksByProperty.get(p.id) || [];
     const bestTask = rankTasksForProperty(propTasks);
@@ -337,6 +501,7 @@ export async function enrichPropertiesWithCurrentTasks(
     );
 
     const currentTask = bestTask ? buildPropertyCurrentTask(bestTask) : null;
+    const meta = parsePropertyDescriptionMeta(p.description, p.parcelNumber);
 
     return {
       id: p.id,
@@ -347,18 +512,25 @@ export async function enrichPropertiesWithCurrentTasks(
       longitude: p.longitude ? parseFloat(p.longitude) : undefined,
       parcelNumber: p.parcelNumber || undefined,
       propertyType: p.propertyType || "Real Estate",
-      description: p.description || undefined,
-      createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt),
-      updatedAt: p.updatedAt instanceof Date ? p.updatedAt.toISOString() : String(p.updatedAt),
+      description: meta.description,
+      ownershipType: meta.ownershipType,
+      baselinePhotos: meta.baselinePhotos,
+      proofOfOwnershipUrl: meta.proofOfOwnershipUrl,
+      intelTimeline: meta.intelTimeline,
+      createdAt:
+        p.createdAt instanceof Date
+          ? p.createdAt.toISOString()
+          : String(p.createdAt),
+      updatedAt:
+        p.updatedAt instanceof Date
+          ? p.updatedAt.toISOString()
+          : String(p.updatedAt),
       currentTask,
       activeTaskCount: activeTasks.length,
       totalTaskCount: propTasks.length,
     };
   });
 
-  // 4. Sort properties:
-  // Properties with active tasks sorted by urgency/recency first;
-  // Properties without active tasks sorted by createdAt DESC next.
   return enriched.sort((a, b) => {
     const hasActiveA = (a.activeTaskCount || 0) > 0 && a.currentTask;
     const hasActiveB = (b.activeTaskCount || 0) > 0 && b.currentTask;
@@ -376,7 +548,6 @@ export async function enrichPropertiesWithCurrentTasks(
       return timeB - timeA;
     }
 
-    // Neither has active tasks: sort by property creation date
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 }

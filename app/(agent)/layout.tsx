@@ -17,6 +17,9 @@ import {
   Star,
   LogOut,
   MapPin,
+  BarChart3,
+  Settings,
+  ShieldCheck,
 } from "lucide-react";
 
 const AGENT_NAV = [
@@ -24,13 +27,78 @@ const AGENT_NAV = [
   { label: "Queue", href: "/agent/queue", icon: ListFilter },
   { label: "Tasks", href: "/agent/tasks", icon: ClipboardCheck },
   { label: "Earnings", href: "/agent/wallet", icon: Wallet },
-  { label: "More", href: "/more", icon: MoreHorizontal },
+  { label: "More", href: "/agent/more", icon: MoreHorizontal },
+];
+
+const AGENT_SIDEBAR_NAV = [
+  { label: "Home", href: "/agent/dashboard", icon: Home },
+  { label: "Queue", href: "/agent/queue", icon: ListFilter },
+  { label: "Tasks", href: "/agent/tasks", icon: ClipboardCheck },
+  { label: "Earnings", href: "/agent/wallet", icon: Wallet },
+  { label: "Performance", href: "/agent/stats", icon: BarChart3 },
+  { label: "Verification", href: "/agent/verification", icon: ShieldCheck },
+  { label: "Where You Work", href: "/agent/coverage", icon: MapPin },
+  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "More", href: "/agent/more", icon: MoreHorizontal },
 ];
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, isLoading, isAuthenticated, logout } = useAuth();
   const [isOnline, setIsOnline] = useState(true);
+  const [coverageSummary, setCoverageSummary] = useState("Ikoyi, Victoria Island, Lekki, Ajah");
+
+  useEffect(() => {
+    const syncStatus = () => {
+      try {
+        const stored = localStorage.getItem("oversite_agent_online");
+        if (stored !== null) setIsOnline(stored === "true");
+      } catch {}
+    };
+    syncStatus();
+    window.addEventListener("oversite:agent-status-updated", syncStatus);
+    return () => window.removeEventListener("oversite:agent-status-updated", syncStatus);
+  }, []);
+
+  const handleToggleOnline = async () => {
+    const next = !isOnline;
+    setIsOnline(next);
+    try {
+      localStorage.setItem("oversite_agent_online", String(next));
+      window.dispatchEvent(new Event("oversite:agent-status-updated"));
+      const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+      if (token && user?.id) {
+        await fetch(`/api/v1/agents/${user.id}/availability`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ isAvailable: next }),
+        }).catch(() => null);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    const syncCoverage = () => {
+      if (typeof window === "undefined") return;
+      try {
+        const raw = localStorage.getItem("oversite_agent_work_prefs");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed.coverageAreas) && parsed.coverageAreas.length > 0) {
+            setCoverageSummary(parsed.coverageAreas.join(", "));
+          }
+        }
+      } catch {
+        // Keep default
+      }
+    };
+    syncCoverage();
+    window.addEventListener("oversite:coverage-updated", syncCoverage);
+    return () => window.removeEventListener("oversite:coverage-updated", syncCoverage);
+  }, []);
 
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || (user?.role !== "AGENT" && user?.role !== "ADMIN" && user?.role !== "SUPER_ADMIN"))) {
@@ -40,7 +108,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
 
   if (isLoading && !user) {
     return (
-      <div className="min-h-screen bg-[#F4F6F4] dark:bg-[var(--bg-body)] flex items-center justify-center transition-colors duration-300">
+      <div className="min-h-screen bg-[var(--bg-body)] flex items-center justify-center transition-colors duration-300">
         <div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -52,9 +120,16 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
 
   const agentName = user?.name || user?.fullName || "Agent";
   const agentInitial = agentName.charAt(0).toUpperCase() || "A";
+  const rawId = (user?.id || "12344").replace(/[^a-zA-Z0-9]/g, "");
+  const agentIdCode = rawId.slice(-5).toUpperCase() || "12344";
+  const agentIdDisplay = `Agent #OS-${agentIdCode}`;
+
+  const rating = user?.agentProfile?.rating ? parseFloat(user.agentProfile.rating).toFixed(1) : "4.9";
+  const totalTasks = typeof user?.agentProfile?.totalTasks === "number" ? user.agentProfile.totalTasks : 128;
+  const avatarImage = user?.avatarUrl || user?.avatar || null;
 
   return (
-    <div className="min-h-screen bg-[#F4F6F4] dark:bg-[var(--bg-body)] text-[var(--text-body)] font-sans flex justify-center transition-colors duration-300 selection:bg-[var(--primary)]/20 selection:text-[var(--primary)]">
+    <div className="min-h-screen bg-[var(--bg-body)] text-[var(--text-body)] font-sans flex justify-center transition-colors duration-300 selection:bg-[var(--primary)]/20 selection:text-[var(--primary)]">
       <div className="flex w-full max-w-[1000px] xl:max-w-[1200px] relative">
         
         {/* Desktop Sidebar (hidden on mobile, sticky on tablet and desktop) */}
@@ -78,7 +153,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
           <div className="p-3 border-b border-[var(--border-color)]">
             <button
               type="button"
-              onClick={() => setIsOnline(!isOnline)}
+              onClick={handleToggleOnline}
               className={`w-full py-2.5 px-3 rounded-2xl border flex items-center justify-between transition-all cursor-pointer ${
                 isOnline
                   ? "bg-[var(--primary-light)] border-[var(--primary-border)] text-[var(--primary)]"
@@ -87,7 +162,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
             >
               <div className="flex items-center gap-2 text-xs font-semibold">
                 <span className={`w-2 h-2 rounded-full ${isOnline ? "bg-[var(--primary)] animate-pulse" : "bg-[var(--text-muted)]"}`} />
-                <span>{isOnline ? "Online (Receiving Tasks)" : "Offline (Paused)"}</span>
+                <span>{isOnline ? "Online (Available)" : "Offline (Unavailable)"}</span>
               </div>
               <Power className="w-3.5 h-3.5 shrink-0" />
             </button>
@@ -95,7 +170,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
 
           {/* Navigation Links */}
           <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-            {AGENT_NAV.map((item) => {
+            {AGENT_SIDEBAR_NAV.map((item) => {
               const Icon = item.icon;
               const isActive =
                 pathname === item.href ||
@@ -115,36 +190,33 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
                 </Link>
               );
             })}
-
-            {/* Quick Territory Coverage */}
-            <div className="pt-6 pb-2 px-1">
-              <p className="px-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">
-                Active Territory
-              </p>
-              <div className="p-3 rounded-2xl bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] space-y-1.5">
-                <div className="flex items-center gap-1.5 text-xs text-[var(--text-heading)] font-semibold">
-                  <MapPin className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
-                  <span>Lagos Zone 1</span>
-                </div>
-                <p className="text-[11px] text-[var(--text-muted)]">Ikoyi, Lekki Phase 1, Victoria Island</p>
-              </div>
-            </div>
           </nav>
 
           {/* Agent Profile, Sign Out & Theme Toggle Footer */}
           <div className="p-3 border-t border-[var(--border-color)]">
-            <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] mb-2">
-              <div className="w-8 h-8 rounded-full bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center font-semibold text-xs shrink-0">
-                {agentInitial}
+            <Link
+              href="/agent/stats"
+              className="flex items-center gap-3 px-3 py-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] hover:border-[var(--primary-border)] transition-colors mb-2"
+            >
+              <div className="w-8 h-8 rounded-full bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center font-semibold text-xs shrink-0 overflow-hidden border border-[var(--border-color)]">
+                {avatarImage ? (
+                  <img
+                    src={avatarImage}
+                    alt={agentIdDisplay}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  agentInitial
+                )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-semibold text-[var(--text-heading)] truncate">{agentName}</p>
+                <p className="text-[12px] font-semibold text-[var(--text-heading)] truncate">{agentIdDisplay}</p>
                 <p className="text-[10px] text-[var(--primary)] flex items-center gap-1 truncate">
                   <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
-                  <span>4.9 · 128 tasks</span>
+                  <span>{rating} · {totalTasks} {totalTasks === 1 ? "task" : "tasks"}</span>
                 </p>
               </div>
-            </div>
+            </Link>
             <div className="flex items-center justify-between px-1">
               <button
                 type="button"
@@ -170,15 +242,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
 
         {/* Right Column (Visible on Extra Large Screens) */}
         <div className="hidden xl:block w-[275px] shrink-0 sticky top-0 h-screen p-6 space-y-4">
-          <div className="p-5 rounded-3xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-[0_0_10px_rgba(0,0,0,0.03)] space-y-3">
-            <h4 className="text-xs font-bold text-[var(--text-heading)] uppercase tracking-wider flex items-center gap-2">
-              <Shield className="w-4 h-4 text-[var(--primary)]" />
-              Inspector SLA Guidelines
-            </h4>
-            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-              Arrive within 2 hours of assignment acceptance. Always capture GPS-verified timestamps at boundary beacons.
-            </p>
-          </div>
+       
         </div>
 
       </div>

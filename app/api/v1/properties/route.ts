@@ -3,9 +3,13 @@ import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse, PaginatedResponse } from "@/lib/types/api";
 import { Property, PropertyWithCurrentTask } from "@/lib/types/task";
 import { getDbReady } from "@/lib/db/client";
-import { properties } from "@/db/schema";
+import { properties, tasks, taskMilestones, taskChats } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { enrichPropertiesWithCurrentTasks } from "@/lib/services/propertyTaskService";
+import {
+  enrichPropertiesWithCurrentTasks,
+  getDefaultPropertyIntelTimeline,
+  parsePropertyDescriptionMeta,
+} from "@/lib/services/propertyTaskService";
 import { geocodeAddress } from "@/lib/services/geocodingService";
 
 export const GET = withAuth(async (req: NextRequest, { user }) => {
@@ -50,7 +54,18 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
     const db = await getDbReady();
     const body = await req.json();
-    const { title, address, latitude, longitude, parcelNumber, propertyType, description } = body;
+    const {
+      title,
+      address,
+      latitude,
+      longitude,
+      parcelNumber,
+      propertyType,
+      description,
+      ownershipType,
+      proofOfOwnershipUrl,
+      baselinePhotos,
+    } = body;
 
     if (!title || !address) {
       return NextResponse.json(
@@ -65,7 +80,6 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     let finalLat = latitude ? String(latitude) : undefined;
     let finalLng = longitude ? String(longitude) : undefined;
 
-    // Automatically geocode address if coordinates are missing
     if ((!finalLat || !finalLng) && address) {
       try {
         const geo = await geocodeAddress(address);
@@ -78,19 +92,125 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       }
     }
 
-    const [newProp] = await db.insert(properties).values({
-      userId: user.sub,
-      title,
-      address,
-      latitude: finalLat,
-      longitude: finalLng,
-      parcelNumber,
-      propertyType,
-      description,
-    }).returning();
+    const effectiveOwnership: "OWNED" | "OTHER" =
+      ownershipType === "OTHER" ? "OTHER" : "OWNED";
+    const effectiveParcel =
+      parcelNumber || (effectiveOwnership === "OTHER" ? "OTHER_WATCH" : "OWNED_TITLE");
+
+    const serializedDescription = JSON.stringify({
+      __meta: true,
+      ownershipType: effectiveOwnership,
+      landmarkDescription: description || "",
+      baselinePhotos: Array.isArray(baselinePhotos) ? baselinePhotos.slice(0, 3) : [],
+      proofOfOwnershipUrl: proofOfOwnershipUrl || null,
+      intelTimeline: getDefaultPropertyIntelTimeline(),
+    });
+
+    const [newProp] = await db
+      .insert(properties)
+      .values({
+        userId: user.sub,
+        title,
+        address,
+        latitude: finalLat,
+        longitude: finalLng,
+        parcelNumber: effectiveParcel,
+        propertyType,
+        description: serializedDescription,
+      })
+      .returning();
+
+    // Immediately dispense the Property Oversight task for Admin to assign an agent and submit property intelligence
+    try {
+      const [dispensedTask] = await db
+        .insert(tasks)
+        .values({
+          userId: user.sub,
+          propertyId: newProp.id,
+          moduleType: "PROPERTY_OVERSITE",
+          status: "PENDING",
+          priority: "normal",
+          title: `Property Oversight: ${title}`,
+          description:
+            description ||
+            `Continuous property intelligence, community inquiry ("Word on the Street"), statutory layout directives, and vicinity landmark verification for ${title} (${address}).`,
+          locationAddress: address,
+          locationLat: finalLat,
+          locationLng: finalLng,
+          priceNgn: "15000",
+          pricingMode: "AUTO_STANDARD",
+          quoteStatus: "PAID_ESCROW",
+          pricingBreakdown: {
+            agentPayoutNgn: 10500,
+            platformMarginNgn: 4500,
+            isAgentPayExplicitlySet: true,
+          },
+          formData: {
+            isPropertyIntelTask: true,
+            propertyId: newProp.id,
+            propertyTitle: title,
+            ownershipType: effectiveOwnership,
+            landmarkDescription: description || "",
+          },
+        })
+        .returning();
+
+      if (dispensedTask) {
+        await db.insert(taskMilestones).values([
+          {
+            taskId: dispensedTask.id,
+            title: "1. Physical Site Summary & Geofence Verification",
+            description:
+              "Verify perimeter fence, occupancy status, setback compliance, and capture geo-tagged baseline photographs.",
+            orderIndex: 1,
+            status: "IN_PROGRESS",
+            completionPct: 50,
+          },
+          {
+            taskId: dispensedTask.id,
+            title: "2. Word on the Street (Community & Neighbor Inquiries)",
+            description:
+              "Interview caretakers and adjacent property managers to verify absence of communal disputes or encroachment.",
+            orderIndex: 2,
+            status: "PENDING",
+            completionPct: 0,
+          },
+          {
+            taskId: dispensedTask.id,
+            title: "3. Statutory Layout Directives & Vicinity Landmarks",
+            description:
+              "Verify state physical planning compliance, surveyor general beacon coordinates, and vicinity transit landmarks.",
+            orderIndex: 3,
+            status: "PENDING",
+            completionPct: 0,
+          },
+        ]);
+
+        await db.insert(taskChats).values({
+          taskId: dispensedTask.id,
+          senderId: user.sub,
+          receiverId: user.sub,
+          rawMessage: `Oversite Property Intelligence task dispensed for "${title}". You are connected directly with Oversite regarding this property. Request site updates or ask questions here anytime.`,
+          moderatedMessage: `Oversite Property Intelligence task dispensed for "${title}". You are connected directly with Oversite regarding this property. Request site updates or ask questions here anytime.`,
+          message: `Oversite Property Intelligence task dispensed for "${title}". You are connected directly with Oversite regarding this property. Request site updates or ask questions here anytime.`,
+          messageType: "TEXT",
+          isModerated: true,
+          moderationStatus: "APPROVED_AS_IS",
+        });
+      }
+    } catch (taskErr) {
+      console.warn("Auto-dispensing property oversight task failed:", taskErr);
+    }
+
+    const meta = parsePropertyDescriptionMeta(newProp.description, newProp.parcelNumber);
 
     const createdProp: Property = {
       ...newProp,
+      description: meta.description,
+      ownershipType: meta.ownershipType,
+      baselinePhotos: meta.baselinePhotos,
+      proofOfOwnershipUrl: meta.proofOfOwnershipUrl,
+      intelTimeline: meta.intelTimeline,
       latitude: newProp.latitude ? parseFloat(newProp.latitude) : undefined,
       longitude: newProp.longitude ? parseFloat(newProp.longitude) : undefined,
       createdAt: newProp.createdAt.toISOString(),
@@ -112,7 +232,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
           success: false,
           error: {
             code: "UNAUTHORIZED",
-            message: "User account associated with this session no longer exists in database. Please re-authenticate.",
+            message:
+              "User account associated with this session no longer exists in database. Please re-authenticate.",
           },
         },
         { status: 401 }

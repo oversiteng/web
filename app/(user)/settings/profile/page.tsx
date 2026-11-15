@@ -1,70 +1,108 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  User,
-  Mail,
-  MapPin,
-  Briefcase,
-  Home,
-  Globe,
-  Compass,
-  Tag,
   Pencil,
   Check,
   ChevronDown,
+  Lock,
 } from "lucide-react";
-import { Country, State } from "country-state-city";
 import { useAuth } from "@/context/AuthContext";
 import { getStoredToken } from "@/lib/storage/clientStorage";
 
-export default function EditProfilePage() {
+const TITLE_OPTIONS = [
+  "Mr/Mrs",
+  "Mr.",
+  "Mrs.",
+  "Ms.",
+  "Dr.",
+  "Engr.",
+  "Barr.",
+  "Chief",
+];
+
+const PHONE_CODES = ["+234", "+44", "+1", "+233", "+27", "+971"];
+
+const RESIDENCE_STATUS_OPTIONS = [
+  "Resident",
+  "Diaspora",
+  "Citizen",
+  "Temporary Resident",
+  "Expatriate",
+];
+
+function parsePhoneParts(rawPhone?: string | null): { code: string; number: string } {
+  if (!rawPhone) return { code: "+234", number: "" };
+  const cleaned = rawPhone.trim();
+  const matchedCode = PHONE_CODES.find((c) => cleaned.startsWith(c));
+  if (matchedCode) {
+    return {
+      code: matchedCode,
+      number: cleaned.slice(matchedCode.length).trim(),
+    };
+  }
+  if (cleaned.startsWith("234") && cleaned.length > 10) {
+    return { code: "+234", number: cleaned.slice(3).trim() };
+  }
+  return { code: "+234", number: cleaned };
+}
+
+export default function PersonalDetailsPage() {
   const router = useRouter();
   const { user: authUser, refreshUser } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Form states initialized with authUser fallback
+  const initialPhone = parsePhoneParts(authUser?.phone);
+
+  // Identity & Contact
+  const [title, setTitle] = useState(authUser?.title || "Mr/Mrs");
   const [name, setName] = useState(authUser?.name || authUser?.fullName || "");
   const [email, setEmail] = useState(authUser?.email || "");
-  const [title, setTitle] = useState(authUser?.title || "");
+  const [phoneCode, setPhoneCode] = useState(initialPhone.code);
+  const [phoneNumber, setPhoneNumber] = useState(initialPhone.number);
+  const [occupation, setOccupation] = useState(
+    authUser?.occupation || (authUser?.role === "AGENT" ? "Field Investigator" : "")
+  );
+
+  // Location & Residence
   const [address, setAddress] = useState(authUser?.address || "");
   const [location, setLocation] = useState(authUser?.location || "");
-  const [occupation, setOccupation] = useState(authUser?.occupation || "");
-  const [selectedCountryCode, setSelectedCountryCode] = useState<string>("NG");
-  const [selectedResidenceCode, setSelectedResidenceCode] = useState<string>("NG");
   const [state, setState] = useState(authUser?.state || "");
-  const [country, setCountry] = useState(authUser?.country || "Nigeria");
-  const [residence, setResidence] = useState(authUser?.residence || "Nigeria");
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(authUser?.avatarUrl || authUser?.avatar || null);
+  const [country, setCountry] = useState(authUser?.country || "");
+  const [residence, setResidence] = useState(authUser?.residence || "");
+
+  // Avatar
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(
+    authUser?.avatarUrl || authUser?.avatar || null
+  );
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
 
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Memoized country list
-  const allCountries = useMemo(() => {
-    return Country.getAllCountries();
-  }, []);
-
-  // Memoized states list depending on selected country
-  const statesForCountry = useMemo(() => {
-    if (!selectedCountryCode) return [];
-    return State.getStatesOfCountry(selectedCountryCode);
-  }, [selectedCountryCode]);
-
   // Sync state if AuthContext finishes hydrating or updates
   useEffect(() => {
     if (authUser) {
-      if (authUser.name || authUser.fullName) setName(authUser.name || authUser.fullName || "");
+      if (authUser.name || authUser.fullName) {
+        setName(authUser.name || authUser.fullName || "");
+      }
       if (authUser.email) setEmail(authUser.email);
       if (authUser.title) setTitle(authUser.title);
+      if (authUser.phone) {
+        const parsed = parsePhoneParts(authUser.phone);
+        setPhoneCode(parsed.code);
+        setPhoneNumber(parsed.number);
+      }
+      if (authUser.occupation) {
+        setOccupation(authUser.occupation);
+      } else if (authUser.role === "AGENT" && !occupation) {
+        setOccupation("Field Investigator");
+      }
       if (authUser.address) setAddress(authUser.address);
       if (authUser.location) setLocation(authUser.location);
-      if (authUser.occupation) setOccupation(authUser.occupation);
       if (authUser.state) setState(authUser.state);
       if (authUser.country) setCountry(authUser.country);
       if (authUser.residence) setResidence(authUser.residence);
@@ -72,14 +110,13 @@ export default function EditProfilePage() {
         setAvatarPreview(authUser.avatarUrl || authUser.avatar || null);
       }
     }
-  }, [authUser]);
+  }, [authUser, occupation]);
 
   // Load latest authoritative profile from API
   useEffect(() => {
     let isCancelled = false;
 
     async function loadProfile() {
-      setIsLoadingProfile(true);
       try {
         const token = await getStoredToken();
         const headers: Record<string, string> = {};
@@ -98,41 +135,22 @@ export default function EditProfilePage() {
             if (p.name || p.fullName) setName(p.name || p.fullName);
             if (p.email) setEmail(p.email);
             if (p.title) setTitle(p.title);
+            if (p.phone) {
+              const parsed = parsePhoneParts(p.phone);
+              setPhoneCode(parsed.code);
+              setPhoneNumber(parsed.number);
+            }
+            if (p.occupation) setOccupation(p.occupation);
             if (p.address) setAddress(p.address);
             if (p.location) setLocation(p.location);
-            if (p.occupation) setOccupation(p.occupation);
-            if (p.country) {
-              setCountry(p.country);
-              const matchedCountry = allCountries.find(
-                (c) =>
-                  c.name.toLowerCase() === p.country.toLowerCase() ||
-                  c.isoCode.toLowerCase() === p.country.toLowerCase()
-              );
-              if (matchedCountry) {
-                setSelectedCountryCode(matchedCountry.isoCode);
-              }
-            }
             if (p.state) setState(p.state);
-            if (p.residence) {
-              setResidence(p.residence);
-              const matchedCountry = allCountries.find(
-                (c) =>
-                  c.name.toLowerCase() === p.residence.toLowerCase() ||
-                  c.isoCode.toLowerCase() === p.residence.toLowerCase()
-              );
-              if (matchedCountry) {
-                setSelectedResidenceCode(matchedCountry.isoCode);
-              }
-            }
+            if (p.country) setCountry(p.country);
+            if (p.residence) setResidence(p.residence);
             if (p.avatarUrl) setAvatarPreview(p.avatarUrl);
           }
         }
       } catch (e) {
         console.error("Failed to load profile:", e);
-      } finally {
-        if (!isCancelled) {
-          setIsLoadingProfile(false);
-        }
       }
     }
 
@@ -141,35 +159,18 @@ export default function EditProfilePage() {
     return () => {
       isCancelled = true;
     };
-  }, [allCountries, refreshUser]);
-
-  const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const code = e.target.value;
-    setSelectedCountryCode(code);
-    const found = allCountries.find((c) => c.isoCode === code);
-    setCountry(found ? found.name : code);
-    setState("");
-  };
-
-  const handleResidenceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const code = e.target.value;
-    setSelectedResidenceCode(code);
-    const found = allCountries.find((c) => c.isoCode === code);
-    setResidence(found ? found.name : code);
-  };
+  }, [refreshUser]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file type
     if (!file.type.startsWith("image/")) {
       setToastMessage("Please select a valid image file.");
       setTimeout(() => setToastMessage(null), 2500);
       return;
     }
 
-    // Check size limit (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setToastMessage("Image size must be less than 5MB.");
       setTimeout(() => setToastMessage(null), 2500);
@@ -178,7 +179,6 @@ export default function EditProfilePage() {
 
     setSelectedAvatarFile(file);
 
-    // Create immediate local preview
     const reader = new FileReader();
     reader.onload = (event) => {
       setAvatarPreview(event.target?.result as string);
@@ -186,9 +186,7 @@ export default function EditProfilePage() {
     reader.readAsDataURL(file);
   };
 
-  // Helper to upload image to S3 using authenticated presigned URL
   const uploadAvatarToS3 = async (file: File, token: string | null): Promise<string> => {
-    // 1. First try direct server-side upload (streams file to S3 via backend, zero CORS issues)
     try {
       const formData = new FormData();
       formData.append("avatar", file);
@@ -213,7 +211,6 @@ export default function EditProfilePage() {
       console.warn("Direct upload fallback to presigned S3 URL:", directErr);
     }
 
-    // 2. Fallback to presigned S3 upload
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -235,7 +232,6 @@ export default function EditProfilePage() {
     const { data } = await presignRes.json();
     const { url, publicUrl } = data;
 
-    // Direct PUT to AWS S3
     const uploadRes = await fetch(url, {
       method: "PUT",
       headers: {
@@ -263,7 +259,6 @@ export default function EditProfilePage() {
 
       let finalAvatarUrl = avatarPreview;
 
-      // If user selected a new image file, upload to AWS S3
       if (selectedAvatarFile) {
         try {
           finalAvatarUrl = await uploadAvatarToS3(selectedAvatarFile, token);
@@ -275,12 +270,17 @@ export default function EditProfilePage() {
         }
       }
 
+      const combinedPhone = phoneNumber.trim()
+        ? `${phoneCode} ${phoneNumber.trim()}`
+        : undefined;
+
       const res = await fetch("/api/v1/users/me", {
         method: "PATCH",
         credentials: "include",
         headers,
         body: JSON.stringify({
           name,
+          phone: combinedPhone,
           title,
           address,
           location,
@@ -303,23 +303,30 @@ export default function EditProfilePage() {
       }
       setSelectedAvatarFile(null);
 
-      // Refresh global AuthContext user so More, Sidebar, etc. immediately update
       await refreshUser();
 
-      // Show success feedback
       setSavedSuccess(true);
-      setToastMessage("Profile changes saved successfully!");
+      setToastMessage("Personal details saved successfully!");
       setTimeout(() => {
         setSavedSuccess(false);
         setToastMessage(null);
       }, 3000);
-    } catch (err) {
+    } catch {
       setToastMessage("Failed to save changes.");
       setTimeout(() => setToastMessage(null), 2500);
     } finally {
       setIsSaving(false);
     }
   };
+
+  const initials =
+    name
+      .trim()
+      .split(/\s+/)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "AU";
 
   return (
     <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-12 select-none">
@@ -330,15 +337,13 @@ export default function EditProfilePage() {
             <div className="w-5 h-5 rounded-full bg-[var(--primary-light)] flex items-center justify-center shrink-0">
               <Check className="w-3.5 h-3.5 text-[var(--primary)] stroke-[3]" />
             </div>
-            <span className="text-[13px] font-medium tracking-wide">
-              {toastMessage}
-            </span>
+            <span className="text-[13px] font-medium tracking-wide">{toastMessage}</span>
           </div>
         </div>
       )}
 
-      {/* ── Top Header ── */}
-      <div className="flex items-center gap-4 py-3 mb-8">
+      {/* ── Top Header (Matches Screenshots 2 & 3) ── */}
+      <div className="flex items-center gap-3 py-3 mb-4">
         <button
           type="button"
           onClick={() => {
@@ -349,41 +354,39 @@ export default function EditProfilePage() {
             }
           }}
           aria-label="Go back"
-          className="w-9 h-9 flex items-center justify-center text-[var(--text-heading)] hover:opacity-75 transition-opacity cursor-pointer -ml-2"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-colors cursor-pointer -ml-1"
         >
-          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+          <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-[17px] sm:text-[18px] font-semibold text-[var(--text-heading)]">
-          Edit Profile
+        <h1 className="text-[17px] sm:text-[18px] font-bold text-[var(--text-heading)]">
+          Personal details
         </h1>
       </div>
 
       {/* ── Avatar Section ── */}
-      <div className="flex justify-center mb-10">
+      <div className="flex justify-center mb-7">
         <div className="relative">
           {avatarPreview ? (
             <img
               src={avatarPreview}
               alt="Profile avatar"
-              className="w-32 h-32 rounded-full object-cover shadow-lg border-2 border-[var(--border-color)]"
+              className="w-24 h-24 rounded-full object-cover shadow-md border-2 border-[var(--border-color)]"
             />
           ) : (
-            <div className="w-32 h-32 rounded-full bg-[#1c6b35] flex items-center justify-center shadow-lg text-white font-bold text-2xl">
-              {name ? name.slice(0, 2).toUpperCase() : "OU"}
+            <div className="w-24 h-24 rounded-full bg-[var(--info-light)] flex items-center justify-center text-[var(--info)] font-bold text-2xl">
+              {initials}
             </div>
           )}
 
-          {/* Edit Badge */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             aria-label="Change profile photo"
-            className="absolute bottom-1 right-1 w-9 h-9 bg-white dark:bg-[#1f2937] border-2 border-[var(--bg-body)] rounded-full flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+            className="absolute -bottom-0.5 -right-0.5 w-8 h-8 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-full flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-transform cursor-pointer"
           >
-            <Pencil className="w-4 h-4 text-[var(--primary)]" />
+            <Pencil className="w-3.5 h-3.5 text-[var(--text-heading)]" />
           </button>
 
-          {/* Hidden File Input */}
           <input
             ref={fileInputRef}
             type="file"
@@ -394,223 +397,237 @@ export default function EditProfilePage() {
         </div>
       </div>
 
-      {/* ── Profile Edit Form ── */}
-      <form onSubmit={handleSave} className="space-y-5">
-        {/* Full Name Field */}
-        <div>
-          <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
-            Full Name
-          </label>
-          <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
-            <User className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. John Doe"
-              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
-            />
-          </div>
-        </div>
+      {/* ── Form ── */}
+      <form onSubmit={handleSave} className="space-y-6">
+        {/* Section 1: Identity & Contact */}
+        <div className="space-y-4">
+          <h2 className="text-[13px] font-semibold text-[var(--primary)]">
+            Identity &amp; Contact
+          </h2>
 
-        {/* Email Address Field (Read-only) */}
-        <div>
-          <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
-            Email Address
-          </label>
-          <div className="flex items-center gap-3.5 bg-[var(--bg-card)]/60 border border-[var(--border-color)] rounded-full px-5 py-3.5 transition-all opacity-80 cursor-not-allowed shadow-xs">
-            <Mail className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
-            <input
-              type="email"
-              value={email}
-              readOnly
-              disabled
-              className="w-full bg-transparent text-[14px] text-[var(--text-muted)] outline-none cursor-not-allowed"
-            />
-          </div>
-        </div>
+          {/* Title + Full Name Row */}
+          <div className="flex items-start gap-3">
+            <div className="w-[116px] shrink-0">
+              <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
+                Title
+              </label>
+              <div className="relative bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-3.5 py-3.5 shadow-2xs">
+                <select
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full bg-transparent text-[13.5px] font-medium text-[var(--text-heading)] outline-none appearance-none pr-5 cursor-pointer"
+                >
+                  {TITLE_OPTIONS.map((opt) => (
+                    <option
+                      key={opt}
+                      value={opt}
+                      className="bg-[var(--bg-card)] text-[var(--text-heading)]"
+                    >
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-[var(--text-muted)] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
 
-        {/* Title Field */}
-        <div>
-          <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
-            Title
-          </label>
-          <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
-            <Tag className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Mr. / Mrs. / Engr. / Barrister"
-              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Address Field */}
-        <div>
-          <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
-            Residential Address
-          </label>
-          <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
-            <MapPin className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="e.g. 14 Admiralty Way, Lekki Phase 1"
-              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Location / City Field */}
-        <div>
-          <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
-            City / Location
-          </label>
-          <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
-            <Compass className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g. Ikeja, Lagos"
-              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Occupation Field */}
-        <div>
-          <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
-            Occupation
-          </label>
-          <div className="flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
-            <Briefcase className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
-            <input
-              type="text"
-              value={occupation}
-              onChange={(e) => setOccupation(e.target.value)}
-              placeholder="e.g. Civil Engineer / Entrepreneur"
-              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Country & State Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Nationality / Country */}
-          <div>
-            <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
-              Country
-            </label>
-            <div className="relative flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
-              <Globe className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
-              <select
-                value={selectedCountryCode}
-                onChange={handleCountryChange}
-                className="w-full bg-transparent text-[14px] text-[var(--text-heading)] outline-none appearance-none pr-6 cursor-pointer"
-              >
-                <option value="" disabled className="bg-[var(--bg-card)] text-[var(--text-heading)]">
-                  Select Country
-                </option>
-                {allCountries.map((c) => (
-                  <option
-                    key={c.isoCode}
-                    value={c.isoCode}
-                    className="bg-[var(--bg-card)] text-[var(--text-heading)]"
-                  >
-                    {c.flag} {c.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-[var(--text-muted)] absolute right-4 pointer-events-none" />
+            <div className="flex-1 min-w-0">
+              <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
+                Full Name
+              </label>
+              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Agent User"
+                  className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+                />
+              </div>
             </div>
           </div>
 
-          {/* State / Province */}
+          {/* Email Address (Read-only with Lock) */}
           <div>
-            <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
-              State / Region
+            <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
+              Email Address
             </label>
-            <div className="relative flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
-              <Compass className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
-              {statesForCountry.length > 0 ? (
-                <>
-                  <select
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    className="w-full bg-transparent text-[14px] text-[var(--text-heading)] outline-none appearance-none pr-6 cursor-pointer"
+            <div className="flex items-center justify-between gap-3 bg-[var(--bg-card)]/80 border border-[var(--border-color)] rounded-2xl px-4 py-3.5 opacity-85 cursor-not-allowed shadow-2xs">
+              <input
+                type="email"
+                value={email}
+                readOnly
+                disabled
+                className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] outline-none cursor-not-allowed"
+              />
+              <Lock className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
+            </div>
+          </div>
+
+          {/* Phone Number */}
+          <div>
+            <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
+              Phone Number
+            </label>
+            <div className="flex items-center gap-3 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
+              <select
+                value={phoneCode}
+                onChange={(e) => setPhoneCode(e.target.value)}
+                aria-label="Country dialing code"
+                className="bg-transparent text-[14px] font-semibold text-[var(--text-heading)] outline-none cursor-pointer shrink-0"
+              >
+                {PHONE_CODES.map((code) => (
+                  <option
+                    key={code}
+                    value={code}
+                    className="bg-[var(--bg-card)] text-[var(--text-heading)]"
                   >
-                    <option value="" className="bg-[var(--bg-card)] text-[var(--text-heading)]">
-                      Select State
-                    </option>
-                    {statesForCountry.map((s) => (
-                      <option
-                        key={s.isoCode}
-                        value={s.name}
-                        className="bg-[var(--bg-card)] text-[var(--text-heading)]"
-                      >
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-[var(--text-muted)] absolute right-4 pointer-events-none" />
-                </>
-              ) : (
+                    {code}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                inputMode="numeric"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value.replace(/[^\d\s]/g, ""))}
+                placeholder="801 234 5678"
+                className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Occupation / Profession */}
+          <div>
+            <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
+              Occupation / Profession
+            </label>
+            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
+              <input
+                type="text"
+                value={occupation}
+                onChange={(e) => setOccupation(e.target.value)}
+                placeholder="e.g. Field Investigator"
+                className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 2: Location & Residence */}
+        <div className="space-y-4 pt-2">
+          <h2 className="text-[13px] font-semibold text-[var(--primary)]">
+            Location &amp; Residence
+          </h2>
+
+          {/* Street Address */}
+          <div>
+            <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
+              Street Address
+            </label>
+            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="e.g. 14 Admiralty Way, Lekki Phase 1"
+                className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+              />
+            </div>
+          </div>
+
+          {/* City / Area + State / Province Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
+                City / Area
+              </label>
+              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="e.g. Ikoyi, VI"
+                  className="w-full bg-transparent text-[13.5px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
+                State / Province
+              </label>
+              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
                 <input
                   type="text"
                   value={state}
                   onChange={(e) => setState(e.target.value)}
-                  placeholder="e.g. State / Province"
-                  className="w-full bg-transparent text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+                  placeholder="e.g. Lagos, FCT"
+                  className="w-full bg-transparent text-[13.5px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
                 />
-              )}
+              </div>
+            </div>
+          </div>
+
+          {/* Country + Residence Status Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
+                Country
+              </label>
+              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
+                <input
+                  type="text"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder="e.g. Nigeria, UK"
+                  className="w-full bg-transparent text-[13.5px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
+                Residence Status
+              </label>
+              <div className="relative bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
+                <select
+                  value={residence}
+                  onChange={(e) => setResidence(e.target.value)}
+                  className={`w-full bg-transparent text-[13.5px] font-medium outline-none appearance-none pr-5 cursor-pointer ${
+                    residence ? "text-[var(--text-heading)]" : "text-[var(--text-muted)]"
+                  }`}
+                >
+                  <option value="" className="bg-[var(--bg-card)] text-[var(--text-muted)]">
+                    Select status
+                  </option>
+                  {RESIDENCE_STATUS_OPTIONS.map((opt) => (
+                    <option
+                      key={opt}
+                      value={opt}
+                      className="bg-[var(--bg-card)] text-[var(--text-heading)]"
+                    >
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-[var(--text-muted)] absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Residence Field */}
-        <div>
-          <label className="block text-[14px] font-medium text-[var(--text-heading)] mb-2">
-            Country of Residence
-          </label>
-          <div className="relative flex items-center gap-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 rounded-full px-5 py-3.5 transition-all shadow-xs">
-            <Home className="w-5 h-5 text-[var(--text-muted)] shrink-0 stroke-[1.8]" />
-            <select
-              value={selectedResidenceCode}
-              onChange={handleResidenceChange}
-              className="w-full bg-transparent text-[14px] text-[var(--text-heading)] outline-none appearance-none pr-6 cursor-pointer"
-            >
-              <option value="" disabled className="bg-[var(--bg-card)] text-[var(--text-heading)]">
-                Select Country
-              </option>
-              {allCountries.map((c) => (
-                <option
-                  key={c.isoCode}
-                  value={c.isoCode}
-                  className="bg-[var(--bg-card)] text-[var(--text-heading)]"
-                >
-                  {c.flag} {c.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-[var(--text-muted)] absolute right-4 pointer-events-none" />
-          </div>
-        </div>
-
-        {/* Save Changes Button */}
-        <div className="pt-6">
+        {/* Save Changes Primary Pill Button */}
+        <div className="pt-4">
           <button
             type="submit"
             disabled={isSaving}
-            className="w-full py-4 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] hover:bg-[var(--bg-secondary)] active:scale-[0.99] text-[var(--primary)] font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+            className="w-full py-3.5 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.99] text-white font-bold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-60"
           >
             {isSaving ? (
-              <span className="inline-block w-5 h-5 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+              <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : savedSuccess ? (
-              <span className="flex items-center gap-1.5 text-[var(--primary)]">
+              <span className="flex items-center gap-1.5">
                 <Check className="w-4 h-4 stroke-[3]" /> Saved Changes
               </span>
             ) : (

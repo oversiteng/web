@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
 import { TaskReport, ReportStatus } from "@/lib/types/task";
-import { getDb } from "@/lib/db/client";
-import { taskReports, reportMedia, tasks } from "@/db/schema";
+import { getDbReady } from "@/lib/db/client";
+import { taskReports, reportMedia, tasks, taskChats } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
-
-const db = getDb();
 
 export const POST = withAuth(
   async (req: NextRequest, { user }) => {
@@ -25,19 +23,36 @@ export const POST = withAuth(
         );
       }
 
-      const watermarkCode = "OVS-RPT-" + crypto.createHash('sha256').update(taskId + Date.now().toString()).digest('hex').substring(0, 10).toUpperCase();
+      const db = await getDbReady();
+      const [taskRow] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 
-      const [newReport] = await db.insert(taskReports).values({
-        taskId,
-        agentId: user.sub,
-        summary,
-        findings,
-        watermarkCode,
-        status: "SUBMITTED",
-        completionPct: completionPct || 100,
-      }).returning();
+      const watermarkCode =
+        "OVS-RPT-" +
+        crypto
+          .createHash("sha256")
+          .update(taskId + Date.now().toString())
+          .digest("hex")
+          .substring(0, 10)
+          .toUpperCase();
 
+      const [newReport] = await db
+        .insert(taskReports)
+        .values({
+          taskId,
+          agentId: user.sub,
+          summary,
+          findings,
+          watermarkCode,
+          status: "SUBMITTED",
+          completionPct: completionPct || 100,
+        })
+        .returning();
+
+      const mediaUrls: string[] = [];
       if (media && Array.isArray(media) && media.length > 0) {
+        for (const m of media) {
+          if (m?.url) mediaUrls.push(String(m.url));
+        }
         await db.insert(reportMedia).values(
           media.map((m: any) => ({
             reportId: newReport.id,
@@ -49,7 +64,31 @@ export const POST = withAuth(
         );
       }
 
-      await db.update(tasks).set({ status: "REPORT_SUBMITTED" }).where(eq(tasks.id, taskId));
+      // Intercepted by Admin first: insert a FINAL_SUBMISSION card in taskChats with PENDING_REVIEW
+      if (taskRow) {
+        const cardPayload = JSON.stringify({
+          cardType: "FINAL_SUBMISSION",
+          milestoneTitle: `Final Inspection Report: ${taskRow.title || "Mission"}`,
+          stageDetails: summary,
+          status: "Pending Admin Approval",
+          mediaUrls,
+          targetLink: `/dashboard/tasks/${taskId}#report`,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+          }),
+        });
+
+        await db.insert(taskChats).values({
+          taskId,
+          senderId: user.sub,
+          receiverId: taskRow.userId,
+          rawMessage: cardPayload,
+          message: cardPayload,
+          moderationStatus: "PENDING_REVIEW",
+          messageType: "MILESTONE_UPDATE",
+        });
+      }
 
       const createdReport: TaskReport = {
         ...newReport,

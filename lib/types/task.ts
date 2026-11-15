@@ -41,20 +41,42 @@ export interface Task {
   locationLng?: number | null;
   formData?: Record<string, unknown> | null;
   priceNgn?: number | string | null;
-  assignee?: { id?: string; name?: string; fullName?: string; email?: string } | null;
+  clientPriceNgn?: number | null;
+  agentPayoutNgn?: number | null;
+  platformMarginNgn?: number | null;
+  isAgentPayExplicitlySet?: boolean;
+  pricingMode?: string | null;
+  quoteStatus?: string | null;
+  agentTargetHours?: number | null;
+  clientPromisedHours?: number | null;
+  clientPromisedDeliveryDate?: string | Date | null;
+  waypoints?: any;
+  purchaseItems?: any;
+  pricingBreakdown?: any;
+  assignee?: { id?: string; name?: string; fullName?: string; email?: string; badge?: string } | null;
   property?: { id?: string; title?: string; address?: string } | null;
   scheduledAt?: string | null;
   completedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
   agentName?: string | null;
+  agentCode?: string | null;
   agentTier?: string | null;
+  clientName?: string | null;
 }
 
 export interface TaskMilestone {
   id: string;
   taskId: string;
   title: string;
+  description?: string | null;
+  orderIndex?: number;
+  deliverableType?: string | null;
+  checklist?: any;
+  mediaUrls?: string[];
+  agentNote?: string;
+  pendingApproval?: boolean;
+  pdfGenerated?: boolean;
   targetDate?: string | null;
   status: MilestoneStatus;
   completionPct: number;
@@ -156,6 +178,62 @@ export interface DueDiligenceDossier {
   updatedAt?: string;
 }
 
+export interface PropertySiteSummaryItem {
+  id: string;
+  agentName: string;
+  photoCountLabel: string;
+  summary: string;
+  occupancy: string;
+  fence: string;
+  setback: string;
+  timeAgo?: string;
+  createdAt: string;
+}
+
+export interface PropertyWordOnStreetItem {
+  id: string;
+  headline: string;
+  badge: string;
+  summary: string;
+  confidenceScore: string;
+  sourcesChecked: number;
+  createdAt: string;
+}
+
+export interface PropertyExpertReviewItem {
+  id: string;
+  headline: string;
+  rating: string;
+  summary: string;
+  reviewer: string;
+  createdAt: string;
+}
+
+export interface PropertyPolicyUpdateItem {
+  id: string;
+  dateLabel: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface PropertyLandmarkItem {
+  id: string;
+  name: string;
+  distance: string;
+  feature: string;
+  addedLabel: string;
+  createdAt: string;
+}
+
+export interface PropertyIntelTimeline {
+  clearanceStatus?: string;
+  siteSummaries: PropertySiteSummaryItem[];
+  wordOnStreet: PropertyWordOnStreetItem[];
+  expertReviews: PropertyExpertReviewItem[];
+  policyUpdates: PropertyPolicyUpdateItem[];
+  landmarks: PropertyLandmarkItem[];
+}
+
 export interface Property {
   id: string;
   userId: string;
@@ -166,6 +244,10 @@ export interface Property {
   parcelNumber?: string | null;
   propertyType?: string | null;
   description?: string | null;
+  ownershipType?: "OWNED" | "OTHER";
+  baselinePhotos?: string[];
+  proofOfOwnershipUrl?: string | null;
+  intelTimeline?: PropertyIntelTimeline;
   createdAt: string;
   updatedAt?: string;
 }
@@ -183,7 +265,7 @@ export interface PropertyCurrentTask {
   updatedAt: string;
   scheduledAt?: string | null;
   completedAt?: string | null;
-  clientPromisedDeliveryDate?: string | null;
+  clientPromisedDeliveryDate?: string | Date | null;
   timeAgo: string;
   formattedDisplay: string;
 }

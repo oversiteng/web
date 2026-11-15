@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { apiClient } from "@/lib/api/client";
 import {
-  ArrowLeft,
   MessageSquare,
   Mail,
   HelpCircle,
@@ -14,24 +14,43 @@ import {
   ChevronUp,
 } from "lucide-react";
 
+interface SupportFaqItem {
+  id?: string;
+  q: string;
+  a: string;
+}
+
+const DEFAULT_FAQS: SupportFaqItem[] = [
+  {
+    q: "How do milestone inspections and verifications work?",
+    a: "Oversite deploys certified field operatives (identified by their OS-XXXXXX code) to conduct physical on-site visits with geo-tagged high-resolution photos, measurements, and verification reports compiled directly into your Oversite Vault.",
+  },
+  {
+    q: "Who executes my requested task?",
+    a: "When you request and pay for a service, Oversite manages the entire execution end-to-end. You communicate directly with Oversite Command & Support while our vetted field operatives carry out the physical assignment.",
+  },
+  {
+    q: "How fast will field operatives be dispatched?",
+    a: "Standard dispatches occur within 24–48 hours of payment confirmation. Priority and Emergency Enforcement requests receive same-day dispatch.",
+  },
+];
+
 export default function SupportPage() {
   const router = useRouter();
   const [faqsOpen, setFaqsOpen] = useState(false);
+  const [faqs, setFaqs] = useState<SupportFaqItem[]>(DEFAULT_FAQS);
 
-  const FAQS = [
-    {
-      q: "How do milestone inspections work?",
-      a: "Our certified field agents conduct on-site physical visits with geo-tagged high-resolution photos, drone surveys, and material verification reports before escrow payouts are approved.",
-    },
-    {
-      q: "How does escrow protection guarantee safety?",
-      a: "Funds for building contractors or vendors are held in secure escrow and only disbursed when you review and formally approve milestone verification reports.",
-    },
-    {
-      q: "How fast will field agents be dispatched?",
-      a: "Standard dispatches occur within 24-48 hours. Pro members receive priority same-day dispatch.",
-    },
-  ];
+  useEffect(() => {
+    apiClient
+      .get("/api/v1/support/tickets")
+      .then((res: any) => {
+        const list = res?.data?.faqs || res?.faqs;
+        if (Array.isArray(list) && list.length > 0) {
+          setFaqs(list);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="relative w-full text-[var(--text-heading)] pb-16 select-none">
@@ -48,7 +67,7 @@ export default function SupportPage() {
         }}
       />
 
-      {/* ── Support Agent Headset Illustration matching Screenshot 2 ── */}
+      {/* ── Support Agent Headset Illustration ── */}
       <div className="flex justify-center mb-6">
         <div className="w-24 h-24 flex items-center justify-center">
           <svg
@@ -88,7 +107,7 @@ export default function SupportPage() {
         </div>
       </div>
 
-      {/* ── Title Heading matching Screenshot 2 ── */}
+      {/* ── Title Heading ── */}
       <div className="text-center mb-10">
         <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-heading)] leading-snug">
           Hello, How can we
@@ -97,7 +116,7 @@ export default function SupportPage() {
         </h2>
       </div>
 
-      {/* ── Support Options Card matching Screenshot 2 ── */}
+      {/* ── Support Options Card ── */}
       <div className="rounded-[28px] bg-[var(--bg-card)] border border-[var(--border-color)] p-6 shadow-xs space-y-6 transition-colors">
         {/* Contact Live Chat */}
         <Link
@@ -150,8 +169,8 @@ export default function SupportPage() {
           {/* Expanded FAQs List */}
           {faqsOpen && (
             <div className="pt-4 pl-9 space-y-4 border-t border-zinc-100 dark:border-zinc-800/80 mt-4 transition-all animate-in fade-in">
-              {FAQS.map((faq, idx) => (
-                <div key={idx} className="space-y-1">
+              {faqs.map((faq, idx) => (
+                <div key={faq.id || idx} className="space-y-1">
                   <p className="text-[13px] font-semibold text-[var(--text-heading)]">
                     {faq.q}
                   </p>

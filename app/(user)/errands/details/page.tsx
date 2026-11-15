@@ -5,8 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
-  CheckCircle2,
-  ChevronRight,
   Clock,
   Camera,
   Receipt,
@@ -27,19 +25,19 @@ export default function ErrandDetailsPage() {
 
   // Form State
   const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
+  const [pickupAddress, setPickupAddress] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [timeWindow, setTimeWindow] = useState("Today • afternoon");
   const [selectedPropertyId, setSelectedPropertyId] = useState(initialPropertyId);
   const [properties, setProperties] = useState<PropertyOption[]>([]);
   const [loadingProps, setLoadingProps] = useState(false);
 
-  // Custom Modular Toggles (No native HTML checkboxes)
+  // Additional Options Toggles
   const [isExpress, setIsExpress] = useState(false);
   const [needsPhotos, setNeedsPhotos] = useState(true);
   const [collectReceipt, setCollectReceipt] = useState(false);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [createdTaskId, setCreatedTaskId] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   // Load properties
   useEffect(() => {
@@ -61,8 +59,8 @@ export default function ErrandDetailsPage() {
             const matched = json.data.find(
               (p: PropertyOption) => p.id === initialPropertyId
             );
-            if (matched && !location) {
-              setLocation(matched.address);
+            if (matched && !pickupAddress) {
+              setPickupAddress(matched.address);
             }
           }
         }
@@ -73,70 +71,85 @@ export default function ErrandDetailsPage() {
       }
     }
     loadProperties();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPropertyId]);
 
   // Pricing calculation
-  const baseFee = 12000;
+  const BASE_FEE = 12000;
   const expressFee = isExpress ? 3000 : 0;
-  const totalFee = baseFee + expressFee;
+  const totalFee = BASE_FEE + expressFee;
 
-  const canSubmit = description.trim().length >= 3 && location.trim().length >= 3;
+  // For non-document-delivery types, deliveryAddress is not required
+  const isDocumentDelivery = selectedOption.id === "document-delivery";
+  const locationValue = isDocumentDelivery ? pickupAddress : pickupAddress;
 
-  const handleSendRequest = async () => {
-    if (!canSubmit || isSubmitting) return;
+  const canSubmit =
+    description.trim().length >= 3 &&
+    pickupAddress.trim().length >= 3 &&
+    (!isDocumentDelivery || deliveryAddress.trim().length >= 3);
 
-    setIsSubmitting(true);
-    try {
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("oversite_token")
-          : null;
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      let instructions = description.trim();
-      if (needsPhotos) {
-        instructions += selectedOption.id === "building-material"
+  // Build instructions string from form state (used in checkout)
+  function buildInstructions(): string {
+    let instructions = description.trim();
+    if (needsPhotos) {
+      instructions +=
+        selectedOption.id === "building-material"
           ? "\n[Requirement: Photo verification of merchant price boards & available stock]"
           : "\n[Requirement: Real-time photo & video verification]";
-      }
-      if (collectReceipt) {
-        instructions += selectedOption.id === "building-material"
+    }
+    if (collectReceipt) {
+      instructions +=
+        selectedOption.id === "building-material"
           ? "\n[Requirement: Collect written supplier price quotation sheet]"
           : "\n[Requirement: Collect physical merchant receipt / invoice]";
-      }
-
-      const res = await fetch("/api/v1/tasks/quick-errands", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          title: selectedOption.title,
-          categoryId: selectedOption.id,
-          location: location.trim(),
-          instructions,
-          priceNgn: totalFee,
-          propertyId: selectedPropertyId || undefined,
-          isExpress,
-        }),
-      });
-
-      const json = await res.json();
-      if (json.success) {
-        setCreatedTaskId(json.data?.id || "task-errand");
-      } else {
-        setCreatedTaskId("errand-" + Date.now().toString().slice(-4));
-      }
-      setShowSuccessModal(true);
-    } catch (err) {
-      console.error("Error creating quick errand:", err);
-      setCreatedTaskId("errand-" + Date.now().toString().slice(-4));
-      setShowSuccessModal(true);
-    } finally {
-      setIsSubmitting(false);
     }
+    return instructions;
+  }
+
+  const handleReviewOrder = () => {
+    if (!canSubmit || isNavigating) return;
+    setIsNavigating(true);
+
+    const checkoutData = {
+      errandTypeId: selectedOption.id,
+      errandTitle: selectedOption.title,
+      errandSubtitle: selectedOption.subtitle,
+      propertyId: selectedPropertyId || null,
+      propertyLabel: selectedPropertyId
+        ? properties.find((p) => p.id === selectedPropertyId)?.address || "Linked property"
+        : "None (Standalone errand without property link)",
+      pickupAddress: pickupAddress.trim(),
+      deliveryAddress: isDocumentDelivery ? deliveryAddress.trim() : "",
+      timeWindow,
+      instructions: buildInstructions(),
+      description: description.trim(),
+      isExpress,
+      needsPhotos,
+      collectReceipt,
+      baseFee: BASE_FEE,
+      expressFee,
+      processingFee: 100,
+      totalFee: totalFee + 100, // base + express + processing
+    };
+
+    try {
+      sessionStorage.setItem("errand_checkout", JSON.stringify(checkoutData));
+    } catch {
+      // sessionStorage unavailable — pass via URL param (safe truncation)
+    }
+
+    router.push("/errands/checkout");
   };
+
+  const TIME_WINDOWS = [
+    "Today • morning",
+    "Today • afternoon",
+    "Today • evening",
+    "Tomorrow • morning",
+    "Tomorrow • afternoon",
+    "Tomorrow • evening",
+    "This week (flexible)",
+  ];
 
   return (
     <div className="max-w-xl mx-auto min-h-[calc(100dvh-150px)] md:min-h-[calc(100vh-80px)] flex flex-col justify-between relative px-2 sm:px-4 animate-in fade-in duration-200">
@@ -156,7 +169,7 @@ export default function ErrandDetailsPage() {
           </h1>
         </div>
 
-        {/* ── Selected Errand Card (Matches Figma Style) ── */}
+        {/* ── Selected Errand Card ── */}
         <div className="mb-5 rounded-md p-3 bg-[#F4F6F4] dark:bg-[var(--bg-card)] border-2 border-[var(--primary)] shadow-sm">
           <div className="flex items-start justify-between">
             <div>
@@ -184,7 +197,7 @@ export default function ErrandDetailsPage() {
             selectedPropertyId={selectedPropertyId}
             onSelect={(prop) => {
               setSelectedPropertyId(prop?.id || "");
-              if (prop) setLocation(prop.address);
+              if (prop) setPickupAddress(prop.address);
             }}
             allowNone={true}
             noneLabel="None (Standalone errand without property link)"
@@ -193,11 +206,75 @@ export default function ErrandDetailsPage() {
           />
         </div>
 
-
-
         {/* ── Form Fields ── */}
         <div className="space-y-4">
-          {/* Field 1: Description & Instructions */}
+
+          {/* Pickup Address */}
+          <div>
+            <label className="block text-[13px] font-medium text-[var(--text-heading)] mb-2">
+              {isDocumentDelivery ? "Pickup Address" : (
+                selectedOption.id === "building-material"
+                  ? "Target Market / Supplier Location"
+                  : "Errand Location / Address"
+              )}
+            </label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+              <input
+                type="text"
+                value={pickupAddress}
+                onChange={(e) => setPickupAddress(e.target.value)}
+                placeholder={
+                  isDocumentDelivery
+                    ? "e.g. 14 Admiralty Way, Lekki Phase 1"
+                    : selectedOption.locationPlaceholder
+                }
+                className="w-full bg-[#F4F6F4] dark:bg-[var(--bg-card)] rounded-md pl-9 pr-4 py-3.5 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] border border-[var(--border-color)]/60 focus:border-[var(--primary)] focus:outline-none transition-colors shadow-xs"
+              />
+            </div>
+          </div>
+
+          {/* Delivery Address — only for document-delivery */}
+          {isDocumentDelivery && (
+            <div>
+              <label className="block text-[13px] font-medium text-[var(--text-heading)] mb-2">
+                Delivery Address
+              </label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] opacity-60" />
+                <input
+                  type="text"
+                  value={deliveryAddress}
+                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                  placeholder="e.g. Lands Bureau, Alausa Secretariat, Ikeja"
+                  className="w-full bg-[#F4F6F4] dark:bg-[var(--bg-card)] rounded-md pl-9 pr-4 py-3.5 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] border border-[var(--border-color)]/60 focus:border-[var(--primary)] focus:outline-none transition-colors shadow-xs"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Time Window */}
+          <div>
+            <label className="block text-[13px] font-medium text-[var(--text-heading)] mb-2">
+              Time Window
+            </label>
+            <div className="relative">
+              <select
+                value={timeWindow}
+                onChange={(e) => setTimeWindow(e.target.value)}
+                className="w-full appearance-none bg-[#F4F6F4] dark:bg-[var(--bg-card)] rounded-md px-4 py-3.5 text-[14px] text-[var(--text-heading)] border border-[var(--border-color)]/60 focus:border-[var(--primary)] focus:outline-none transition-colors shadow-xs cursor-pointer"
+              >
+                {TIME_WINDOWS.map((tw) => (
+                  <option key={tw} value={tw}>{tw}</option>
+                ))}
+              </select>
+              <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Description / Instructions */}
           <div>
             <label className="block text-[13px] font-medium text-[var(--text-heading)] mb-2">
               {selectedOption.label}
@@ -211,36 +288,22 @@ export default function ErrandDetailsPage() {
             />
           </div>
 
-          {/* Field 2: Errand Location / Address */}
-          <div>
-            <label className="block text-[13px] font-medium text-[var(--text-heading)] mb-2">
-              {selectedOption.id === "building-material"
-                ? "Target Market / Supplier Location"
-                : "Errand Location / Address"}
-            </label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder={selectedOption.locationPlaceholder}
-              className="w-full bg-[#F4F6F4] dark:bg-[var(--bg-card)] rounded-md px-4 py-3.5 text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] border border-[var(--border-color)]/60 focus:border-[var(--primary)] focus:outline-none transition-colors shadow-xs"
-            />
-          </div>
-
-          {/* ── Custom Toggle Switches (No Native HTML Checkboxes) ── */}
+          {/* ── Additional Options ── */}
           <div className="p-3 rounded-md bg-[#F4F6F4] dark:bg-[var(--bg-card)] border border-[var(--border-color)]/60 space-y-4 shadow-xs">
             <span className="block text-[11.5px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
               Additional Options
             </span>
 
-            {/* Toggle 1: Express Priority Turnaround */}
+            {/* Toggle 1: Express Priority */}
             <div className="flex items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <span className="text-[13.5px] font-semibold text-[var(--text-heading)] flex items-center gap-1.5">
                   <Clock className="w-5 h-5 text-amber-500" />
                   <span>Urgent/Expedite Inquiry (+₦3,000)</span>
                 </span>
-
+                <p className="text-[11.5px] text-[var(--text-muted)]">
+                  Priority queue allocation with field turnaround under 2 hours.
+                </p>
               </div>
               <button
                 type="button"
@@ -273,7 +336,7 @@ export default function ErrandDetailsPage() {
                 <p className="text-[11.5px] text-[var(--text-muted)]">
                   {selectedOption.id === "building-material"
                     ? "Agent captures photos of merchant price boards and material stock"
-                    : "Agent captures geo-tagged photos and video evidence on site"}
+                    : "Field manager captures high-definition, GPS-stamped visual proofs."}
                 </p>
               </div>
               <button
@@ -293,7 +356,7 @@ export default function ErrandDetailsPage() {
 
             <div className="border-b border-[var(--border-color)]/60" />
 
-            {/* Toggle 3: Written Quote Sheet or Receipt */}
+            {/* Toggle 3: Receipt Collection */}
             <div className="flex items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <span className="text-[13.5px] font-semibold text-[var(--text-heading)] flex items-center gap-1.5">
@@ -307,7 +370,7 @@ export default function ErrandDetailsPage() {
                 <p className="text-[11.5px] text-[var(--text-muted)]">
                   {selectedOption.id === "building-material"
                     ? "Oversite obtains a written, itemized quotation sheet from dealers"
-                    : "Obtain stamped merchant receipt or signed delivery waybill"}
+                    : "Physical stamped receipt will be scanned and archived in Document Vault."}
                 </p>
               </div>
               <button
@@ -328,7 +391,7 @@ export default function ErrandDetailsPage() {
         </div>
       </div>
 
-      {/* ── Bottom Sticky Bar: Send Request ── */}
+      {/* ── Bottom Sticky Bar ── */}
       <div className="pt-6 pb-4 sticky bottom-[68px] md:bottom-0 bg-[var(--bg-body)]/95 backdrop-blur-md z-40 mt-6 border-t border-[var(--border-color)] -mx-2 sm:-mx-4 px-2 sm:px-4">
         <div className="flex items-center justify-between mb-3 px-1">
           <span className="text-[14px] font-medium text-[var(--text-muted)]">
@@ -340,64 +403,15 @@ export default function ErrandDetailsPage() {
         </div>
 
         <button
-          id="send-errand-request-btn"
+          id="review-errand-order-btn"
           type="button"
-          disabled={!canSubmit || isSubmitting}
-          onClick={handleSendRequest}
+          disabled={!canSubmit || isNavigating}
+          onClick={handleReviewOrder}
           className="w-full py-4 rounded-full bg-[var(--primary)] hover:bg-[#23993e] text-white font-bold text-[16px] transition-all duration-200 shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSubmitting ? "Dispatching agent..." : "Send request"}
+          {isNavigating ? "Loading review..." : "Send request"}
         </button>
       </div>
-
-      {/* ── Success Confirmation Modal ── */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-xs transition-opacity animate-in fade-in"
-            onClick={() => setShowSuccessModal(false)}
-          />
-          <div className="relative w-full max-w-sm bg-[var(--bg-card)] border border-[var(--border-color)] rounded-3xl p-6 shadow-2xl text-center animate-in zoom-in-95 duration-200 z-10">
-            <div className="w-14 h-14 rounded-full bg-[var(--primary)]/15 text-[var(--primary)] flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="w-8 h-8" />
-            </div>
-
-            <h2 className="text-[18px] font-bold text-[var(--text-heading)]">
-              Errand Request Submitted!
-            </h2>
-            <p className="text-[12.5px] text-[var(--text-muted)] mt-2 leading-relaxed">
-              {selectedOption.id === "building-material" ? (
-                "Your field agent is being mobilized to survey merchant pricing and gather verified quotations."
-              ) : (
-                <>
-                  Your ground agent is being mobilized for{" "}
-                  <span className="font-semibold text-[var(--text-heading)]">
-                    {selectedOption.title}
-                  </span>
-                  .
-                </>
-              )}
-            </p>
-
-            <div className="mt-6 space-y-2">
-              <Link
-                href="/dashboard/tasks"
-                className="w-full py-3 rounded-full bg-[var(--primary)] hover:bg-[#23993e] text-white font-bold text-[14px] flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[var(--primary)]/20 cursor-pointer active:scale-95"
-              >
-                <span>Track Live Progress</span>
-                <ChevronRight className="w-4 h-4" />
-              </Link>
-              <button
-                type="button"
-                onClick={() => router.push("/dashboard")}
-                className="w-full py-2.5 rounded-full text-[13px] font-semibold text-[var(--text-heading)] bg-[var(--bg-secondary)] hover:bg-[var(--border-color)] border border-[var(--border-color)] transition-colors cursor-pointer"
-              >
-                Back to Dashboard
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

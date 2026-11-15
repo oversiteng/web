@@ -65,7 +65,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
         docs.proofOfAddress
       );
     // 5. Background Check & Compliance Consent
-    const isConsentSigned = Boolean(u.consentSignedAt);
+    const isConsentSigned = Boolean(u.consentSignedAt || docs.background_check);
     // 6. Bank Account Configured for Payouts
     const isBankConfigured = Boolean(profile?.bankCode && profile?.bankAccountNumber);
 
@@ -114,7 +114,6 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
       isBankConfigured,
     ].filter(Boolean).length;
 
-    // Calculate next required step
     let currentStep = 1;
     if (!isPhoneVerified) currentStep = 1;
     else if (!isNinVerified) currentStep = 2;
@@ -125,6 +124,14 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
     else currentStep = 6;
 
     const isFullyAccredited = completedStepsCount === 6 && u.kycStatus === "VERIFIED";
+
+    // Filter out internal non-document keys like withdrawalPinHash
+    const sanitizedDocuments: Record<string, any> = {};
+    for (const [key, val] of Object.entries(docs)) {
+      if (key !== "withdrawalPinHash" && key !== "withdrawalPinUpdatedAt") {
+        sanitizedDocuments[key] = val;
+      }
+    }
 
     return NextResponse.json<ApiResponse<any>>({
       success: true,
@@ -141,6 +148,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
         isFullyAccredited,
         pipelineProgressPct: Math.round((completedStepsCount / 6) * 100),
         steps,
+        documents: sanitizedDocuments,
       },
       message: "Aggregated 6-step operative accreditation pipeline retrieved successfully.",
     });

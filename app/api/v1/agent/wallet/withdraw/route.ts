@@ -2,16 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
 import { getDbReady } from "@/lib/db/client";
-import { agentWallets, agentProfiles, payoutTransactions, notifications } from "@/db/schema";
+import { agentWallets, agentProfiles, payoutTransactions, notifications, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
+
+function hashPin(pin: string, userId: string): string {
+  return crypto.createHash("sha256").update(`oversite_pin:${userId}:${pin}`).digest("hex");
+}
 
 // POST /api/v1/agent/wallet/withdraw — Operative Bank Withdrawal Execution
 export const POST = withAuth(
   async (req: NextRequest, { user }) => {
     try {
       const body = await req.json().catch(() => ({}));
-      const { amountNgn, bankCode, accountNumber } = body;
+      const { amountNgn, bankCode, accountNumber, pin } = body;
 
       const numAmount = Number(amountNgn);
       if (!amountNgn || isNaN(numAmount) || numAmount < 1000) {
@@ -28,6 +32,43 @@ export const POST = withAuth(
       }
 
       const db = await getDbReady();
+
+      // Verify operative security PIN if configured on user record
+      const userRows = await db
+        .select({ accreditationDocuments: users.accreditationDocuments })
+        .from(users)
+        .where(eq(users.id, user.sub))
+        .limit(1);
+
+      const userDocs = (userRows[0]?.accreditationDocuments as Record<string, any>) || {};
+      if (userDocs.withdrawalPinHash) {
+        if (!pin || typeof pin !== "string" || !/^\d{4}$/.test(pin.trim())) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: "PIN_REQUIRED",
+                message: "Your 4-digit withdrawal security PIN is required.",
+              },
+            },
+            { status: 403 }
+          );
+        }
+
+        const candidateHash = hashPin(pin.trim(), user.sub);
+        if (candidateHash !== userDocs.withdrawalPinHash) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: "INVALID_PIN",
+                message: "Incorrect withdrawal security PIN. Please try again.",
+              },
+            },
+            { status: 403 }
+          );
+        }
+      }
 
       // 1. Fetch wallet
       const wallets = await db

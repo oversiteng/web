@@ -1,5 +1,7 @@
 // ─── User & Agent Type Definitions ──────────────────────────────────────────
 
+import type { AdminPolicy } from "@/lib/auth/adminPermissions";
+
 export type UserRole = "USER" | "AGENT" | "ADMIN" | "SUPER_ADMIN";
 export type KycStatus = "PENDING" | "SUBMITTED" | "VERIFIED" | "REJECTED";
 export type AgentTier =
@@ -18,6 +20,7 @@ export interface UserProfile {
   kycStatus: KycStatus;
   avatarUrl?: string | null;
   isActive: boolean;
+  adminPolicy?: AdminPolicy | null;
   createdAt: string;
   updatedAt?: string;
 }
