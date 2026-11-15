@@ -58,14 +58,15 @@ jobs:
             echo "AWS_REGION=$AWS_REG" >> .env.local
           fi
 
-      - name: Copy env file to VPS
+      - name: Copy project files and env to VPS
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: ".env.local"
+          source: "."
           target: /home/ubuntu/oversite-dev
+          tar: true
 
       - name: SSH into VPS and Deploy
         uses: appleboy/ssh-action@master
@@ -77,11 +78,6 @@ jobs:
           script: |
             set -e
             cd /home/ubuntu/oversite-dev
-
-            # Authenticate git with ephemeral Actions token to fetch private repo
-            git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-            git fetch origin ${{ github.ref_name }}
-            git reset --hard origin/${{ github.ref_name }}
 
             sudo docker compose -f docker-compose.dev.yml up -d --build web
 
