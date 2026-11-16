@@ -404,7 +404,7 @@ export default function AgentDashboardPage() {
         </div>
 
         {/* Day Carousel: Red (Today) -> Orange (Tmrw) -> Yellow -> Lime -> Teal -> Green */}
-        <div className="grid grid-cols-6 gap-2">
+        <div className="flex sm:grid sm:grid-cols-6 gap-2 sm:gap-2.5 overflow-x-auto sm:overflow-visible no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 py-1">
           {daysSchedule.map((item, idx) => {
             const isSelected = selectedDay === item.day;
             const theme = URGENCY_SPECTRUM[idx] || URGENCY_SPECTRUM[5];
@@ -418,7 +418,11 @@ export default function AgentDashboardPage() {
                   setSelectedDay(item.day);
                   setIsDayScheduleDrawerOpen(true);
                 }}
-                className={`py-3 px-1.5 sm:py-4 sm:px-2 rounded-2xl flex flex-col items-center justify-between min-h-[114px] sm:min-h-[124px] transition-all cursor-pointer relative bg-[var(--bg-card)] shadow-xs ${isSelected ? `border-2 shadow-md ${theme.border}` : ""}`}
+                className={`w-[78px] sm:w-auto shrink-0 sm:shrink snap-start py-3 px-2 sm:py-4 sm:px-2.5 rounded-2xl flex flex-col items-center justify-between min-h-[114px] sm:min-h-[124px] transition-all cursor-pointer relative bg-[var(--bg-card)] shadow-xs ${
+                  isSelected
+                    ? `border-2 shadow-md ${theme.border} ring-2 ring-[var(--text-heading)]/15`
+                    : "border border-[var(--border-color)]/70 hover:border-[var(--primary-border)]"
+                }`}
               >
                 <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                   {item.day}
