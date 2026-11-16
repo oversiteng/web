@@ -1,14 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, extractBearerToken } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
-import { listUserSessions, revokeAllOtherSessions, ActiveSessionDto } from "@/lib/auth/sessionManager";
+import { listUserSessions, revokeAllOtherSessions, createSession, ActiveSessionDto } from "@/lib/auth/sessionManager";
 
 export const runtime = "nodejs";
 
 export const GET = withAuth(async (req: NextRequest, { user }) => {
   try {
     const currentToken = extractBearerToken(req) || undefined;
-    const sessions = await listUserSessions(user.sub, currentToken);
+    let sessions = await listUserSessions(user.sub, currentToken);
+
+    // If no active sessions exist yet or none match current device token (e.g. user was logged in before session tracking was created),
+    // automatically register this active device session on-the-fly.
+    const hasCurrent = sessions.some((s) => s.isCurrent);
+    if ((sessions.length === 0 || !hasCurrent) && currentToken) {
+      await createSession({
+        userId: user.sub,
+        req,
+        token: currentToken,
+        userEmail: user.email,
+        userName: user.name,
+      });
+      sessions = await listUserSessions(user.sub, currentToken);
+    }
 
     return NextResponse.json({
       success: true,
@@ -49,4 +63,3 @@ export const DELETE = withAuth(async (req: NextRequest, { user }) => {
     );
   }
 });
-

@@ -32,6 +32,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       "GUARANTOR_FORM",
       "GOVERNMENT_ID",
       "CAC_CERTIFICATE",
+      "INVESTIGATION_CERTIFICATE",
       "BAR_PRACTICING_LICENSE",
       "BACKGROUND_CHECK",
     ];
@@ -85,12 +86,15 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
 
     const isAddressDoc = ["UTILITY_BILL", "PROOF_OF_ADDRESS"].includes(normalizedType);
     const isBackgroundDoc = normalizedType === "BACKGROUND_CHECK";
+    const isPassportPhoto = normalizedType === "PASSPORT_PHOTO";
 
     await db
       .update(users)
       .set({
         accreditationDocuments: updatedDocs,
         addressVerificationStatus: isAddressDoc ? "submitted" : currentUser.addressVerificationStatus,
+        address: isAddressDoc && metadata?.residentialAddress ? String(metadata.residentialAddress).trim() : currentUser.address,
+        avatarUrl: isPassportPhoto && fileRef.startsWith("http") ? fileRef : currentUser.avatarUrl,
         consentSignedAt: isBackgroundDoc && !currentUser.consentSignedAt ? now : currentUser.consentSignedAt,
         updatedAt: now,
       })

@@ -174,6 +174,12 @@ export default function AgentDashboardPage() {
   const [showComplianceModal, setShowComplianceModal] = useState(false);
   const [showRemarkModal, setShowRemarkModal] = useState(false);
   const [remarkText, setRemarkText] = useState("");
+  const [kycData, setKycData] = useState<{
+    verifiedCount: number;
+    submittedOrVerifiedCount: number;
+    isFullyAccredited: boolean;
+    checklist: Array<{ id: string; title: string; status: string }>;
+  } | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -187,10 +193,23 @@ export default function AgentDashboardPage() {
         const headers: Record<string, string> = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        const [walletRes, tasksRes] = await Promise.all([
+        const [walletRes, tasksRes, kycRes] = await Promise.all([
           fetch("/api/v1/agent/wallet", { credentials: "include", headers }).catch(() => null),
           fetch("/api/v1/tasks", { credentials: "include", headers }).catch(() => null),
+          fetch("/api/v1/kyc/status", { credentials: "include", headers }).catch(() => null),
         ]);
+
+        if (kycRes && kycRes.ok) {
+          const kJson = await kycRes.json();
+          if (kJson.success && kJson.data) {
+            setKycData({
+              verifiedCount: kJson.data.verifiedCount ?? 0,
+              submittedOrVerifiedCount: kJson.data.submittedOrVerifiedCount ?? 0,
+              isFullyAccredited: Boolean(kJson.data.isFullyAccredited),
+              checklist: kJson.data.verificationChecklist || [],
+            });
+          }
+        }
 
         if (walletRes && walletRes.ok) {
           const wJson = await walletRes.json();
@@ -352,11 +371,17 @@ export default function AgentDashboardPage() {
       {showTaxBanner && (
         <div className="bg-[var(--bg-card)] border border-[var(--primary-border)] rounded-[24px] p-3.5 sm:p-4 flex items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,0,0,0.03)]">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-2xl bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center shrink-0">
-              <Shield className="w-4 h-4" />
+            <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${kycData?.isFullyAccredited ? "bg-emerald-500/10 text-emerald-500" : "bg-[var(--primary-light)] text-[var(--primary)]"}`}>
+              {kycData?.isFullyAccredited ? <CheckCircle2 className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
             </div>
             <div className="text-xs text-[var(--text-body)] leading-snug">
-              <span>Ensure your biometric NIN and physical address verifications are current to unlock priority dispatch. </span>
+              {kycData?.isFullyAccredited ? (
+                <span>Field Accreditation Verified (6/6 completed). Your account is fully active for priority field dispatch. </span>
+              ) : (
+                <span>
+                  Accreditation in progress ({kycData?.submittedOrVerifiedCount || 0}/6 items completed). Ensure your NIN, passport photo, and address verifications are submitted to unlock priority dispatch.{" "}
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => setShowComplianceModal(true)}
@@ -404,7 +429,7 @@ export default function AgentDashboardPage() {
         </div>
 
         {/* Day Carousel: Red (Today) -> Orange (Tmrw) -> Yellow -> Lime -> Teal -> Green */}
-        <div className="flex sm:grid sm:grid-cols-6 gap-2 sm:gap-2.5 overflow-x-auto sm:overflow-visible no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 py-1">
+        <div className="flex sm:grid sm:grid-cols-6 gap-2 sm:gap-2.5 overflow-x-auto sm:overflow-visible no-scrollbar snap-x snap-mandatory -mx-2 px-4 sm:mx-0 sm:px-0 py-1">
           {daysSchedule.map((item, idx) => {
             const isSelected = selectedDay === item.day;
             const theme = URGENCY_SPECTRUM[idx] || URGENCY_SPECTRUM[5];
@@ -1005,25 +1030,48 @@ export default function AgentDashboardPage() {
               </button>
             </div>
 
-            <div className="space-y-2 text-xs">
-              <div className="p-3 rounded-2xl bg-[var(--bg-secondary)] flex items-center justify-between">
-                <span>NIN Identity Slip</span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Verified
-                </span>
-              </div>
-              <div className="p-3 rounded-2xl bg-[var(--bg-secondary)] flex items-center justify-between">
-                <span>Proof of Address</span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Verified
-                </span>
-              </div>
-              <div className="p-3 rounded-2xl bg-[var(--bg-secondary)] flex items-center justify-between">
-                <span>Guarantor Form</span>
-                <span className="font-semibold text-[var(--warning)] flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" /> In Review
-                </span>
-              </div>
+            <div className="space-y-2 text-xs max-h-[60vh] overflow-y-auto pr-1">
+              {(kycData?.checklist && kycData.checklist.length > 0
+                ? kycData.checklist
+                : [
+                    { id: "nin-slip", title: "NIN Verification", status: "awaiting" },
+                    { id: "passport-photo", title: "Passport photograph", status: "awaiting" },
+                    { id: "proof-of-address", title: "Proof of address", status: "awaiting" },
+                    { id: "guarantor-form", title: "Guarantor form", status: "awaiting" },
+                    { id: "investigation-cert", title: "Investigation certificate", status: "awaiting" },
+                    { id: "background-check", title: "Background check", status: "awaiting" },
+                  ]
+              ).map((item) => {
+                const isVerified = item.status === "verified";
+                const isReviewing = item.status === "reviewing";
+                const isRejected = item.status === "rejected";
+
+                return (
+                  <div
+                    key={item.id}
+                    className="p-3 rounded-2xl bg-[var(--bg-secondary)] flex items-center justify-between"
+                  >
+                    <span className="font-medium text-[var(--text-heading)]">{item.title}</span>
+                    {isVerified ? (
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Verified
+                      </span>
+                    ) : isReviewing ? (
+                      <span className="font-semibold text-[var(--warning)] flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" /> In Review
+                      </span>
+                    ) : isRejected ? (
+                      <span className="font-semibold text-red-500 flex items-center gap-1">
+                        <X className="w-3.5 h-3.5" /> Re-upload
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-[var(--text-muted)] flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" /> Awaiting
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="pt-2 flex items-center gap-2">

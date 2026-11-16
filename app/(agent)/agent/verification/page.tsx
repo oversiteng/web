@@ -9,14 +9,19 @@ import {
   validateAgentUploadFile,
 } from "@/lib/storage/agentUpload";
 import {
-  Plus,
+  ArrowLeft,
+  Camera,
+  Upload,
+  Download,
   Check,
+  CheckCircle2,
   Clock,
   X,
-  Upload,
-  FileText,
-  CheckCircle2,
   Loader2,
+  Plus,
+  FileText,
+  Shield,
+  RotateCcw,
 } from "lucide-react";
 
 type VerificationStatus = "awaiting" | "verified" | "reviewing" | "rejected";
@@ -33,17 +38,15 @@ interface VerificationItem {
   title: string;
   subtitle: string;
   status: VerificationStatus;
-  requiresNinInput?: boolean;
 }
 
 const INITIAL_VERIFICATION_ITEMS: VerificationItem[] = [
   {
     id: "nin-slip",
     docType: "GOVERNMENT_ID",
-    title: "NIN Slip",
+    title: "NIN Verification",
     subtitle: "Awaiting submission",
     status: "awaiting",
-    requiresNinInput: true,
   },
   {
     id: "passport-photo",
@@ -95,93 +98,109 @@ function formatShortDate(isoDate?: string | null): string {
 
 export default function AgentVerificationPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const selfieInputRef = useRef<HTMLInputElement>(null);
 
   const [items, setItems] = useState<VerificationItem[]>(INITIAL_VERIFICATION_ITEMS);
   const [activeItem, setActiveItem] = useState<VerificationItem | null>(null);
+
+  // Form field states for the 6 specific screens
   const [ninInput, setNinInput] = useState("");
+  const [residentialAddress, setResidentialAddress] = useState("");
+  const [guarantorName, setGuarantorName] = useState("");
+  const [guarantorPhone, setGuarantorPhone] = useState("");
+  const [issuingBody, setIssuingBody] = useState("");
+  const [certNumber, setCertNumber] = useState("");
+  const [certIssuedDate, setCertIssuedDate] = useState("");
+  const [certExpiryDate, setCertExpiryDate] = useState("");
+  const [backgroundConsent, setBackgroundConsent] = useState(true);
+
+  // Upload & capture states
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [selectedPreviewUrl, setSelectedPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [modalError, setModalError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
-  useEffect(() => {
-    async function syncLiveKycStatus() {
-      try {
-        const token = await getStoredToken();
-        if (!token) return;
+  const syncLiveKycStatus = async () => {
+    try {
+      const token = await getStoredToken();
+      if (!token) return;
 
-        const res = await fetch("/api/v1/kyc/status", {
-          credentials: "include",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return;
+      const res = await fetch("/api/v1/kyc/status", {
+        credentials: "include",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
 
-        const json = await res.json();
-        const steps = json?.data?.steps || {};
-        const docs: Record<string, any> = json?.data?.documents || {};
+      const json = await res.json();
+      const steps = json?.data?.steps || {};
+      const docs: Record<string, any> = json?.data?.documents || {};
 
-        setItems((prev) =>
-          prev.map((item) => {
-            const docKey = item.docType.toLowerCase();
-            const docEntry =
-              docs[docKey] ||
-              (item.docType === "PROOF_OF_ADDRESS" ? docs["utility_bill"] : undefined);
-
-            if (docEntry) {
-              const rawStatus = String(docEntry.status || "SUBMITTED").toUpperCase();
-              const dateLabel = formatShortDate(docEntry.uploadedAt);
-
-              if (rawStatus === "VERIFIED" || rawStatus === "APPROVED") {
-                return {
-                  ...item,
-                  status: "verified",
-                  subtitle: `Verified ${dateLabel}`,
-                };
-              }
-              if (rawStatus === "REJECTED") {
-                return {
-                  ...item,
-                  status: "rejected",
-                  subtitle: docEntry.rejectionReason
-                    ? `Rejected: ${docEntry.rejectionReason}`
-                    : "Rejected — please re-upload a clearer copy",
-                };
-              }
-              return {
-                ...item,
-                status: "reviewing",
-                subtitle: `Submitted ${dateLabel}`,
-              };
-            }
-
-            if (item.id === "nin-slip" && steps.step2IdentityNIN?.completed) {
+      setItems((prev) =>
+        prev.map((item) => {
+          let docEntry: any = null;
+          if (item.id === "nin-slip") {
+            docEntry = docs.government_id;
+            if (steps.step2IdentityNIN?.completed) {
               return { ...item, status: "verified", subtitle: "Verified via NIMC" };
             }
-            if (item.id === "proof-of-address" && steps.step4ProofOfAddress?.completed) {
+          } else if (item.id === "passport-photo") {
+            docEntry = docs.passport_photo;
+          } else if (item.id === "proof-of-address") {
+            docEntry = docs.proof_of_address || docs.utility_bill;
+            if (steps.step4ProofOfAddress?.completed) {
               return { ...item, status: "verified", subtitle: "Verified" };
             }
-            if (item.id === "background-check" && steps.step5ComplianceConsent?.completed) {
+          } else if (item.id === "guarantor-form") {
+            docEntry = docs.guarantor_form;
+          } else if (item.id === "investigation-cert") {
+            docEntry = docs.investigation_certificate || docs.cac_certificate;
+          } else if (item.id === "background-check") {
+            docEntry = docs.background_check;
+            if (steps.step5ComplianceConsent?.completed) {
               return {
                 ...item,
                 status: "verified",
                 subtitle: `Verified ${formatShortDate(steps.step5ComplianceConsent?.signedAt)}`,
               };
             }
-            return item;
-          })
-        );
-      } catch {
-        // Non-blocking fallback
-      }
-    }
+          }
 
+          if (docEntry) {
+            const rawStatus = String(docEntry.status || "SUBMITTED").toUpperCase();
+            const dateLabel = formatShortDate(docEntry.uploadedAt);
+
+            if (rawStatus === "VERIFIED" || rawStatus === "APPROVED") {
+              return { ...item, status: "verified", subtitle: `Verified ${dateLabel}` };
+            }
+            if (rawStatus === "REJECTED") {
+              return {
+                ...item,
+                status: "rejected",
+                subtitle: docEntry.rejectionReason
+                  ? `Rejected: ${docEntry.rejectionReason}`
+                  : "Rejected — please re-submit a clearer copy",
+              };
+            }
+            return { ...item, status: "reviewing", subtitle: `Submitted ${dateLabel}` };
+          }
+
+          return item;
+        })
+      );
+    } catch {
+      // Non-blocking fallback
+    }
+  };
+
+  useEffect(() => {
     syncLiveKycStatus();
   }, []);
 
@@ -191,33 +210,28 @@ export default function AgentVerificationPage() {
   const totalCount = items.length;
   const progressPct = Math.round((submittedOrVerifiedCount / totalCount) * 100);
 
-  const openItemModal = (item: VerificationItem) => {
-    if (item.status === "verified") {
-      showToast(`${item.title} is already verified.`);
-      return;
-    }
+  const openFlowScreen = (item: VerificationItem) => {
     setActiveItem(item);
-    setNinInput("");
     setSelectedFile(null);
     setSelectedFileName(null);
     setSelectedPreviewUrl(null);
-    setModalError(null);
+    setFormError(null);
   };
 
-  const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
 
     const validationError = validateAgentUploadFile(file, { allowPdf: true });
     if (validationError) {
-      setModalError(validationError);
+      setFormError(validationError);
       return;
     }
 
     setSelectedFile(file);
     setSelectedFileName(file.name);
-    setModalError(null);
+    setFormError(null);
 
     const isImage =
       file.type.startsWith("image/") ||
@@ -235,107 +249,807 @@ export default function AgentVerificationPage() {
     }
   };
 
-  const handleSubmitDocument = async (e: React.FormEvent) => {
+  const handleDownloadBlankForm = () => {
+    const element = document.createElement("a");
+    const content = `OVERSITE FIELD OPERATIVE GUARANTOR VERIFICATION FORM\n\nGuarantor Name: ___________________________\nGuarantor Phone: +234 _____________________\nGuarantor Occupation: _____________________\nGuarantor Address: ________________________\nRelationship to Agent: _____________________\n\nDeclaration: I confirm the applicant is known to me and of good character.\nSignature & Date: _________________________`;
+    const file = new Blob([content], { type: "text/plain" });
+    element.href = URL.createObjectURL(file);
+    element.download = "Oversite_Guarantor_Form.txt";
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    showToast("Downloaded blank guarantor form");
+  };
+
+  const handleSubmitFlow = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeItem) return;
-    setModalError(null);
+    setFormError(null);
 
-    if (activeItem.requiresNinInput) {
+    // Validation per flow
+    if (activeItem.id === "nin-slip") {
       if (!/^\d{11}$/.test(ninInput.trim())) {
-        setModalError("Please enter a valid 11-digit National Identity Number (NIN).");
+        setFormError("Please enter a valid 11-digit NIN.");
         return;
       }
-    } else if (!selectedFile) {
-      setModalError("Please choose a clear photo or PDF file to upload.");
-      return;
+      if (!selectedFile) {
+        setFormError("Please upload or snap your NIN slip.");
+        return;
+      }
+    } else if (activeItem.id === "passport-photo") {
+      if (!selectedFile) {
+        setFormError("Please take your passport photograph using the camera.");
+        return;
+      }
+    } else if (activeItem.id === "proof-of-address") {
+      if (!residentialAddress.trim()) {
+        setFormError("Please enter your residential address.");
+        return;
+      }
+      if (!selectedFile) {
+        setFormError("Please upload or snap a proof of address document.");
+        return;
+      }
+    } else if (activeItem.id === "guarantor-form") {
+      if (!guarantorName.trim()) {
+        setFormError("Please enter your guarantor's full name.");
+        return;
+      }
+      if (!guarantorPhone.trim() || guarantorPhone.trim().length < 8) {
+        setFormError("Please enter your guarantor's phone number.");
+        return;
+      }
+      if (!selectedFile) {
+        setFormError("Please upload or snap the completed guarantor form.");
+        return;
+      }
+    } else if (activeItem.id === "investigation-cert") {
+      if (!issuingBody.trim()) {
+        setFormError("Please enter the issuing body name.");
+        return;
+      }
+      if (!certNumber.trim()) {
+        setFormError("Please enter your certificate number.");
+        return;
+      }
+      if (!selectedFile) {
+        setFormError("Please upload or snap your investigation certificate.");
+        return;
+      }
+    } else if (activeItem.id === "background-check") {
+      if (!backgroundConsent) {
+        setFormError("You must permit OverSite to conduct background checks to continue.");
+        return;
+      }
     }
 
     setIsSubmitting(true);
 
     try {
-      const uploadedMedia = selectedFile
-        ? await uploadAgentMedia(selectedFile, "kyc")
-        : null;
-
-      const token = await getStoredToken();
-      if (token) {
-        const headers = {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        };
-
-        if (activeItem.requiresNinInput && /^\d{11}$/.test(ninInput.trim())) {
-          await fetch("/api/v1/kyc/verify/nin", {
-            method: "POST",
-            credentials: "include",
-            headers,
-            body: JSON.stringify({ ninNumber: ninInput.trim() }),
-          }).catch(() => null);
-        }
-
-        const supportedApiDocTypes = [
-          "UTILITY_BILL",
-          "PROOF_OF_ADDRESS",
-          "PASSPORT_PHOTO",
-          "GUARANTOR_FORM",
-          "GOVERNMENT_ID",
-          "CAC_CERTIFICATE",
-          "BAR_PRACTICING_LICENSE",
-          "BACKGROUND_CHECK",
-        ];
-
-        if (supportedApiDocTypes.includes(activeItem.docType)) {
-          await fetch("/api/v1/kyc/documents", {
-            method: "POST",
-            credentials: "include",
-            headers,
-            body: JSON.stringify({
-              documentType: activeItem.docType,
-              documentUrl:
-                uploadedMedia?.url ||
-                `kyc/${activeItem.id}/${selectedFileName || "nin-verified.pdf"}`,
-              metadata: {
-                fileName: uploadedMedia?.fileName || selectedFileName || "NIN Verification",
-                objectKey: uploadedMedia?.objectKey,
-                contentType: uploadedMedia?.contentType,
-                storedOnServer: uploadedMedia?.storedOnServer ?? false,
-                submittedAt: new Date().toISOString(),
-              },
-            }),
-          }).catch(() => null);
-        }
+      let uploadedMedia = null;
+      if (selectedFile) {
+        uploadedMedia = await uploadAgentMedia(selectedFile, "kyc");
       }
 
-      const nextStatus: VerificationStatus = activeItem.requiresNinInput
-        ? "verified"
-        : "reviewing";
-      const nextSubtitle = activeItem.requiresNinInput
-        ? "Verified Today"
-        : "Submitted Today";
+      const token = await getStoredToken();
+      if (!token) throw new Error("Authentication token not found.");
 
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === activeItem.id
-            ? { ...item, status: nextStatus, subtitle: nextSubtitle }
-            : item
-        )
-      );
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
 
-      showToast(
-        activeItem.requiresNinInput
-          ? "NIN verified and attached to your profile!"
-          : `${activeItem.title} submitted for review!`
-      );
+      // Specific API dispatches
+      if (activeItem.id === "nin-slip" && /^\d{11}$/.test(ninInput.trim())) {
+        await fetch("/api/v1/kyc/verify/nin", {
+          method: "POST",
+          credentials: "include",
+          headers,
+          body: JSON.stringify({ ninNumber: ninInput.trim() }),
+        }).catch(() => null);
+      }
+
+      if (activeItem.id === "background-check") {
+        await fetch("/api/v1/kyc/consent", {
+          method: "POST",
+          credentials: "include",
+          headers,
+          body: JSON.stringify({
+            consentBackgroundCheck: true,
+            consentTermsAndConditions: true,
+            signatureFullName: "Agent Field Consent",
+          }),
+        }).catch(() => null);
+      }
+
+      // Metadata compilation
+      const metadata: Record<string, any> = {
+        submittedAt: new Date().toISOString(),
+        fileName: uploadedMedia?.fileName || selectedFileName || `${activeItem.id}-submitted`,
+        objectKey: uploadedMedia?.objectKey,
+        contentType: uploadedMedia?.contentType,
+      };
+
+      if (activeItem.id === "proof-of-address") {
+        metadata.residentialAddress = residentialAddress.trim();
+      } else if (activeItem.id === "guarantor-form") {
+        metadata.guarantorName = guarantorName.trim();
+        metadata.guarantorPhone = `+234${guarantorPhone.trim()}`;
+      } else if (activeItem.id === "investigation-cert") {
+        metadata.issuingBody = issuingBody.trim();
+        metadata.certificateNumber = certNumber.trim();
+        metadata.issuedDate = certIssuedDate.trim();
+        metadata.expiryDate = certExpiryDate.trim();
+      }
+
+      // Ingest document into KYC
+      await fetch("/api/v1/kyc/documents", {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({
+          documentType: activeItem.docType,
+          documentUrl: uploadedMedia?.url || `kyc/${activeItem.id}/completed.pdf`,
+          metadata,
+        }),
+      });
+
+      showToast(`${activeItem.title} submitted successfully!`);
       setActiveItem(null);
-    } catch {
-      setModalError("Failed to upload document. Please try again.");
+      await syncLiveKycStatus();
+    } catch (err: any) {
+      setFormError(err?.message || "Failed to submit verification. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // ─────────────────────────────────────────────────────────────
+  // SUB-SCREEN 1: PROOF OF ADDRESS
+  // ─────────────────────────────────────────────────────────────
+  if (activeItem && activeItem.id === "proof-of-address") {
+    return (
+      <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setActiveItem(null)}
+            className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+          </button>
+          <h1 className="text-base font-bold text-[var(--text-heading)]">Proof of address</h1>
+        </div>
+
+        <form onSubmit={handleSubmitFlow} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-[var(--text-heading)] block">
+              Residential address
+            </label>
+            <input
+              type="text"
+              value={residentialAddress}
+              onChange={(e) => setResidentialAddress(e.target.value)}
+              placeholder="Enter your residential address"
+              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs"
+              required
+            />
+          </div>
+
+          {/* Checklist */}
+          <div className="space-y-2.5 pt-2">
+            <h3 className="text-xs font-bold text-[var(--text-heading)]">We accept any of these document</h3>
+            <div className="space-y-2 text-xs text-[var(--text-heading)]">
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Electricity bill</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Bank statement showing your name and address</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Water or waste bill</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Tenancy agreement signed with your name on it</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)] pt-1">
+              Note: Document must be dated within the last 3 months.
+            </p>
+          </div>
+
+          {/* Upload Document Box */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
+          >
+            <span className="text-xs font-semibold text-[var(--text-heading)]">
+              {selectedFileName ? selectedFileName : "Upload document"}
+            </span>
+            <Upload className="w-4 h-4 text-[var(--text-heading)]" />
+          </button>
+
+          {selectedPreviewUrl && (
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
+              <img src={selectedPreviewUrl} alt="Document preview" className="w-12 h-12 object-cover rounded-xl" />
+              <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
+            </div>
+          )}
+
+          {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
+
+          {/* Bottom Actions */}
+          <div className="flex items-center gap-3 pt-6">
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
+            >
+              <Camera className="w-4 h-4 text-[var(--text-heading)]" />
+              <span>Camera</span>
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 py-3 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SUB-SCREEN 2: BACKGROUND CHECK
+  // ─────────────────────────────────────────────────────────────
+  if (activeItem && activeItem.id === "background-check") {
+    return (
+      <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setActiveItem(null)}
+            className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+          </button>
+          <h1 className="text-base font-bold text-[var(--text-heading)]">Background check</h1>
+        </div>
+
+        <form onSubmit={handleSubmitFlow} className="space-y-6">
+          <div className="space-y-2.5">
+            <h3 className="text-xs font-bold text-[var(--text-heading)]">What we check</h3>
+            <div className="space-y-2 text-xs text-[var(--text-heading)]">
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Criminal record with the Nigeria Police Force</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>That your NIN and address is genuine</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Socials</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Green Consent Box */}
+          <div
+            onClick={() => setBackgroundConsent(!backgroundConsent)}
+            className="p-4 rounded-2xl border-2 border-[#48bb78] bg-[var(--bg-card)] flex items-start gap-3 cursor-pointer shadow-2xs"
+          >
+            <div
+              className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                backgroundConsent ? "bg-[#48bb78] text-white" : "border border-[var(--border-color)] bg-transparent"
+              }`}
+            >
+              {backgroundConsent && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+            </div>
+            <p className="text-xs font-semibold text-[var(--text-heading)] leading-relaxed">
+              I permit OverSite to run the checks described above, and confirm the information I&apos;ve given is true.
+            </p>
+          </div>
+
+          {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
+
+          <div className="pt-8">
+            <button
+              type="submit"
+              disabled={isSubmitting || !backgroundConsent}
+              className="w-full py-3.5 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SUB-SCREEN 3: NIN VERIFICATION
+  // ─────────────────────────────────────────────────────────────
+  if (activeItem && activeItem.id === "nin-slip") {
+    return (
+      <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setActiveItem(null)}
+            className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+          </button>
+          <h1 className="text-base font-bold text-[var(--text-heading)]">NIN Verification</h1>
+        </div>
+
+        <form onSubmit={handleSubmitFlow} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-[var(--text-heading)] block">Your 11-digit NIN</label>
+            <input
+              type="text"
+              maxLength={11}
+              value={ninInput}
+              onChange={(e) => setNinInput(e.target.value.replace(/\D/g, ""))}
+              placeholder="01234567890"
+              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs font-mono"
+              required
+            />
+          </div>
+
+          {/* Checklist */}
+          <div className="space-y-2.5 pt-2">
+            <h3 className="text-xs font-bold text-[var(--text-heading)]">Upload slip</h3>
+            <div className="space-y-2 text-xs text-[var(--text-heading)]">
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>The printed or digital NIN slip</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Photo, name and NIN all readable</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>No fingers covering any part of it</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Upload Document Box */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
+          >
+            <span className="text-xs font-semibold text-[var(--text-heading)]">
+              {selectedFileName ? selectedFileName : "Upload document"}
+            </span>
+            <Upload className="w-4 h-4 text-[var(--text-heading)]" />
+          </button>
+
+          {selectedPreviewUrl && (
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
+              <img src={selectedPreviewUrl} alt="NIN Preview" className="w-12 h-12 object-cover rounded-xl" />
+              <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
+            </div>
+          )}
+
+          {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
+
+          {/* Bottom Actions */}
+          <div className="flex items-center gap-3 pt-6">
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
+            >
+              <Camera className="w-4 h-4 text-[var(--text-heading)]" />
+              <span>Camera</span>
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 py-3 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SUB-SCREEN 4: PASSPORT PHOTOGRAPH (CAMERA ONLY, NO UPLOADING)
+  // ─────────────────────────────────────────────────────────────
+  if (activeItem && activeItem.id === "passport-photo") {
+    return (
+      <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setActiveItem(null)}
+            className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+          </button>
+          <h1 className="text-base font-bold text-[var(--text-heading)]">Passport photograph</h1>
+        </div>
+
+        <form onSubmit={handleSubmitFlow} className="space-y-6">
+          {/* Dashed Oval Silhouette Guide */}
+          <div className="w-[190px] h-[260px] sm:w-[220px] sm:h-[300px] border-2 border-dashed border-gray-400 rounded-[50%] mx-auto my-4 flex items-center justify-center relative overflow-hidden bg-[var(--bg-card)]/50 shadow-inner">
+            {selectedPreviewUrl ? (
+              <img
+                src={selectedPreviewUrl}
+                alt="Captured Passport"
+                className="w-full h-full object-cover rounded-[50%]"
+              />
+            ) : (
+              <div className="text-center p-4">
+                <Camera className="w-8 h-8 text-[var(--text-muted)]/50 mx-auto mb-2" />
+                <span className="text-[11px] text-[var(--text-muted)] font-medium">
+                  Face outline guide
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Checklist */}
+          <div className="space-y-2.5 pt-1">
+            <h3 className="text-xs font-bold text-[var(--text-heading)]">For the passport to be accepted</h3>
+            <div className="space-y-2 text-xs text-[var(--text-heading)]">
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Line your face up inside the outline</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Face the camera straight on, eyes open</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Plain wall behind you, good daylight</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>No cap, sunglasses or face covering</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Just you in frame, no one else</span>
+              </div>
+            </div>
+          </div>
+
+          {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
+
+          {/* Bottom Action: Camera Only */}
+          <div className="pt-4">
+            {selectedPreviewUrl ? (
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => selfieInputRef.current?.click()}
+                  className="px-5 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-1.5 hover:bg-[var(--bg-secondary)] cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Retake</span>
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 py-3.5 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Photograph"}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => selfieInputRef.current?.click()}
+                className="w-full py-3.5 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2"
+              >
+                <Camera className="w-4 h-4" />
+                <span>Take photo</span>
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SUB-SCREEN 5: INVESTIGATION CERTIFICATE
+  // ─────────────────────────────────────────────────────────────
+  if (activeItem && activeItem.id === "investigation-cert") {
+    return (
+      <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setActiveItem(null)}
+            className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+          </button>
+          <h1 className="text-base font-bold text-[var(--text-heading)]">Investigation certificate</h1>
+        </div>
+
+        <form onSubmit={handleSubmitFlow} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[var(--text-heading)] block">Issuing body</label>
+            <input
+              type="text"
+              value={issuingBody}
+              onChange={(e) => setIssuingBody(e.target.value)}
+              placeholder="Nigeria Institute of private investigators"
+              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs"
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[var(--text-heading)] block">Certificate number</label>
+            <input
+              type="text"
+              value={certNumber}
+              onChange={(e) => setCertNumber(e.target.value)}
+              placeholder="NIPI/2024/08812"
+              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs font-mono"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--text-heading)] block">Issued</label>
+              <input
+                type="text"
+                value={certIssuedDate}
+                onChange={(e) => setCertIssuedDate(e.target.value)}
+                placeholder="05/2025"
+                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs text-center"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--text-heading)] block">Expires</label>
+              <input
+                type="text"
+                value={certExpiryDate}
+                onChange={(e) => setCertExpiryDate(e.target.value)}
+                placeholder="05/2028"
+                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs text-center"
+              />
+            </div>
+          </div>
+
+          {/* Checklist */}
+          <div className="space-y-2.5 pt-2">
+            <h3 className="text-xs font-bold text-[var(--text-heading)]">Upload Certificate</h3>
+            <div className="space-y-2 text-xs text-[var(--text-heading)]">
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Lay it flat, all four corners in frame</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Daylight rather than flash, to avoid glare</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Certificate number and dates clearly readable</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Upload Document Box */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
+          >
+            <span className="text-xs font-semibold text-[var(--text-heading)]">
+              {selectedFileName ? selectedFileName : "Upload document"}
+            </span>
+            <Upload className="w-4 h-4 text-[var(--text-heading)]" />
+          </button>
+
+          {selectedPreviewUrl && (
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
+              <img src={selectedPreviewUrl} alt="Certificate preview" className="w-12 h-12 object-cover rounded-xl" />
+              <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
+            </div>
+          )}
+
+          {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
+
+          {/* Bottom Actions */}
+          <div className="flex items-center gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
+            >
+              <Camera className="w-4 h-4 text-[var(--text-heading)]" />
+              <span>Camera</span>
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 py-3 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SUB-SCREEN 6: GUARANTOR FORM
+  // ─────────────────────────────────────────────────────────────
+  if (activeItem && activeItem.id === "guarantor-form") {
+    return (
+      <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setActiveItem(null)}
+            className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+          </button>
+          <h1 className="text-base font-bold text-[var(--text-heading)]">Guarantor form</h1>
+        </div>
+
+        <form onSubmit={handleSubmitFlow} className="space-y-4">
+          {/* Download Blank Form Action Card */}
+          <div
+            onClick={handleDownloadBlankForm}
+            className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-2xl p-4 flex items-center justify-between shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <FileText className="w-5 h-5 text-[var(--text-heading)]" />
+              <span className="text-xs font-bold text-[var(--text-heading)]">Download the blank form</span>
+            </div>
+            <Download className="w-5 h-5 text-[var(--text-heading)]" />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[var(--text-heading)] block">Guarantor&apos;s full name</label>
+            <input
+              type="text"
+              value={guarantorName}
+              onChange={(e) => setGuarantorName(e.target.value)}
+              placeholder="Enter guarantor's full name"
+              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs"
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[var(--text-heading)] block">Guarantor&apos;s phone</label>
+            <div className="flex items-center bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full overflow-hidden shadow-2xs focus-within:border-[var(--primary)] transition-all">
+              <span className="px-4 py-3 text-xs font-bold text-[var(--text-heading)] border-r border-[var(--border-color)]/70 bg-[var(--bg-secondary)]/30">
+                +234
+              </span>
+              <input
+                type="tel"
+                value={guarantorPhone}
+                onChange={(e) => setGuarantorPhone(e.target.value.replace(/\D/g, ""))}
+                placeholder="801 234 5678"
+                className="w-full px-4 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] bg-transparent focus:outline-none font-medium"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Checklist */}
+          <div className="space-y-2.5 pt-2">
+            <h3 className="text-xs font-bold text-[var(--text-heading)]">Upload Certificate</h3>
+            <div className="space-y-2 text-xs text-[var(--text-heading)]">
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Employed, aged 25 or over</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Not a relative living at your address</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                <span>Reachable on the phone number they give</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Upload Document Box */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
+          >
+            <span className="text-xs font-semibold text-[var(--text-heading)]">
+              {selectedFileName ? selectedFileName : "Upload document"}
+            </span>
+            <Upload className="w-4 h-4 text-[var(--text-heading)]" />
+          </button>
+
+          {selectedPreviewUrl && (
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
+              <img src={selectedPreviewUrl} alt="Guarantor form preview" className="w-12 h-12 object-cover rounded-xl" />
+              <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
+            </div>
+          )}
+
+          {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
+
+          {/* Bottom Actions */}
+          <div className="flex items-center gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
+            >
+              <Camera className="w-4 h-4 text-[var(--text-heading)]" />
+              <span>Camera</span>
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 py-3 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // MAIN VERIFICATION OVERVIEW (CHECKLIST OF 6 ITEMS)
+  // ─────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6 max-w-full pb-12">
+      {/* Hidden File / Camera Inputs */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      <input
+        ref={selfieInputRef}
+        type="file"
+        accept="image/*"
+        capture="user"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-[100] flex justify-center pointer-events-none">
@@ -392,7 +1106,7 @@ export default function AgentVerificationPage() {
             <button
               key={item.id}
               type="button"
-              onClick={() => openItemModal(item)}
+              onClick={() => openFlowScreen(item)}
               className="w-full flex items-center justify-between gap-3 p-3 rounded-[20px] hover:bg-[var(--bg-card)] border border-transparent hover:border-[var(--border-color)]/70 transition-all cursor-pointer text-left group"
             >
               <div className="flex items-center gap-3.5 min-w-0">
@@ -448,153 +1162,6 @@ export default function AgentVerificationPage() {
           );
         })}
       </div>
-
-      {/* Document / NIN Submission Modal */}
-      {activeItem && (
-        <div
-          className="fixed inset-0 z-[80] bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
-          onClick={() => !isSubmitting && setActiveItem(null)}
-        >
-          <form
-            onSubmit={handleSubmitDocument}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-[28px] sm:rounded-3xl p-6 pb-8 sm:pb-6 max-w-md w-full space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200"
-          >
-            <div className="w-10 h-1 bg-[var(--border-color)] rounded-full mx-auto sm:hidden" />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-[var(--text-heading)]">
-                  {activeItem.status === "rejected"
-                    ? `Re-upload ${activeItem.title}`
-                    : activeItem.status === "reviewing"
-                    ? `Update ${activeItem.title}`
-                    : `Submit ${activeItem.title}`}
-                </h2>
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  {activeItem.status === "rejected"
-                    ? activeItem.subtitle
-                    : "Provide clear documentation for quick accreditation review."}
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={() => setActiveItem(null)}
-                className="text-[var(--text-muted)] hover:text-[var(--text-heading)] p-1 cursor-pointer"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {activeItem.requiresNinInput && (
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-[var(--text-heading)]">
-                  11-Digit NIN Number
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={11}
-                  value={ninInput}
-                  onChange={(e) => {
-                    setNinInput(e.target.value.replace(/\D/g, ""));
-                    setModalError(null);
-                  }}
-                  placeholder="Enter your 11-digit NIN"
-                  className="w-full bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] focus:border-[var(--primary)] rounded-2xl px-4 py-3 text-sm font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
-                />
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-[var(--text-heading)]">
-                {activeItem.requiresNinInput
-                  ? "Attach NIN Slip (Optional)"
-                  : "Document Photo or PDF"}
-              </label>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full border-2 border-dashed border-[var(--border-color)] hover:border-[var(--primary)] bg-[var(--bg-secondary)]/60 dark:bg-[var(--bg-body)] rounded-2xl p-5 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition-colors"
-              >
-                {selectedPreviewUrl ? (
-                  <>
-                    <img
-                      src={selectedPreviewUrl}
-                      alt={selectedFileName || "Selected document"}
-                      className="w-24 h-24 object-cover rounded-xl border border-[var(--border-color)] shadow-xs"
-                    />
-                    <span className="text-xs font-semibold text-[var(--text-heading)] truncate max-w-full">
-                      {selectedFileName}
-                    </span>
-                    <span className="text-[11px] text-[var(--primary)]">
-                      Tap to change photo
-                    </span>
-                  </>
-                ) : selectedFileName ? (
-                  <>
-                    <FileText className="w-6 h-6 text-[var(--primary)]" />
-                    <span className="text-xs font-semibold text-[var(--text-heading)] truncate max-w-full">
-                      {selectedFileName}
-                    </span>
-                    <span className="text-[11px] text-[var(--primary)]">
-                      Tap to change file
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-6 h-6 text-[var(--text-muted)]" />
-                    <span className="text-xs font-semibold text-[var(--text-heading)]">
-                      Choose photo or PDF document
-                    </span>
-                    <span className="text-[11px] text-[var(--text-muted)]">
-                      Clear, well-lit image or PDF (max 10 MB)
-                    </span>
-                  </>
-                )}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,application/pdf"
-                onChange={handleFilePick}
-                className="hidden"
-              />
-            </div>
-
-            {modalError && (
-              <p className="text-xs text-[var(--danger)] font-medium">{modalError}</p>
-            )}
-
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={() => setActiveItem(null)}
-                className="flex-1 py-3 rounded-full bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex-1 py-3 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Submitting...</span>
-                  </>
-                ) : (
-                  <span>Submit</span>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

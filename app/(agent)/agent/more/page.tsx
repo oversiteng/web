@@ -31,6 +31,24 @@ export default function AgentMorePage() {
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [verifiedCount, setVerifiedCount] = useState<number | null>(null);
+
+  React.useEffect(() => {
+    async function loadKyc() {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+        if (!token) return;
+        const res = await fetch("/api/v1/kyc/status", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (json.success && json.data) {
+          setVerifiedCount(json.data.verifiedCount ?? json.data.completedSteps ?? 0);
+        }
+      } catch {}
+    }
+    loadKyc();
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -196,8 +214,8 @@ export default function AgentMorePage() {
               Vitting , documents, coverage
             </p>
           </div>
-          <span className="text-[var(--danger)] bg-[var(--danger-light)] border border-[var(--danger)]/20 text-xs font-semibold rounded-full px-3 py-0.5 ">
-            4/6 Verified
+          <span className="text-[var(--primary)] bg-[var(--primary-light)] border border-[var(--primary-border)] text-xs font-semibold rounded-full px-3 py-0.5">
+            {verifiedCount !== null ? `${verifiedCount}/6 Verified` : "Accreditation"}
           </span>
           <ChevronRight className="w-5 h-5 sm:w-6.5 h-6.5 text-[var(--text-muted)] group-hover:text-[var(--text-heading)] transition-colors shrink-0" />
         </Link>

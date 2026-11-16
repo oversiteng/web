@@ -2,13 +2,82 @@
  * Oversite.ng High-Performance Responsive HTML Email Templates
  */
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function wrapBrandedLayout({
+  badgeText,
+  badgeColor = "#10b981",
+  badgeBg = "rgba(16, 185, 129, 0.15)",
+  badgeBorder = "rgba(16, 185, 129, 0.3)",
+  title,
+  bodyHtml,
+  footerText,
+}: {
+  badgeText: string;
+  badgeColor?: string;
+  badgeBg?: string;
+  badgeBorder?: string;
+  title: string;
+  bodyHtml: string;
+  footerText?: string;
+}): string {
+  const brandGreen = "#10b981";
+  const darkBg = "#0b1410";
+  const cardBg = "#ffffff";
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${escapeHtml(title)}</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 40px 10px;">
+        <tr>
+          <td align="center">
+            <table width="100%" max-width="560" style="max-width: 560px; background-color: ${cardBg}; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+              <tr>
+                <td style="padding: 32px 40px 24px; text-align: left; background-color: ${darkBg};">
+                  <span style="font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">Oversite<span style="color: ${brandGreen};">.ng</span></span>
+                  <span style="font-size: 11px; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; padding: 2px 8px; border-radius: 9999px; font-weight: 700; margin-left: 10px; text-transform: uppercase;">${escapeHtml(badgeText)}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 36px 40px;">
+                  ${bodyHtml}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 20px 40px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
+                  <p style="font-size: 11px; color: #94a3b8; margin: 0;">
+                    ${escapeHtml(
+                      footerText ||
+                        `© ${new Date().getFullYear()} Oversite Technologies Nigeria Limited.`
+                    )}
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
 export function renderEmailTemplate(
   template: string,
   payload: Record<string, unknown>
 ): { html: string; text: string } {
-  const brandGreen = "#10b981";
-  const darkBg = "#0b1410";
-  const cardBg = "#ffffff";
   const textColor = "#1e293b";
   const mutedColor = "#64748b";
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://dev.oversite.ng";
@@ -20,62 +89,26 @@ export function renderEmailTemplate(
       const name = String(payload.name || "User");
       const expiresIn = String(payload.expiresIn || "10 minutes");
 
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Your Oversite Security Code</title>
-        </head>
-        <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 40px 10px;">
-            <tr>
-              <td align="center">
-                <table width="100%" max-width="560" style="max-width: 560px; background-color: ${cardBg}; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
-                  <!-- Header -->
-                  <tr>
-                    <td style="padding: 32px 40px 24px; text-align: left; background-color: ${darkBg};">
-                      <span style="font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">Oversite<span style="color: ${brandGreen};">.ng</span></span>
-                      <span style="font-size: 11px; background: rgba(16, 185, 129, 0.15); color: ${brandGreen}; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 8px; border-radius: 9999px; font-weight: 700; margin-left: 10px; text-transform: uppercase;">Security</span>
-                    </td>
-                  </tr>
-                  <!-- Content -->
-                  <tr>
-                    <td style="padding: 36px 40px;">
-                      <h1 style="font-size: 20px; font-weight: 700; color: ${textColor}; margin: 0 0 12px;">Two-Factor Authentication</h1>
-                      <p style="font-size: 14px; line-height: 1.6; color: ${mutedColor}; margin: 0 0 24px;">
-                        Hello ${name}, use the one-time verification code below to authorize your login request.
-                      </p>
-                      
-                      <!-- OTP Box -->
-                      <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 24px;">
-                        <span style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0f172a; font-family: monospace;">${code}</span>
-                      </div>
-
-                      <p style="font-size: 12px; color: ${mutedColor}; line-height: 1.5; margin: 0 0 20px;">
-                        ⏱ This code is valid for <strong>${expiresIn}</strong>. Do not share this code with anyone. Oversite personnel will never ask for your verification code.
-                      </p>
-                      <p style="font-size: 12px; color: ${mutedColor}; margin: 0;">
-                        If you did not initiate this login, your credentials may be compromised. Please sign in and reset your password immediately.
-                      </p>
-                    </td>
-                  </tr>
-                  <!-- Footer -->
-                  <tr>
-                    <td style="padding: 20px 40px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
-                      <p style="font-size: 11px; color: #94a3b8; margin: 0;">
-                        © ${new Date().getFullYear()} Oversite Technologies Nigeria Limited. Protected by multi-factor security.
-                      </p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>
-      `;
+      const html = wrapBrandedLayout({
+        badgeText: "Security",
+        title: "Your Oversite Security Code",
+        footerText: `© ${new Date().getFullYear()} Oversite Technologies Nigeria Limited. Protected by multi-factor security.`,
+        bodyHtml: `
+          <h1 style="font-size: 20px; font-weight: 700; color: ${textColor}; margin: 0 0 12px;">Two-Factor Authentication</h1>
+          <p style="font-size: 14px; line-height: 1.6; color: ${mutedColor}; margin: 0 0 24px;">
+            Hello ${escapeHtml(name)}, use the one-time verification code below to authorize your login request.
+          </p>
+          <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 24px;">
+            <span style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0f172a; font-family: monospace;">${escapeHtml(code)}</span>
+          </div>
+          <p style="font-size: 12px; color: ${mutedColor}; line-height: 1.5; margin: 0 0 20px;">
+            This code is valid for <strong>${escapeHtml(expiresIn)}</strong>. Do not share this code with anyone. Oversite personnel will never ask for your verification code.
+          </p>
+          <p style="font-size: 12px; color: ${mutedColor}; margin: 0;">
+            If you did not initiate this login, please sign in and reset your password immediately.
+          </p>
+        `,
+      });
 
       return {
         html,
@@ -91,84 +124,44 @@ export function renderEmailTemplate(
       const time = String(payload.time || new Date().toUTCString());
       const securityUrl = `${appUrl}/security`;
 
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Security Alert: New Sign-In</title>
-        </head>
-        <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 40px 10px;">
+      const html = wrapBrandedLayout({
+        badgeText: "Security Alert",
+        badgeColor: "#f87171",
+        badgeBg: "rgba(239, 68, 68, 0.15)",
+        badgeBorder: "rgba(239, 68, 68, 0.3)",
+        title: "Security Alert: New Sign-In",
+        footerText: "Your account is limited to 2 active devices simultaneously.",
+        bodyHtml: `
+          <h1 style="font-size: 20px; font-weight: 700; color: ${textColor}; margin: 0 0 12px;">New Sign-In Detected</h1>
+          <p style="font-size: 14px; line-height: 1.6; color: ${mutedColor}; margin: 0 0 24px;">
+            Hello ${escapeHtml(name)}, your account was recently accessed from a new device or location.
+          </p>
+          <table width="100%" style="background-color: #f8fafc; border-radius: 14px; border: 1px solid #e2e8f0; margin-bottom: 28px; border-collapse: separate; border-spacing: 0; overflow: hidden;">
             <tr>
-              <td align="center">
-                <table width="100%" max-width="560" style="max-width: 560px; background-color: ${cardBg}; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
-                  <!-- Header -->
-                  <tr>
-                    <td style="padding: 32px 40px 24px; text-align: left; background-color: ${darkBg};">
-                      <span style="font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">Oversite<span style="color: ${brandGreen};">.ng</span></span>
-                      <span style="font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 2px 8px; border-radius: 9999px; font-weight: 700; margin-left: 10px; text-transform: uppercase;">Security Alert</span>
-                    </td>
-                  </tr>
-                  <!-- Content -->
-                  <tr>
-                    <td style="padding: 36px 40px;">
-                      <h1 style="font-size: 20px; font-weight: 700; color: ${textColor}; margin: 0 0 12px;">New Sign-In Detected</h1>
-                      <p style="font-size: 14px; line-height: 1.6; color: ${mutedColor}; margin: 0 0 24px;">
-                        Hello ${name}, your account was recently accessed from a new device or location.
-                      </p>
-                      
-                      <!-- Session Details Table -->
-                      <table width="100%" style="background-color: #f8fafc; border-radius: 14px; border: 1px solid #e2e8f0; margin-bottom: 28px; border-collapse: separate; border-spacing: 0; overflow: hidden;">
-                        <tr>
-                          <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${mutedColor}; border-bottom: 1px solid #e2e8f0; width: 35%;">Device / Browser</td>
-                          <td style="padding: 12px 18px; font-size: 13px; font-weight: 700; color: ${textColor}; border-bottom: 1px solid #e2e8f0;">${deviceName}</td>
-                        </tr>
-                        <tr>
-                          <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${mutedColor}; border-bottom: 1px solid #e2e8f0;">IP Address</td>
-                          <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${textColor}; border-bottom: 1px solid #e2e8f0;">${ipAddress}</td>
-                        </tr>
-                        <tr>
-                          <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${mutedColor}; border-bottom: 1px solid #e2e8f0;">Approx. Location</td>
-                          <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${textColor}; border-bottom: 1px solid #e2e8f0;">${location}</td>
-                        </tr>
-                        <tr>
-                          <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${mutedColor};">Timestamp</td>
-                          <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${textColor};">${time}</td>
-                        </tr>
-                      </table>
-
-                      <p style="font-size: 13px; line-height: 1.6; color: ${textColor}; margin: 0 0 24px;">
-                        If this was you, no action is needed. If you do not recognize this activity, your account may be compromised.
-                      </p>
-
-                      <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                        <tr>
-                          <td>
-                            <a href="${securityUrl}" style="display: inline-block; background-color: #ef4444; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-size: 13px; font-weight: 700; text-align: center;">
-                              Review & Terminate Sessions
-                            </a>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                  <!-- Footer -->
-                  <tr>
-                    <td style="padding: 20px 40px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
-                      <p style="font-size: 11px; color: #94a3b8; margin: 0;">
-                        Your account is limited to 2 active devices simultaneously.
-                      </p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
+              <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${mutedColor}; border-bottom: 1px solid #e2e8f0; width: 35%;">Device / Browser</td>
+              <td style="padding: 12px 18px; font-size: 13px; font-weight: 700; color: ${textColor}; border-bottom: 1px solid #e2e8f0;">${escapeHtml(deviceName)}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${mutedColor}; border-bottom: 1px solid #e2e8f0;">IP Address</td>
+              <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${textColor}; border-bottom: 1px solid #e2e8f0;">${escapeHtml(ipAddress)}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${mutedColor}; border-bottom: 1px solid #e2e8f0;">Approx. Location</td>
+              <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${textColor}; border-bottom: 1px solid #e2e8f0;">${escapeHtml(location)}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${mutedColor};">Timestamp</td>
+              <td style="padding: 12px 18px; font-size: 13px; font-weight: 600; color: ${textColor};">${escapeHtml(time)}</td>
             </tr>
           </table>
-        </body>
-        </html>
-      `;
+          <p style="font-size: 13px; line-height: 1.6; color: ${textColor}; margin: 0 0 24px;">
+            If this was you, no action is needed. If you do not recognize this activity, your account may be compromised.
+          </p>
+          <a href="${escapeHtml(securityUrl)}" style="display: inline-block; background-color: #ef4444; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-size: 13px; font-weight: 700;">
+            Review &amp; Terminate Sessions
+          </a>
+        `,
+      });
 
       return {
         html,
@@ -176,17 +169,85 @@ export function renderEmailTemplate(
       };
     }
 
-    default: {
-      const html = `
-        <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px;">
-          <h2 style="color: ${brandGreen};">Oversite.ng Notification</h2>
-          <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; font-size: 14px;">
-            ${JSON.stringify(payload, null, 2)}
+    case "ADMIN_INVITE_CREDENTIALS":
+    case "ADMIN_CREDENTIALS_RESET": {
+      const isReset = template === "ADMIN_CREDENTIALS_RESET";
+      const name = String(payload.name || "Administrator");
+      const department = String(payload.department || "Oversite Operations");
+      const loginUrl = String(payload.loginUrl || `${appUrl}/admin/login`);
+      const tempPassword = String(payload.tempPassword || "");
+
+      const html = wrapBrandedLayout({
+        badgeText: isReset ? "Credential Reset" : "Admin Onboarding",
+        title: isReset
+          ? "Oversite Admin Credentials Reset"
+          : `Oversite Admin Credentials — ${department}`,
+        footerText:
+          "Strict Security Policy: No administrator may copy, export, or download platform data.",
+        bodyHtml: `
+          <h1 style="font-size: 20px; font-weight: 700; color: ${textColor}; margin: 0 0 12px;">
+            ${isReset ? "Temporary Admin Password Reset" : "Welcome to Oversite Admin Command"}
+          </h1>
+          <p style="font-size: 14px; line-height: 1.6; color: ${mutedColor}; margin: 0 0 20px;">
+            Hello ${escapeHtml(name)}, ${
+              isReset
+                ? "your temporary administrator password has been reset by the Super Admin."
+                : `you have been provisioned as an Oversite Administrator under <strong>${escapeHtml(department)}</strong>.`
+            }
+          </p>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px 20px; margin-bottom: 22px;">
+            <p style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${mutedColor}; margin: 0 0 6px;">Temporary Password</p>
+            <p style="font-size: 20px; font-weight: 800; font-family: monospace; color: #0f172a; margin: 0;">${escapeHtml(tempPassword)}</p>
           </div>
-        </div>
-      `;
-      return { html, text: JSON.stringify(payload) };
+          <p style="font-size: 13px; line-height: 1.6; color: ${mutedColor}; margin: 0 0 22px;">
+            1. Sign in at the Admin Portal using your official email and the temporary password above.<br/>
+            2. Complete the mandatory 2FA check and set your personal password.<br/>
+            3. Wait for final Super Admin approval to activate your departmental workspace.
+          </p>
+          <a href="${escapeHtml(loginUrl)}" style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-size: 13px; font-weight: 700;">
+            Open Admin Portal
+          </a>
+        `,
+      });
+
+      return {
+        html,
+        text: `Hello ${name}, sign in at ${loginUrl} with temporary password: ${tempPassword}. You will be required to update your password and await Super Admin approval.`,
+      };
+    }
+
+    default: {
+      const recipientName = String(
+        payload.recipientName || payload.name || "Valued User"
+      );
+      const message = String(
+        payload.message || payload.body || JSON.stringify(payload, null, 2)
+      );
+      const actionLink = payload.actionLink ? String(payload.actionLink) : null;
+      const badgeLabel = template.startsWith("ADMIN_")
+        ? template.replace("ADMIN_", "")
+        : "Notification";
+
+      const html = wrapBrandedLayout({
+        badgeText: badgeLabel,
+        title: "Oversite.ng Update",
+        bodyHtml: `
+          <h1 style="font-size: 20px; font-weight: 700; color: ${textColor}; margin: 0 0 12px;">Hello ${escapeHtml(recipientName)},</h1>
+          <p style="font-size: 14px; line-height: 1.7; color: ${mutedColor}; white-space: pre-line; margin: 0 0 24px;">
+            ${escapeHtml(message)}
+          </p>
+          ${
+            actionLink
+              ? `<a href="${escapeHtml(actionLink)}" style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-size: 13px; font-weight: 700;">View in Oversite</a>`
+              : ""
+          }
+        `,
+      });
+
+      return {
+        html,
+        text: `Hello ${recipientName},\n\n${message}${actionLink ? `\n\nView: ${actionLink}` : ""}`,
+      };
     }
   }
 }
-

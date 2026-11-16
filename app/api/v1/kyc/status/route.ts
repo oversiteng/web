@@ -133,6 +133,52 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
       }
     }
 
+    const docStatus = (doc: any) => {
+      if (!doc) return "awaiting";
+      const s = String(doc.status || "SUBMITTED").toUpperCase();
+      if (s === "VERIFIED" || s === "APPROVED") return "verified";
+      if (s === "REJECTED") return "rejected";
+      return "reviewing";
+    };
+
+    const verificationChecklist = [
+      {
+        id: "nin-slip",
+        title: "NIN Verification",
+        status: isNinVerified ? "verified" : docStatus(docs.government_id),
+      },
+      {
+        id: "passport-photo",
+        title: "Passport photograph",
+        status: docStatus(docs.passport_photo),
+      },
+      {
+        id: "proof-of-address",
+        title: "Proof of address",
+        status: isAddressVerified ? (u.addressVerificationStatus === "verified" ? "verified" : docStatus(docs.proof_of_address || docs.utility_bill)) : "awaiting",
+      },
+      {
+        id: "guarantor-form",
+        title: "Guarantor form",
+        status: docStatus(docs.guarantor_form),
+      },
+      {
+        id: "investigation-cert",
+        title: "Investigation certificate",
+        status: docStatus(docs.investigation_certificate || docs.cac_certificate),
+      },
+      {
+        id: "background-check",
+        title: "Background check",
+        status: isConsentSigned ? "verified" : docStatus(docs.background_check),
+      },
+    ];
+
+    const verifiedCount = verificationChecklist.filter((c) => c.status === "verified").length;
+    const submittedOrVerifiedCount = verificationChecklist.filter(
+      (c) => c.status === "verified" || c.status === "reviewing"
+    ).length;
+
     return NextResponse.json<ApiResponse<any>>({
       success: true,
       data: {
@@ -149,6 +195,9 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
         pipelineProgressPct: Math.round((completedStepsCount / 6) * 100),
         steps,
         documents: sanitizedDocuments,
+        verificationChecklist,
+        verifiedCount,
+        submittedOrVerifiedCount,
       },
       message: "Aggregated 6-step operative accreditation pipeline retrieved successfully.",
     });
