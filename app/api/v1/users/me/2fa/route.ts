@@ -27,7 +27,7 @@ export const GET = withAuth(async (_req: NextRequest, { user }) => {
     }
 
     const isMandatory = rows[0].role === "ADMIN" || rows[0].role === "SUPER_ADMIN";
-    const twoFactorEnabled = isMandatory ? true : Boolean(rows[0].twoFactorEnabled);
+    const twoFactorEnabled = Boolean(rows[0].twoFactorEnabled);
 
     return NextResponse.json({
       success: true,

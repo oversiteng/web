@@ -182,11 +182,12 @@ export async function POST(
     }
 
     // Determine 2FA requirement:
-    // Strictly MANDATORY for ADMIN and SUPER_ADMIN; opt-in for USER and AGENT
-    const requiresTwoFactor =
-      user.role === "ADMIN" ||
-      user.role === "SUPER_ADMIN" ||
-      Boolean(user.twoFactorEnabled);
+    // Only accounts that have configured & activated 2FA (user.twoFactorEnabled === true)
+    // receive the 2FA challenge on login.
+    // This ensures newly provisioned Admins can sign in with their initial temporary password,
+    // update their password, and set up 2FA themselves.
+    // Once activated by the Admin, 2FA is permanently enforced on every subsequent login and cannot be disabled.
+    const requiresTwoFactor = Boolean(user.twoFactorEnabled);
 
     if (requiresTwoFactor) {
       const otpCode = generateOtpCode(6);
