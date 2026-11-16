@@ -102,6 +102,9 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || (user?.role !== "AGENT" && user?.role !== "ADMIN" && user?.role !== "SUPER_ADMIN"))) {
+      if (!isAuthenticated && typeof document !== "undefined") {
+        document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      }
       window.location.href = "/login?role=agent";
     }
   }, [isLoading, isAuthenticated, user]);

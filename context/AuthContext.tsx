@@ -150,13 +150,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ]);
 
         if (isMounted) {
+          const hasCookieToken =
+            typeof document !== "undefined" &&
+            document.cookie.split(";").some((c) => c.trim().startsWith("token="));
+
           if (cachedToken && cachedUser) {
             const sanitized = extractNonSensitiveUser(cachedUser);
             if (sanitized) {
               setUser(sanitized);
               setIsLoading(false);
             }
-          } else if (!cachedToken) {
+          } else if (!cachedToken && !hasCookieToken) {
             setUser(null);
             setIsLoading(false);
             return;
