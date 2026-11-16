@@ -418,7 +418,7 @@ export default function AgentDashboardPage() {
                   setSelectedDay(item.day);
                   setIsDayScheduleDrawerOpen(true);
                 }}
-                className={`py-3 px-1.5 sm:py-4 sm:px-2 rounded-2xl flex flex-col items-center justify-between min-h-[114px] sm:min-h-[124px] transition-all cursor-pointer relative border-2 ${theme.border} bg-[var(--bg-card)] shadow-xs ${isSelected ? "ring-2 ring-[var(--text-heading)] shadow-md" : ""}`}
+                className={`py-3 px-1.5 sm:py-4 sm:px-2 rounded-2xl flex flex-col items-center justify-between min-h-[114px] sm:min-h-[124px] transition-all cursor-pointer relative bg-[var(--bg-card)] shadow-xs ${isSelected ? `border-2 shadow-md ${theme.border}` : ""}`}
               >
                 <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                   {item.day}
