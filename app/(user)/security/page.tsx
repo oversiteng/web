@@ -343,7 +343,7 @@ export default function SecurityPage() {
     <div className="relative w-full text-[var(--text-heading)] pb-16 select-none max-w-full">
       {/* ── Toast Notification Banner ── */}
       {toastMessage && (
-        <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
+        <div className="fixed top-4 left-4 right-4 z-[100] flex justify-center pointer-events-none transition-all duration-300">
           <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
             <div className="w-5 h-5 rounded-full bg-[var(--primary-light)] flex items-center justify-center shrink-0">
               <Check className="w-3.5 h-3.5 text-[var(--primary)] stroke-[3]" />
@@ -583,7 +583,7 @@ export default function SecurityPage() {
       {/* ── 2-STEP AUTHENTICATION SETUP CODE MODAL (Drawer on Mobile, Centered Modal on Desktop) ── */}
       {show2FASetupModal && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 dark:bg-black/75 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[80] bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
           onClick={() => {
             if (setupStep === "success") {
               setShow2FASetupModal(false);
@@ -591,7 +591,7 @@ export default function SecurityPage() {
           }}
         >
           <div
-            className="w-full max-w-md bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-[28px] sm:rounded-[28px] p-6 shadow-2xl space-y-5 animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
+            className="w-full max-w-md bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-[28px] sm:rounded-[28px] p-6 pb-8 sm:pb-6 shadow-2xl space-y-5 animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Mobile Drag Bar */}
@@ -753,11 +753,11 @@ export default function SecurityPage() {
       {/* ── DISABLE 2FA CONFIRMATION MODAL ── */}
       {show2FADisableModal && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 dark:bg-black/75 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[80] bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
           onClick={() => setShow2FADisableModal(false)}
         >
           <div
-            className="w-full max-w-sm bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-[28px] sm:rounded-[28px] p-6 shadow-2xl space-y-4 animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-[28px] sm:rounded-[28px] p-6 pb-8 sm:pb-6 shadow-2xl space-y-4 animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-1 bg-[var(--border-color)] rounded-full mx-auto mb-2 sm:hidden shrink-0" />
@@ -795,11 +795,11 @@ export default function SecurityPage() {
       {/* ── NDPR CONSENT DETAILS MODAL ── */}
       {showNdprModal && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 dark:bg-black/75 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[80] bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
           onClick={() => setShowNdprModal(false)}
         >
           <div
-            className="w-full max-w-md bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-[28px] sm:rounded-[28px] p-6 shadow-2xl space-y-4 animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
+            className="w-full max-w-md bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-[28px] sm:rounded-[28px] p-6 pb-8 sm:pb-6 shadow-2xl space-y-4 animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-1 bg-[var(--border-color)] rounded-full mx-auto mb-2 sm:hidden shrink-0" />
@@ -858,11 +858,11 @@ export default function SecurityPage() {
       {/* ── DISABLE NDPR WARNING MODAL ── */}
       {showNdprDisableModal && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 dark:bg-black/75 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[80] bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
           onClick={() => setShowNdprDisableModal(false)}
         >
           <div
-            className="w-full max-w-sm bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-[28px] sm:rounded-[28px] p-6 shadow-2xl space-y-4 animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-[28px] sm:rounded-[28px] p-6 pb-8 sm:pb-6 shadow-2xl space-y-4 animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-1 bg-[var(--border-color)] rounded-full mx-auto mb-2 sm:hidden shrink-0" />

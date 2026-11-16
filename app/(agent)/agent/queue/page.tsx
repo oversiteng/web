@@ -284,11 +284,11 @@ export default function AgentQueuePage() {
       {/* ── MODAL 1: Task Inspection Detail Sheet (Drawer on Mobile, Modal on Desktop) ── */}
       {isDetailOpen && selectedOffer && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 dark:bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+          className="fixed inset-0 z-[80] bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={() => setIsDetailOpen(false)}
         >
           <div
-            className="bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] w-full max-w-[650px] rounded-t-[32px] sm:rounded-3xl p-5 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
+            className="bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] w-full max-w-[650px] rounded-t-[32px] sm:rounded-3xl p-5 pb-8 sm:pb-5 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Mobile Drag Handle */}
@@ -369,8 +369,8 @@ export default function AgentQueuePage() {
 
       {/* ── MODAL 2: Confirmation Dialog (Drawer on Mobile, Modal on Desktop) ── */}
       {isConfirmOpen && selectedOffer && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] w-full max-w-sm rounded-t-[32px] sm:rounded-3xl p-6 space-y-4 shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[80] bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] w-full max-w-sm rounded-t-[32px] sm:rounded-3xl p-6 pb-8 sm:pb-6 space-y-4 shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200">
             {/* Mobile Drag Handle */}
             <div className="w-12 h-1.5 bg-[var(--border-color)] rounded-full mx-auto mb-2 sm:hidden shrink-0" />
 
@@ -401,8 +401,8 @@ export default function AgentQueuePage() {
 
       {/* ── MODAL 3: Success Dialog (Drawer on Mobile, Modal on Desktop) ── */}
       {isSuccessOpen && confirmedOffer && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] w-full max-w-sm rounded-t-[32px] sm:rounded-3xl p-6 text-center space-y-4 shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[80] bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] w-full max-w-sm rounded-t-[32px] sm:rounded-3xl p-6 pb-8 sm:pb-6 text-center space-y-4 shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200">
             {/* Mobile Drag Handle */}
             <div className="w-12 h-1.5 bg-[var(--border-color)] rounded-full mx-auto mb-2 sm:hidden shrink-0" />
 

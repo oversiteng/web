@@ -365,7 +365,7 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
       </div>
 
       {/* Mobile Bottom Navigation (Hidden on Tablet and Desktop) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-card)] border-t border-[var(--border-color)] z-50 px-2 pt-2 pb-6 flex justify-around items-center shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-card)] border-t border-[var(--border-color)] z-30 px-2 pt-2 pb-6 flex justify-around items-center shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
         {isAgent
           ? AGENT_NAV_ITEMS.map((item) => {
               const Icon = item.icon;

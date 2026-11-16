@@ -338,7 +338,7 @@ export default function AgentVerificationPage() {
     <div className="space-y-6 max-w-full pb-12">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none">
+        <div className="fixed top-4 left-4 right-4 z-[100] flex justify-center pointer-events-none">
           <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
             <div className="w-5 h-5 rounded-full bg-[var(--primary-light)] flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-3.5 h-3.5 text-[var(--primary)]" />
@@ -452,13 +452,13 @@ export default function AgentVerificationPage() {
       {/* Document / NIN Submission Modal */}
       {activeItem && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 dark:bg-black/75 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          className="fixed inset-0 z-[80] bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={() => !isSubmitting && setActiveItem(null)}
         >
           <form
             onSubmit={handleSubmitDocument}
             onClick={(e) => e.stopPropagation()}
-            className="bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-[28px] sm:rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200"
+            className="bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-[28px] sm:rounded-3xl p-6 pb-8 sm:pb-6 max-w-md w-full space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200"
           >
             <div className="w-10 h-1 bg-[var(--border-color)] rounded-full mx-auto sm:hidden" />
 
