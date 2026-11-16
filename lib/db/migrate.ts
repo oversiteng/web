@@ -85,6 +85,7 @@ export async function ensureDatabaseMigrated(): Promise<void> {
           "accreditation_documents" jsonb,
           "consent_signed_at" timestamp with time zone,
           "avatar_url" text,
+          "two_factor_enabled" boolean DEFAULT false NOT NULL,
           "is_active" boolean DEFAULT true NOT NULL,
           "created_at" timestamp with time zone DEFAULT now() NOT NULL,
           "updated_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -107,6 +108,7 @@ export async function ensureDatabaseMigrated(): Promise<void> {
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "accreditation_documents" jsonb;`,
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "consent_signed_at" timestamp with time zone;`,
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "avatar_url" text;`,
+        `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "two_factor_enabled" boolean DEFAULT false NOT NULL;`,
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "is_active" boolean DEFAULT true NOT NULL;`,
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "created_at" timestamp with time zone DEFAULT now() NOT NULL;`,
         `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "updated_at" timestamp with time zone DEFAULT now() NOT NULL;`,
@@ -417,6 +419,38 @@ export async function ensureDatabaseMigrated(): Promise<void> {
           "created_at" timestamp with time zone DEFAULT now() NOT NULL,
           "updated_at" timestamp with time zone DEFAULT now() NOT NULL
         );`,
+        // ─── 13b. User Sessions & Notification Preferences ───────────────────
+        `CREATE TABLE IF NOT EXISTS "user_sessions" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+          "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+          "session_token_hash" text NOT NULL,
+          "device_name" varchar(150) NOT NULL,
+          "device_type" varchar(50) DEFAULT 'desktop' NOT NULL,
+          "browser" varchar(80),
+          "os" varchar(80),
+          "ip_address" varchar(64),
+          "location" varchar(150),
+          "user_agent" text,
+          "last_active_at" timestamp with time zone DEFAULT now() NOT NULL,
+          "is_revoked" boolean DEFAULT false NOT NULL,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL
+        );`,
+        `CREATE INDEX IF NOT EXISTS "user_sessions_user_idx" ON "user_sessions" ("user_id");`,
+        `CREATE INDEX IF NOT EXISTS "user_sessions_token_hash_idx" ON "user_sessions" ("session_token_hash");`,
+        `CREATE INDEX IF NOT EXISTS "user_sessions_revoked_idx" ON "user_sessions" ("user_id", "is_revoked");`,
+
+        `CREATE TABLE IF NOT EXISTS "user_notification_preferences" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+          "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+          "email_task_updates" boolean DEFAULT true NOT NULL,
+          "email_security_alerts" boolean DEFAULT true NOT NULL,
+          "email_billing_receipts" boolean DEFAULT true NOT NULL,
+          "email_marketing" boolean DEFAULT false NOT NULL,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+          "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+        );`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "user_notification_prefs_user_unique" ON "user_notification_preferences" ("user_id");`,
+        `CREATE INDEX IF NOT EXISTS "user_notification_prefs_user_idx" ON "user_notification_preferences" ("user_id");`,
 
         // ─── 14. Email index & lowercasing ───────────────────────────────────
         `DO $$ BEGIN

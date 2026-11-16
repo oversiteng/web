@@ -320,3 +320,4 @@ export async function listUserSessions(
     isCurrent: Boolean(currentHash && s.sessionTokenHash === currentHash),
   }));
 }
+

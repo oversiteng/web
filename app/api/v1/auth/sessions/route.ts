@@ -49,3 +49,4 @@ export const DELETE = withAuth(async (req: NextRequest, { user }) => {
     );
   }
 });
+

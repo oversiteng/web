@@ -96,3 +96,4 @@ export const PUT = withAuth(async (req: NextRequest, { user }) => {
     );
   }
 });
+

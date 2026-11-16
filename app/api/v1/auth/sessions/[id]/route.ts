@@ -36,3 +36,4 @@ export const DELETE = withAuth(async (_req: NextRequest, { user, params }) => {
     );
   }
 });
+
