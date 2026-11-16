@@ -5,6 +5,7 @@ import { TaskChat } from "@/lib/types/task";
 import { getDbReady } from "@/lib/db/client";
 import { taskChats, tasks } from "@/db/schema";
 import { eq, and, or, inArray, asc } from "drizzle-orm";
+import { realtimeBridge } from "@/lib/realtime/websocketHandlers";
 
 // GET /api/v1/chat/:taskId/messages — Role-aware, hub-and-spoke Admin-moderated thread retrieval
 export const GET = withAuth<{ taskId: string }>(
@@ -295,6 +296,15 @@ export const POST = withAuth<{ taskId: string }>(
           ? "Delivered"
           : "Routed to Oversite Admin for review",
       };
+
+      // Broadcast real-time message event via Redis pub/sub + SSE stream
+      realtimeBridge
+        .publish({
+          channel: `task:chat:${taskId}`,
+          event: "message",
+          payload: createdChat,
+        })
+        .catch((err) => console.error("[Chat Stream] Publish error:", err));
 
       return NextResponse.json<ApiResponse<TaskChat & { deliveryStatus: string }>>(
         {

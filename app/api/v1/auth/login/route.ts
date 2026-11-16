@@ -7,9 +7,12 @@ import bcrypt from "bcryptjs";
 import { getDbReady } from "@/lib/db/client";
 import { users } from "@/db/schema";
 import { extractAdminPolicy, AdminPolicy } from "@/lib/auth/adminPermissions";
+import { generateOtpCode, storeOtp } from "@/lib/auth/otp";
+import { sendEmailAsync } from "@/lib/services/mailService";
+import { createSession } from "@/lib/auth/sessionManager";
 
 export interface LoginResponseData {
-  user: Partial<User> & {
+  user?: Partial<User> & {
     fullName?: string | null;
     title?: string | null;
     address?: string | null;
@@ -22,10 +25,13 @@ export interface LoginResponseData {
     ninVerificationStatus?: string;
     nbaVerificationStatus?: string;
     adminPolicy?: AdminPolicy | null;
+    twoFactorEnabled?: boolean;
   };
-  token: string;
-  accessToken: string;
-  refreshToken: string;
+  token?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  requiresTwoFactor?: boolean;
+  twoFactorToken?: string;
 }
 
 export async function POST(
@@ -88,6 +94,7 @@ export async function POST(
         nbaVerificationStatus: users.nbaVerificationStatus,
         accreditationDocuments: users.accreditationDocuments,
         passwordHash: users.passwordHash,
+        twoFactorEnabled: users.twoFactorEnabled,
         isActive: users.isActive,
         createdAt: users.createdAt,
       })
@@ -174,6 +181,50 @@ export async function POST(
       );
     }
 
+    // Determine 2FA requirement:
+    // Strictly MANDATORY for ADMIN and SUPER_ADMIN; opt-in for USER and AGENT
+    const requiresTwoFactor =
+      user.role === "ADMIN" ||
+      user.role === "SUPER_ADMIN" ||
+      Boolean(user.twoFactorEnabled);
+
+    if (requiresTwoFactor) {
+      const otpCode = generateOtpCode(6);
+      await storeOtp(`2fa:${user.id}`, otpCode, 10 * 60);
+
+      // Temporary token valid for 10 minutes specifically for 2FA completion
+      const twoFactorToken = signToken(
+        {
+          sub: user.id,
+          email: user.email,
+          role: user.role,
+          name: user.name || undefined,
+        },
+        10 * 60
+      );
+
+      // Enqueue 2FA security code email asynchronously (< 5ms response)
+      sendEmailAsync({
+        to: user.email,
+        subject: "Your Oversite Security Code",
+        template: "2FA_CODE",
+        payload: {
+          code: otpCode,
+          name: user.name || "User",
+          expiresIn: "10 minutes",
+        },
+      }).catch((err) => console.error("[Auth Login] 2FA email dispatch failed:", err));
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          requiresTwoFactor: true,
+          twoFactorToken,
+        },
+        message: "Two-factor authentication required. Verification code has been sent to your email.",
+      });
+    }
+
     // Sign JWT tokens
     const token = signToken({
       sub: user.id,
@@ -183,6 +234,15 @@ export async function POST(
     });
 
     const refreshToken = signRefreshToken(user.id);
+
+    // Track session & enforce max 2 concurrent active sessions ceiling
+    await createSession({
+      userId: user.id,
+      req,
+      token,
+      userEmail: user.email,
+      userName: user.name || undefined,
+    });
 
     const response = NextResponse.json<ApiResponse<LoginResponseData>>({
       success: true,
@@ -205,6 +265,7 @@ export async function POST(
           kycStatus: user.kycStatus,
           ninVerificationStatus: user.ninVerificationStatus,
           nbaVerificationStatus: user.nbaVerificationStatus,
+          twoFactorEnabled: user.twoFactorEnabled,
           isActive: user.isActive,
           adminPolicy,
           createdAt: user.createdAt ? user.createdAt.toISOString() : undefined,

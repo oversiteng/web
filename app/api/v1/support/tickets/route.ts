@@ -347,7 +347,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
         success: false,
         error: {
           code: "INTERNAL_ERROR",
-          message: "Failed to send support message.",
+          message: (error as Error).message || "Failed to send support message.",
         },
       },
       { status: 500 }

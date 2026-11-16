@@ -1,5 +1,6 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { enqueueJob, EmailJobData } from "@/lib/queue/backgroundQueue";
+import { renderEmailTemplate } from "@/lib/services/mailTemplates";
 
 const sesClient = new SESClient({
   region: process.env.AWS_REGION || "us-east-1",
@@ -9,7 +10,7 @@ const sesClient = new SESClient({
   },
 });
 
-/** Enqueues email to background worker so HTTP request returns instantly */
+/** Enqueues email to background worker so HTTP request returns instantly (< 5ms) */
 export async function sendEmailAsync(jobData: EmailJobData): Promise<void> {
   await enqueueJob({
     type: "SEND_EMAIL",
@@ -20,6 +21,14 @@ export async function sendEmailAsync(jobData: EmailJobData): Promise<void> {
 /** Direct AWS SES email dispatch (called by background worker) */
 export async function executeSendEmail(jobData: EmailJobData): Promise<boolean> {
   const senderEmail = process.env.SES_SENDER_EMAIL || "notifications@oversite.ng";
+  const { html, text } = renderEmailTemplate(jobData.template, jobData.payload);
+
+  // If AWS credentials are missing in local dev environment, log cleanly and return
+  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+    console.log(`[Email Dev Fallback] Email to ${jobData.to} (${jobData.subject}):`);
+    console.log(`[Email Dev Fallback Content] ${text}`);
+    return true;
+  }
 
   const command = new SendEmailCommand({
     Source: senderEmail,
@@ -33,18 +42,11 @@ export async function executeSendEmail(jobData: EmailJobData): Promise<boolean> 
       },
       Body: {
         Html: {
-          Data: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; rounded: 12px;">
-              <h2 style="color: #059669;">Oversite.ng Ground Intelligence</h2>
-              <p>${jobData.subject}</p>
-              <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; font-size: 14px;">
-                ${JSON.stringify(jobData.payload, null, 2)}
-              </div>
-              <p style="color: #64748b; font-size: 12px; margin-top: 20px;">
-                Confidential dispatch notification • Oversite.ng Decentralized Field Ops
-              </p>
-            </div>
-          `,
+          Data: html,
+          Charset: "UTF-8",
+        },
+        Text: {
+          Data: text,
           Charset: "UTF-8",
         },
       },

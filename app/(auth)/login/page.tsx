@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, Suspense } from "react";
-import { EyeOff, Eye } from "lucide-react";
+import { EyeOff, Eye, ShieldCheck, ArrowLeft, KeyRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
@@ -15,6 +15,11 @@ function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isAgentMode = searchParams.get("role") === "agent";
+
+  // 2FA state
+  const [twoFactorChallenge, setTwoFactorChallenge] = useState<{ token: string } | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [verifying2fa, setVerifying2fa] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -50,6 +55,13 @@ function LoginFormContent() {
         return;
       }
 
+      // Check if 2FA challenge is required
+      if (data.data?.requiresTwoFactor && data.data?.twoFactorToken) {
+        setTwoFactorChallenge({ token: data.data.twoFactorToken });
+        setLoading(false);
+        return;
+      }
+
       if (data.data?.user) {
         await setSession(data.data.user, data.data.token);
       } else if (data.data?.token) {
@@ -68,6 +80,121 @@ function LoginFormContent() {
       setLoading(false);
     }
   };
+
+  const handleVerify2fa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!twoFactorChallenge?.token || !twoFactorCode.trim()) return;
+
+    setVerifying2fa(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch("/api/v1/auth/login/2fa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          twoFactorToken: twoFactorChallenge.token,
+          code: twoFactorCode.trim(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setErrorMessage(data.error?.message || "Invalid code. Please try again.");
+        setVerifying2fa(false);
+        return;
+      }
+
+      if (data.data?.user) {
+        await setSession(data.data.user, data.data.token);
+      } else if (data.data?.token) {
+        localStorage.setItem("oversite_token", data.data.token);
+      }
+
+      if (data.data?.user?.role === "AGENT") {
+        router.push("/agent/dashboard");
+      } else if (data.data?.user?.role === "ADMIN" || data.data?.user?.role === "SUPER_ADMIN") {
+        router.push("/admin/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (err) {
+      setErrorMessage("Failed to verify code. Please try again.");
+      setVerifying2fa(false);
+    }
+  };
+
+  // 2FA Screen
+  if (twoFactorChallenge) {
+    return (
+      <div className="flex flex-col items-center w-full max-w-sm mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="flex flex-col items-start mt-2 mb-8 w-full">
+          <button
+            type="button"
+            onClick={() => {
+              setTwoFactorChallenge(null);
+              setTwoFactorCode("");
+              setErrorMessage(null);
+            }}
+            className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-heading)] mb-6 transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to login
+          </button>
+
+          <div className="w-12 h-12 rounded-2xl bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center mb-4 border border-[var(--primary-border)] shadow-2xs">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+
+          <h1 className="text-[24px] font-bold text-[var(--text-heading)] mb-2">
+            Two-Factor Authentication
+          </h1>
+          <p className="text-[13px] font-medium text-[var(--text-muted)] leading-relaxed">
+            Enter the 6-digit verification code sent to your registered email address.
+          </p>
+        </div>
+
+        {errorMessage && (
+          <div className="w-full mb-4 p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium text-center">
+            {errorMessage}
+          </div>
+        )}
+
+        <form onSubmit={handleVerify2fa} className="w-full space-y-4">
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-[var(--text-heading)] block">
+              Security Code
+            </label>
+            <div className="flex items-center bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)]/70 focus-within:ring-2 focus-within:ring-[var(--primary)] focus-within:border-transparent transition-all shadow-2xs">
+              <input
+                type="text"
+                maxLength={6}
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="000000"
+                className="w-full py-3.5 px-4 text-center tracking-[8px] text-[22px] font-bold font-mono bg-transparent text-[var(--text-heading)] placeholder:text-[#a0aab4] focus:outline-none"
+                autoFocus
+                required
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={verifying2fa || twoFactorCode.length < 6}
+            className="w-full py-3 rounded-2xl bg-[var(--primary)] text-white font-semibold text-[13px] active:scale-[0.98] transition-transform hover:bg-[var(--primary-hover)] flex justify-center items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          >
+            {verifying2fa ? "Verifying..." : "Verify & Continue"}
+          </button>
+        </form>
+
+        <p className="text-center text-xs text-[var(--text-muted)] mt-6">
+          Didn&apos;t receive the code? Check your spam folder or return to sign in to request a new code.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center w-full max-w-sm mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -98,14 +225,14 @@ function LoginFormContent() {
         {/* Email Input */}
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-(--text-heading) block">
-            Email
+            Email or Phone Number
           </label>
           <div className="flex items-center bg-(--bg-card) rounded-3xl overflow-hidden border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-(--primary) focus-within:border-[var(--primary)] transition-all">
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-              placeholder="e.g. mailali@gmail.com"
+              placeholder="e.g. mailali@gmail.com or 08012345678"
               className="w-full py-3 px-6 bg-transparent text-(--text-heading) placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium"
               required
             />
@@ -148,7 +275,7 @@ function LoginFormContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 rounded-[24px] bg-[var(--primary)] text-white font-semibold text-[13px] active:scale-[0.98] transition-transform hover:bg-[var(--primary-hover)] flex justify-center items-center cursor-pointer"
+            className="w-full py-2 rounded-[24px] bg-[var(--primary)] text-white font-semibold text-[13px] active:scale-[0.98] transition-transform hover:bg-[var(--primary-hover)] flex justify-center items-center cursor-pointer shadow-sm"
           >
             {loading ? "Logging in..." : "Log in"}
           </button>
@@ -158,7 +285,7 @@ function LoginFormContent() {
       {/* Switch to Register */}
       <div className="mt-6 text-center space-y-2">
         <p className="text-[13px] font-medium text-[var(--text-body)]">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link href={isAgentMode ? "/register/agent" : "/register"} className="font-bold text-(--primary) hover:underline">
             Sign up
           </Link>
@@ -187,15 +314,17 @@ function LoginFormContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col items-center w-full max-w-sm mx-auto p-8 animate-pulse text-center">
-        <div className="h-8 w-48 bg-slate-200 dark:bg-slate-800 rounded-full mb-4"></div>
-        <div className="h-4 w-64 bg-slate-200 dark:bg-slate-800 rounded-full mb-8"></div>
-        <div className="h-12 w-full bg-slate-200 dark:bg-slate-800 rounded-3xl mb-4"></div>
-        <div className="h-12 w-full bg-slate-200 dark:bg-slate-800 rounded-3xl mb-4"></div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center w-full max-w-sm mx-auto p-8 animate-pulse text-center">
+          <div className="h-8 w-48 bg-slate-200 dark:bg-slate-800 rounded-full mb-4"></div>
+          <div className="h-4 w-64 bg-slate-200 dark:bg-slate-800 rounded-full mb-8"></div>
+          <div className="h-12 w-full bg-slate-200 dark:bg-slate-800 rounded-3xl mb-4"></div>
+          <div className="h-12 w-full bg-slate-200 dark:bg-slate-800 rounded-3xl mb-4"></div>
+        </div>
+      }
+    >
       <LoginFormContent />
     </Suspense>
-  )
+  );
 }

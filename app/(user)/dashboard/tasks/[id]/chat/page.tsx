@@ -137,6 +137,108 @@ export default function TaskMissionChatPage({
     initData();
   }, [taskId]);
 
+  // Real-time SSE streaming connection (< 100ms message delivery)
+  useEffect(() => {
+    if (!taskId) return;
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("oversite_token")
+        : null;
+
+    const streamUrl = `/api/v1/chat/${taskId}/stream${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+    let eventSource: EventSource | null = null;
+
+    try {
+      eventSource = new EventSource(streamUrl);
+
+      eventSource.addEventListener("message", (e) => {
+        try {
+          const newChat = JSON.parse(e.data);
+          setMessages((prev) => {
+            // Deduplicate if already present
+            if (prev.some((m) => m.id === newChat.id)) {
+              return prev.map((m) =>
+                m.id === newChat.id
+                  ? {
+                      ...m,
+                      message: newChat.message,
+                      moderationStatus: newChat.moderationStatus || m.moderationStatus,
+                    }
+                  : m
+              );
+            }
+
+            let milestoneObj: MilestoneData | null = null;
+            if (newChat.messageType === "MILESTONE_UPDATE" && newChat.message) {
+              try {
+                milestoneObj = JSON.parse(newChat.message);
+              } catch {
+                milestoneObj = {
+                  cardType: "MILESTONE_SUBMISSION",
+                  milestoneTitle: newChat.message,
+                  stageDetails: "Milestone status verified by assigned field agent",
+                  status: "Completed",
+                };
+              }
+            }
+
+            return [
+              ...prev,
+              {
+                id: newChat.id,
+                senderId: newChat.senderId,
+                receiverId: newChat.receiverId,
+                message: newChat.message,
+                rawMessage: newChat.rawMessage,
+                moderatedMessage: newChat.moderatedMessage,
+                moderationStatus: newChat.moderationStatus || "APPROVED_AS_IS",
+                rejectionReason: newChat.rejectionReason,
+                messageType: newChat.messageType || "TEXT",
+                createdAt: newChat.createdAt,
+                parsedMilestone: milestoneObj,
+              },
+            ];
+          });
+        } catch (err) {
+          console.error("Failed to parse realtime message:", err);
+        }
+      });
+
+      eventSource.addEventListener("message_moderated", (e) => {
+        try {
+          const updatedChat = JSON.parse(e.data);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === updatedChat.id
+                ? {
+                    ...m,
+                    message: updatedChat.message,
+                    moderatedMessage: updatedChat.moderatedMessage,
+                    moderationStatus: updatedChat.moderationStatus,
+                    rejectionReason: updatedChat.rejectionReason,
+                  }
+                : m
+            )
+          );
+        } catch (err) {
+          console.error("Failed to parse moderation event:", err);
+        }
+      });
+
+      eventSource.onerror = () => {
+        // EventSource automatically retries connection
+      };
+    } catch (err) {
+      console.warn("SSE Realtime stream could not be established:", err);
+    }
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, [taskId]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);

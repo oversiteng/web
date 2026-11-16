@@ -6,6 +6,7 @@ import { getDbReady } from "@/lib/db/client";
 import { taskChats, taskMilestones, taskReports, tasks } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { extractMilestoneMeta } from "@/app/api/v1/tasks/[id]/milestones/route";
+import { realtimeBridge } from "@/lib/realtime/websocketHandlers";
 
 // POST /api/v1/admin/chats/:messageId/moderate — Curate, Approve, Modify, or Reject intercepted message / milestone / report
 export const POST = withAuth<{ messageId: string }>(
@@ -249,6 +250,15 @@ export const POST = withAuth<{ messageId: string }>(
         rejectionReason: updatedMessage.rejectionReason || undefined,
         createdAt: updatedMessage.createdAt.toISOString(),
       };
+
+      // Broadcast moderation event in realtime via Redis pub/sub + SSE stream
+      realtimeBridge
+        .publish({
+          channel: `task:chat:${updatedMessage.taskId}`,
+          event: "message_moderated",
+          payload: result,
+        })
+        .catch((err) => console.error("[Chat Moderate Stream] Publish error:", err));
 
       return NextResponse.json<ApiResponse<TaskChat>>({
         success: true,

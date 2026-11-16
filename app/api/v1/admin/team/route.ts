@@ -274,7 +274,7 @@ export const POST = withAuth(
           success: false,
           error: {
             code: "INTERNAL_ERROR",
-            message: "Failed to provision admin account.",
+            message: (error as Error).message || "Failed to provision admin account.",
           },
         },
         { status: 500 }

@@ -166,6 +166,7 @@ export const users = pgTable(
     accreditationDocuments: jsonb("accreditation_documents"),
     consentSignedAt: timestamp("consent_signed_at", { withTimezone: true }),
     avatarUrl: text("avatar_url"),
+    twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -179,6 +180,62 @@ export const users = pgTable(
     index("users_phone_idx").on(table.phone),
     index("users_role_idx").on(table.role),
   ],
+);
+
+// User Sessions — multi-device tracking, concurrent limits (max 2), remote revoking
+export const userSessions = pgTable(
+  "user_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sessionTokenHash: text("session_token_hash").notNull(),
+    deviceName: varchar("device_name", { length: 150 }).notNull(),
+    deviceType: varchar("device_type", { length: 50 }).notNull().default("desktop"),
+    browser: varchar("browser", { length: 80 }),
+    os: varchar("os", { length: 80 }),
+    ipAddress: varchar("ip_address", { length: 64 }),
+    location: varchar("location", { length: 150 }),
+    userAgent: text("user_agent"),
+    lastActiveAt: timestamp("last_active_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    isRevoked: boolean("is_revoked").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("user_sessions_user_idx").on(table.userId),
+    index("user_sessions_token_hash_idx").on(table.sessionTokenHash),
+    index("user_sessions_revoked_idx").on(table.userId, table.isRevoked),
+  ]
+);
+
+// User Notification Preferences — granular opt-in/opt-out for email alerts
+export const userNotificationPreferences = pgTable(
+  "user_notification_preferences",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    emailTaskUpdates: boolean("email_task_updates").notNull().default(true),
+    emailSecurityAlerts: boolean("email_security_alerts").notNull().default(true),
+    emailBillingReceipts: boolean("email_billing_receipts").notNull().default(true),
+    emailMarketing: boolean("email_marketing").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("user_notification_prefs_user_unique").on(table.userId),
+    index("user_notification_prefs_user_idx").on(table.userId),
+  ]
 );
 
 // Agent Profiles — linked to users with role=AGENT

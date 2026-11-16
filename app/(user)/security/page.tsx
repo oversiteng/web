@@ -13,6 +13,12 @@ import {
   RefreshCw,
   X,
   FileText,
+  Laptop,
+  Smartphone,
+  Tablet,
+  LogOut,
+  Trash2,
+  Globe,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getStoredToken } from "@/lib/storage/clientStorage";
@@ -69,6 +75,86 @@ export default function SecurityPage() {
   const [showNdprModal, setShowNdprModal] = useState(false);
   const [showNdprDisableModal, setShowNdprDisableModal] = useState(false);
 
+  // ── Active Sessions State ──
+  interface ActiveSession {
+    id: string;
+    deviceName: string;
+    deviceType: string;
+    browser: string | null;
+    os: string | null;
+    ipAddress: string | null;
+    location: string | null;
+    lastActiveAt: string;
+    createdAt: string;
+    isCurrent: boolean;
+  }
+  const [sessions, setSessions] = useState<ActiveSession[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const [terminatingSessionId, setTerminatingSessionId] = useState<string | null>(null);
+
+  const loadSessions = async () => {
+    try {
+      setIsLoadingSessions(true);
+      const token = await getStoredToken();
+      if (!token) return;
+      const res = await fetch("/api/v1/auth/sessions", {
+        credentials: "include",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setSessions(json.data);
+      }
+    } catch (err) {
+      console.error("Failed to load sessions:", err);
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  };
+
+  const handleTerminateSession = async (sessionId: string) => {
+    setTerminatingSessionId(sessionId);
+    try {
+      const token = await getStoredToken();
+      if (!token) return;
+      const res = await fetch(`/api/v1/auth/sessions/${sessionId}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast("Session terminated successfully");
+        setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      } else {
+        showToast(json.error?.message || "Failed to terminate session");
+      }
+    } catch {
+      showToast("Failed to terminate session");
+    } finally {
+      setTerminatingSessionId(null);
+    }
+  };
+
+  const handleTerminateOtherSessions = async () => {
+    try {
+      const token = await getStoredToken();
+      if (!token) return;
+      const res = await fetch("/api/v1/auth/sessions", {
+        method: "DELETE",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast("All other sessions terminated");
+        setSessions((prev) => prev.filter((s) => s.isCurrent));
+      }
+    } catch {
+      showToast("Failed to terminate sessions");
+    }
+  };
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
@@ -104,6 +190,7 @@ export default function SecurityPage() {
     }
 
     loadSecuritySettings();
+    loadSessions();
   }, []);
 
   // Timer countdown for 2FA setup code resend
@@ -374,6 +461,122 @@ export default function SecurityPage() {
             checked={ndprConsent}
             onChange={handleToggleNdprClick}
           />
+        </div>
+      </div>
+
+      {/* ── Section Header: Active Sessions & Multi-Device Control ── */}
+      <div className="mt-8 mb-3 px-1 flex items-center justify-between">
+        <div>
+          <h2 className="text-[13.5px] font-semibold text-[var(--primary)]">
+            Active sessions
+          </h2>
+          <p className="text-[11.5px] text-[var(--text-muted)] mt-0.5">
+            Strict maximum 2 concurrent devices per account
+          </p>
+        </div>
+        {sessions.length > 1 && (
+          <button
+            type="button"
+            onClick={handleTerminateOtherSessions}
+            className="text-[11.5px] font-bold text-red-500 hover:text-red-600 transition-colors cursor-pointer"
+          >
+            Terminate other devices
+          </button>
+        )}
+      </div>
+
+      {/* ── Card 3: Active Device Sessions List ── */}
+      <div className="rounded-[28px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 sm:p-6 shadow-[0_0_10px_rgba(0,0,0,0.03)] space-y-4 transition-colors">
+        {isLoadingSessions ? (
+          <div className="flex items-center justify-center py-6 gap-2 text-[var(--text-muted)] text-xs font-medium">
+            <Loader2 className="w-4 h-4 animate-spin text-[var(--primary)]" />
+            <span>Loading active sessions...</span>
+          </div>
+        ) : sessions.length === 0 ? (
+          <div className="text-center py-6 text-xs text-[var(--text-muted)]">
+            No active session records found.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {sessions.map((session) => {
+              const isMobile = session.deviceType === "mobile";
+              const isTablet = session.deviceType === "tablet";
+              const DeviceIcon = isMobile ? Smartphone : isTablet ? Tablet : Laptop;
+
+              return (
+                <div
+                  key={session.id}
+                  className="flex items-start sm:items-center justify-between p-3.5 rounded-2xl bg-[var(--bg-secondary)]/50 border border-[var(--border-color)]/70 gap-3"
+                >
+                  <div className="flex items-start sm:items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center shrink-0 text-[var(--text-heading)] shadow-2xs">
+                      <DeviceIcon className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[13px] font-bold text-[var(--text-heading)] truncate">
+                          {session.deviceName}
+                        </span>
+                        {session.isCurrent ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            This device
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-color)]">
+                            Remote device
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)] mt-1 flex-wrap">
+                        {session.ipAddress && <span>{session.ipAddress}</span>}
+                        {session.location && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Globe className="w-3 h-3" />
+                              {session.location}
+                            </span>
+                          </>
+                        )}
+                        <span>•</span>
+                        <span>
+                          {session.isCurrent
+                            ? "Active now"
+                            : `Last active ${new Date(session.lastActiveAt).toLocaleDateString()}`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {!session.isCurrent && (
+                    <button
+                      type="button"
+                      disabled={terminatingSessionId === session.id}
+                      onClick={() => handleTerminateSession(session.id)}
+                      className="shrink-0 p-2 text-xs font-semibold text-red-500 hover:bg-red-500/10 rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                      title="Terminate this session"
+                    >
+                      {terminatingSessionId === session.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <LogOut className="w-4 h-4" />
+                          <span className="hidden sm:inline">Terminate</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="pt-2 border-t border-[var(--border-color)]/50">
+          <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+            🛡️ <strong>Session Protection:</strong> Your account is protected by multi-device limit enforcement. A third login will automatically terminate your oldest session, and unrecognized logins trigger an instant security email.
+          </p>
         </div>
       </div>
 

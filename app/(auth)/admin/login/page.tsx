@@ -19,7 +19,7 @@ import {
   Building2,
 } from "lucide-react";
 
-type OnboardingStep = "SIGN_IN" | "SETUP_PASSWORD" | "PENDING_APPROVAL";
+type OnboardingStep = "SIGN_IN" | "VERIFY_2FA" | "SETUP_PASSWORD" | "PENDING_APPROVAL";
 
 function AdminLoginContent() {
   const { user, isLoading: authLoading, setSession, logout } = useAuth();
@@ -29,6 +29,9 @@ function AdminLoginContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  const [twoFactorToken, setTwoFactorToken] = useState("");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -145,6 +148,18 @@ function AdminLoginContent() {
         return;
       }
 
+      if (data.data?.requiresTwoFactor && data.data?.twoFactorToken) {
+        setCurrentPassword(password);
+        setTwoFactorToken(data.data.twoFactorToken);
+        setStatusMessage(
+          data.message ||
+            "A 6-digit 2FA verification code has been sent to your official email."
+        );
+        setStep("VERIFY_2FA");
+        setLoading(false);
+        return;
+      }
+
       const loggedInUser = data.data?.user;
       if (
         loggedInUser?.role !== "ADMIN" &&
@@ -162,6 +177,52 @@ function AdminLoginContent() {
       evaluateAdminRoute(loggedInUser.role, loggedInUser.adminPolicy);
     } catch {
       setErrorMessage("Network error while connecting to Admin Command.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerify2fa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMessage(null);
+    setStatusMessage(null);
+
+    try {
+      const res = await fetch("/api/v1/auth/login/2fa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          twoFactorToken,
+          code: twoFactorCode.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setErrorMessage(
+          data.error?.message || "Invalid or expired 2FA security code."
+        );
+        setLoading(false);
+        return;
+      }
+
+      const loggedInUser = data.data?.user;
+      if (
+        loggedInUser?.role !== "ADMIN" &&
+        loggedInUser?.role !== "SUPER_ADMIN"
+      ) {
+        setErrorMessage(
+          "Access Denied: This portal is restricted to Oversite Administrators."
+        );
+        setLoading(false);
+        return;
+      }
+
+      await setSession(loggedInUser, data.data.token);
+      evaluateAdminRoute(loggedInUser.role, loggedInUser.adminPolicy);
+    } catch {
+      setErrorMessage("Network error while verifying 2FA code.");
     } finally {
       setLoading(false);
     }
@@ -248,6 +309,20 @@ function AdminLoginContent() {
               Sign in with your Super Admin or Departmental Admin credentials.
               First-time staff will be prompted to update their temporary
               password.
+            </p>
+          </>
+        )}
+
+        {step === "VERIFY_2FA" && (
+          <>
+            <h1 className="text-[24px] font-bold text-[var(--text-heading)]">
+              2FA Security Verification
+            </h1>
+            <p className="text-[12.5px] font-medium text-[var(--text-muted)] mt-1 leading-relaxed">
+              Enter the 6-digit verification code sent to{" "}
+              <strong className="text-[var(--text-heading)]">{email}</strong>.
+              Two-factor authentication is mandatory for all Oversite
+              Administrators.
             </p>
           </>
         )}
@@ -385,6 +460,48 @@ function AdminLoginContent() {
           >
             <Lock className="w-4 h-4" />
             {loading ? "Authenticating..." : "Sign In to Admin Command"}
+          </button>
+        </form>
+      )}
+
+      {/* STEP 1B: 2FA VERIFICATION */}
+      {step === "VERIFY_2FA" && (
+        <form onSubmit={handleVerify2fa} className="w-full space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold text-[var(--text-heading)] block">
+              6-Digit Security Code
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={twoFactorCode}
+              onChange={(e) => setTwoFactorCode(e.target.value)}
+              placeholder="123456"
+              className="w-full py-3 px-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-heading)] text-center tracking-[0.4em] font-mono text-base focus:outline-none focus:border-[var(--primary)]"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || twoFactorCode.trim().length < 6}
+            className="w-full py-3 rounded-2xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            {loading ? "Verifying Code..." : "Verify & Continue"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStep("SIGN_IN");
+              setTwoFactorCode("");
+              setErrorMessage(null);
+            }}
+            className="w-full py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-heading)] cursor-pointer"
+          >
+            Back to Sign In
           </button>
         </form>
       )}
