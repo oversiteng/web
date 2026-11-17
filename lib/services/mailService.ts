@@ -3,12 +3,32 @@ import { enqueueJob, EmailJobData } from "@/lib/queue/backgroundQueue";
 import { renderEmailTemplate } from "@/lib/services/mailTemplates";
 
 const sesClient = new SESClient({
-  region: process.env.AWS_REGION || "us-east-1",
+  region: process.env.AWS_REGION || "eu-west-2",
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
   },
 });
+
+const NO_REPLY_TEMPLATES = new Set([
+  "2FA_CODE",
+  "OTP_VERIFICATION",
+  "NEW_LOGIN_ALERT",
+  "ADMIN_INVITE_CREDENTIALS",
+  "ADMIN_CREDENTIALS_RESET",
+]);
+
+function resolveSenderAddress(jobData: EmailJobData): string {
+  if (jobData.from) return jobData.from;
+  const noReplyEmail =
+    process.env.SES_NOREPLY_EMAIL || "no-reply@oversite.ng";
+  const notificationsEmail =
+    process.env.SES_SENDER_EMAIL || "notifications@oversite.ng";
+
+  return NO_REPLY_TEMPLATES.has(jobData.template)
+    ? noReplyEmail
+    : notificationsEmail;
+}
 
 /**
  * Dispatches email asynchronously so HTTP requests return immediately.
@@ -31,21 +51,23 @@ export async function sendEmailAsync(jobData: EmailJobData): Promise<void> {
 
 /** Direct AWS SES email dispatch (called directly or by background worker) */
 export async function executeSendEmail(jobData: EmailJobData): Promise<boolean> {
-  const senderEmail =
-    process.env.SES_SENDER_EMAIL || "notifications@oversite.ng";
+  const senderEmail = resolveSenderAddress(jobData);
+  const supportEmail =
+    process.env.SES_SUPPORT_EMAIL || "support@oversite.ng";
   const { html, text } = renderEmailTemplate(jobData.template, jobData.payload);
 
   // If AWS credentials are missing in local dev environment, log cleanly and return
   if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
     console.log(
-      `[Email Dev Fallback] Email to ${jobData.to} (${jobData.subject}):`
+      `[Email Dev Fallback] From ${senderEmail} -> To ${jobData.to} (${jobData.subject}):`
     );
     console.log(`[Email Dev Fallback Content] ${text}`);
     return true;
   }
 
   const command = new SendEmailCommand({
-    Source: senderEmail,
+    Source: `Oversite <${senderEmail}>`,
+    ReplyToAddresses: [supportEmail],
     Destination: {
       ToAddresses: [jobData.to],
     },
@@ -69,11 +91,13 @@ export async function executeSendEmail(jobData: EmailJobData): Promise<boolean> 
 
   try {
     await sesClient.send(command);
-    console.log(`[SES Success] Email delivered to ${jobData.to}`);
+    console.log(
+      `[SES Success] Email delivered from ${senderEmail} to ${jobData.to}`
+    );
     return true;
   } catch (error) {
     console.error(
-      `[SES Failure] Could not deliver email to ${jobData.to}:`,
+      `[SES Failure] Could not deliver email from ${senderEmail} to ${jobData.to}:`,
       error
     );
     return false;

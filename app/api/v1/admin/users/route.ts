@@ -42,6 +42,7 @@ export const GET = withAuth(
             ninVerificationStatus: users.ninVerificationStatus,
             nbaVerificationStatus: users.nbaVerificationStatus,
             addressVerificationStatus: users.addressVerificationStatus,
+            accreditationDocuments: users.accreditationDocuments,
             isActive: users.isActive,
             createdAt: users.createdAt,
             agentTier: agentProfiles.tier,

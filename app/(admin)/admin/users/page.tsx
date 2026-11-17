@@ -55,6 +55,7 @@ export default function AdminUsersKycPage() {
   const [userDetail, setUserDetail] = useState<any>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [rejectionInput, setRejectionInput] = useState("");
+  const [previewDocument, setPreviewDocument] = useState<{ title: string; url: string } | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -551,45 +552,106 @@ export default function AdminUsersKycPage() {
                       {Object.entries(userDetail.accreditationDocuments).map(
                         ([docKey, docVal]: [string, any]) => {
                           if (!docVal || typeof docVal !== "object") return null;
+                          const docUrl = docVal.documentUrl || docVal.fileRef || docVal.url;
+                          const isVerified = String(docVal.status || "").toUpperCase() === "VERIFIED";
+                          const isRejected = String(docVal.status || "").toUpperCase() === "REJECTED";
+
                           return (
                             <div
                               key={docKey}
-                              className="p-3.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-between gap-3 text-xs"
+                              className="p-3.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-2 text-xs"
                             >
-                              <div className="min-w-0">
+                              <div className="flex items-center justify-between gap-2">
                                 <p className="font-bold text-[var(--text-heading)] uppercase flex items-center gap-1.5">
                                   <FileText className="w-3.5 h-3.5 text-[var(--primary)]" />
                                   {docKey.replace(/_/g, " ")}
                                 </p>
-                                <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">
-                                  {docVal.fileName || docVal.documentUrl || "Uploaded artifact"} · Status:{" "}
-                                  <strong>{docVal.status || "SUBMITTED"}</strong>
-                                </p>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    isVerified
+                                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                                      : isRejected
+                                      ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                                      : "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                                  }`}
+                                >
+                                  {isVerified ? "Verified" : isRejected ? "Rejected" : "Submitted"}
+                                </span>
                               </div>
 
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                {docVal.documentUrl && (
-                                  <a
-                                    href={docVal.documentUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="px-2.5 py-1 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-[11px] font-semibold text-[var(--primary)]"
-                                  >
-                                    View
-                                  </a>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleUpdateUserPatch(userDetail.id, {
-                                      documentKey: docKey,
-                                      documentStatus: "VERIFIED",
-                                    })
-                                  }
-                                  className="px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold cursor-pointer"
-                                >
-                                  Approve
-                                </button>
+                              {/* Metadata if present */}
+                              {docVal.metadata && (
+                                <div className="text-[11px] text-[var(--text-muted)] space-y-0.5 bg-[var(--bg-card)]/60 p-2.5 rounded-lg border border-[var(--border-color)]/60">
+                                  {docVal.metadata.residentialAddress && (
+                                    <p><strong className="text-[var(--text-heading)]">Address:</strong> {docVal.metadata.residentialAddress}</p>
+                                  )}
+                                  {docVal.metadata.guarantorName && (
+                                    <p><strong className="text-[var(--text-heading)]">Guarantor:</strong> {docVal.metadata.guarantorName} ({docVal.metadata.guarantorPhone})</p>
+                                  )}
+                                  {docVal.metadata.issuingBody && (
+                                    <p><strong className="text-[var(--text-heading)]">Issuer:</strong> {docVal.metadata.issuingBody} | <strong className="text-[var(--text-heading)]">Cert #:</strong> {docVal.metadata.certificateNumber}</p>
+                                  )}
+                                  {docVal.metadata.fileName && (
+                                    <p><strong className="text-[var(--text-heading)]">File:</strong> {docVal.metadata.fileName}</p>
+                                  )}
+                                </div>
+                              )}
+
+                              {isRejected && docVal.rejectionReason && (
+                                <p className="text-[11px] text-red-500 italic bg-red-500/10 p-2 rounded-lg">
+                                  Rejection Reason: {docVal.rejectionReason}
+                                </p>
+                              )}
+
+                              <div className="flex items-center justify-between pt-1">
+                                <div className="flex items-center gap-2">
+                                  {docUrl ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewDocument({ title: docKey.replace(/_/g, " ").toUpperCase(), url: docUrl })}
+                                      className="px-2.5 py-1 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-[11px] font-semibold text-[var(--primary)] hover:border-[var(--primary)] transition-colors cursor-pointer"
+                                    >
+                                      Inspect / View
+                                    </button>
+                                  ) : (
+                                    <span className="text-[11px] text-[var(--text-muted)]">No file uploaded</span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-1.5">
+                                  {!isVerified && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleUpdateUserPatch(userDetail.id, {
+                                          documentKey: docKey,
+                                          documentStatus: "VERIFIED",
+                                        })
+                                      }
+                                      className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold cursor-pointer transition-colors"
+                                    >
+                                      Approve
+                                    </button>
+                                  )}
+                                  {!isRejected && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const reason = prompt(`Enter rejection reason for ${docKey.replace(/_/g, " ")}:`, rejectionInput || "Unclear copy, please re-upload a readable version.");
+                                        if (reason !== null) {
+                                          handleUpdateUserPatch(userDetail.id, {
+                                            documentKey: docKey,
+                                            documentStatus: "REJECTED",
+                                            rejectionReason: reason,
+                                          });
+                                        }
+                                      }}
+                                      className="px-2.5 py-1 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-600 dark:text-red-400 text-[11px] font-bold cursor-pointer transition-colors"
+                                    >
+                                      Reject
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           );
@@ -638,6 +700,50 @@ export default function AdminUsersKycPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* Document Lightbox Modal */}
+      {previewDocument && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in duration-200">
+            <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[var(--text-heading)]">
+                {previewDocument.title}
+              </h3>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewDocument.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1 rounded-lg bg-[var(--bg-secondary)] text-[11px] font-semibold text-[var(--primary)] hover:underline"
+                >
+                  Open in Tab
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDocument(null)}
+                  className="p-1.5 rounded-lg bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-heading)] cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 flex-1 overflow-auto flex items-center justify-center bg-[var(--bg-secondary)]/30 min-h-[300px]">
+              {previewDocument.url.startsWith("data:application/pdf") || previewDocument.url.endsWith(".pdf") ? (
+                <iframe
+                  src={previewDocument.url}
+                  title={previewDocument.title}
+                  className="w-full h-[600px] rounded-lg border border-[var(--border-color)]"
+                />
+              ) : (
+                <img
+                  src={previewDocument.url}
+                  alt={previewDocument.title}
+                  className="max-h-[70vh] max-w-full object-contain rounded-xl shadow-md"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

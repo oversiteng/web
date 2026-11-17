@@ -34,6 +34,7 @@ interface VerificationItem {
     | "PROOF_OF_ADDRESS"
     | "GUARANTOR_FORM"
     | "CAC_CERTIFICATE"
+    | "INVESTIGATION_CERTIFICATE"
     | "BACKGROUND_CHECK";
   title: string;
   subtitle: string;
@@ -71,7 +72,7 @@ const INITIAL_VERIFICATION_ITEMS: VerificationItem[] = [
   },
   {
     id: "investigation-cert",
-    docType: "CAC_CERTIFICATE",
+    docType: "INVESTIGATION_CERTIFICATE",
     title: "Investigation certificate",
     subtitle: "Awaiting submission",
     status: "awaiting",
@@ -390,6 +391,7 @@ export default function AgentVerificationPage() {
         body: JSON.stringify({
           documentType: activeItem.docType,
           documentUrl: uploadedMedia?.url || `kyc/${activeItem.id}/completed.pdf`,
+          s3ObjectKey: uploadedMedia?.objectKey,
           metadata,
         }),
       });
@@ -405,633 +407,772 @@ export default function AgentVerificationPage() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // SUB-SCREEN 1: PROOF OF ADDRESS
+  // SUB-SCREENS RENDERER
   // ─────────────────────────────────────────────────────────────
-  if (activeItem && activeItem.id === "proof-of-address") {
-    return (
-      <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => setActiveItem(null)}
-            className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
-          </button>
-          <h1 className="text-base font-bold text-[var(--text-heading)]">Proof of address</h1>
-        </div>
+  const renderSubScreen = () => {
+    if (!activeItem) return null;
 
-        <form onSubmit={handleSubmitFlow} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-[var(--text-heading)] block">
-              Residential address
-            </label>
-            <input
-              type="text"
-              value={residentialAddress}
-              onChange={(e) => setResidentialAddress(e.target.value)}
-              placeholder="Enter your residential address"
-              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs"
-              required
-            />
-          </div>
-
-          {/* Checklist */}
-          <div className="space-y-2.5 pt-2">
-            <h3 className="text-xs font-bold text-[var(--text-heading)]">We accept any of these document</h3>
-            <div className="space-y-2 text-xs text-[var(--text-heading)]">
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Electricity bill</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Bank statement showing your name and address</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Water or waste bill</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Tenancy agreement signed with your name on it</span>
-              </div>
-            </div>
-            <p className="text-[11px] text-[var(--text-muted)] pt-1">
-              Note: Document must be dated within the last 3 months.
-            </p>
-          </div>
-
-          {/* Upload Document Box */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
-          >
-            <span className="text-xs font-semibold text-[var(--text-heading)]">
-              {selectedFileName ? selectedFileName : "Upload document"}
-            </span>
-            <Upload className="w-4 h-4 text-[var(--text-heading)]" />
-          </button>
-
-          {selectedPreviewUrl && (
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
-              <img src={selectedPreviewUrl} alt="Document preview" className="w-12 h-12 object-cover rounded-xl" />
-              <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
-            </div>
-          )}
-
-          {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
-
-          {/* Bottom Actions */}
-          <div className="flex items-center gap-3 pt-6">
+    // 1. Proof of Address
+    if (activeItem.id === "proof-of-address") {
+      return (
+        <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
+          <div className="flex items-center gap-3 pt-2">
             <button
               type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
+              onClick={() => setActiveItem(null)}
+              className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
             >
-              <Camera className="w-4 h-4 text-[var(--text-heading)]" />
-              <span>Camera</span>
+              <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
             </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 py-3 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
-            >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
-            </button>
-          </div>
-        </form>
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // SUB-SCREEN 2: BACKGROUND CHECK
-  // ─────────────────────────────────────────────────────────────
-  if (activeItem && activeItem.id === "background-check") {
-    return (
-      <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => setActiveItem(null)}
-            className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
-          </button>
-          <h1 className="text-base font-bold text-[var(--text-heading)]">Background check</h1>
-        </div>
-
-        <form onSubmit={handleSubmitFlow} className="space-y-6">
-          <div className="space-y-2.5">
-            <h3 className="text-xs font-bold text-[var(--text-heading)]">What we check</h3>
-            <div className="space-y-2 text-xs text-[var(--text-heading)]">
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Criminal record with the Nigeria Police Force</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>That your NIN and address is genuine</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Socials</span>
-              </div>
-            </div>
+            <h1 className="text-base font-bold text-[var(--text-heading)]">Proof of address</h1>
           </div>
 
-          {/* Green Consent Box */}
-          <div
-            onClick={() => setBackgroundConsent(!backgroundConsent)}
-            className="p-4 rounded-2xl border-2 border-[#48bb78] bg-[var(--bg-card)] flex items-start gap-3 cursor-pointer shadow-2xs"
-          >
-            <div
-              className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
-                backgroundConsent ? "bg-[#48bb78] text-white" : "border border-[var(--border-color)] bg-transparent"
-              }`}
-            >
-              {backgroundConsent && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-            </div>
-            <p className="text-xs font-semibold text-[var(--text-heading)] leading-relaxed">
-              I permit OverSite to run the checks described above, and confirm the information I&apos;ve given is true.
-            </p>
-          </div>
-
-          {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
-
-          <div className="pt-8">
-            <button
-              type="submit"
-              disabled={isSubmitting || !backgroundConsent}
-              className="w-full py-3.5 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
-            >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
-            </button>
-          </div>
-        </form>
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // SUB-SCREEN 3: NIN VERIFICATION
-  // ─────────────────────────────────────────────────────────────
-  if (activeItem && activeItem.id === "nin-slip") {
-    return (
-      <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => setActiveItem(null)}
-            className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
-          </button>
-          <h1 className="text-base font-bold text-[var(--text-heading)]">NIN Verification</h1>
-        </div>
-
-        <form onSubmit={handleSubmitFlow} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-[var(--text-heading)] block">Your 11-digit NIN</label>
-            <input
-              type="text"
-              maxLength={11}
-              value={ninInput}
-              onChange={(e) => setNinInput(e.target.value.replace(/\D/g, ""))}
-              placeholder="01234567890"
-              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs font-mono"
-              required
-            />
-          </div>
-
-          {/* Checklist */}
-          <div className="space-y-2.5 pt-2">
-            <h3 className="text-xs font-bold text-[var(--text-heading)]">Upload slip</h3>
-            <div className="space-y-2 text-xs text-[var(--text-heading)]">
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>The printed or digital NIN slip</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Photo, name and NIN all readable</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>No fingers covering any part of it</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Upload Document Box */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
-          >
-            <span className="text-xs font-semibold text-[var(--text-heading)]">
-              {selectedFileName ? selectedFileName : "Upload document"}
-            </span>
-            <Upload className="w-4 h-4 text-[var(--text-heading)]" />
-          </button>
-
-          {selectedPreviewUrl && (
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
-              <img src={selectedPreviewUrl} alt="NIN Preview" className="w-12 h-12 object-cover rounded-xl" />
-              <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
-            </div>
-          )}
-
-          {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
-
-          {/* Bottom Actions */}
-          <div className="flex items-center gap-3 pt-6">
-            <button
-              type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
-            >
-              <Camera className="w-4 h-4 text-[var(--text-heading)]" />
-              <span>Camera</span>
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 py-3 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
-            >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
-            </button>
-          </div>
-        </form>
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // SUB-SCREEN 4: PASSPORT PHOTOGRAPH (CAMERA ONLY, NO UPLOADING)
-  // ─────────────────────────────────────────────────────────────
-  if (activeItem && activeItem.id === "passport-photo") {
-    return (
-      <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => setActiveItem(null)}
-            className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
-          </button>
-          <h1 className="text-base font-bold text-[var(--text-heading)]">Passport photograph</h1>
-        </div>
-
-        <form onSubmit={handleSubmitFlow} className="space-y-6">
-          {/* Dashed Oval Silhouette Guide */}
-          <div className="w-[190px] h-[260px] sm:w-[220px] sm:h-[300px] border-2 border-dashed border-gray-400 rounded-[50%] mx-auto my-4 flex items-center justify-center relative overflow-hidden bg-[var(--bg-card)]/50 shadow-inner">
-            {selectedPreviewUrl ? (
-              <img
-                src={selectedPreviewUrl}
-                alt="Captured Passport"
-                className="w-full h-full object-cover rounded-[50%]"
-              />
-            ) : (
-              <div className="text-center p-4">
-                <Camera className="w-8 h-8 text-[var(--text-muted)]/50 mx-auto mb-2" />
-                <span className="text-[11px] text-[var(--text-muted)] font-medium">
-                  Face outline guide
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Checklist */}
-          <div className="space-y-2.5 pt-1">
-            <h3 className="text-xs font-bold text-[var(--text-heading)]">For the passport to be accepted</h3>
-            <div className="space-y-2 text-xs text-[var(--text-heading)]">
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Line your face up inside the outline</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Face the camera straight on, eyes open</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Plain wall behind you, good daylight</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>No cap, sunglasses or face covering</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Just you in frame, no one else</span>
-              </div>
-            </div>
-          </div>
-
-          {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
-
-          {/* Bottom Action: Camera Only */}
-          <div className="pt-4">
-            {selectedPreviewUrl ? (
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => selfieInputRef.current?.click()}
-                  className="px-5 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-1.5 hover:bg-[var(--bg-secondary)] cursor-pointer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Retake</span>
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 py-3.5 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
-                >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Photograph"}
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => selfieInputRef.current?.click()}
-                className="w-full py-3.5 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2"
-              >
-                <Camera className="w-4 h-4" />
-                <span>Take photo</span>
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // SUB-SCREEN 5: INVESTIGATION CERTIFICATE
-  // ─────────────────────────────────────────────────────────────
-  if (activeItem && activeItem.id === "investigation-cert") {
-    return (
-      <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => setActiveItem(null)}
-            className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
-          </button>
-          <h1 className="text-base font-bold text-[var(--text-heading)]">Investigation certificate</h1>
-        </div>
-
-        <form onSubmit={handleSubmitFlow} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[var(--text-heading)] block">Issuing body</label>
-            <input
-              type="text"
-              value={issuingBody}
-              onChange={(e) => setIssuingBody(e.target.value)}
-              placeholder="Nigeria Institute of private investigators"
-              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs"
-              required
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[var(--text-heading)] block">Certificate number</label>
-            <input
-              type="text"
-              value={certNumber}
-              onChange={(e) => setCertNumber(e.target.value)}
-              placeholder="NIPI/2024/08812"
-              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs font-mono"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[var(--text-heading)] block">Issued</label>
+          <form onSubmit={handleSubmitFlow} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-[var(--text-heading)] block">
+                Residential address
+              </label>
               <input
                 type="text"
-                value={certIssuedDate}
-                onChange={(e) => setCertIssuedDate(e.target.value)}
-                placeholder="05/2025"
-                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs text-center"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[var(--text-heading)] block">Expires</label>
-              <input
-                type="text"
-                value={certExpiryDate}
-                onChange={(e) => setCertExpiryDate(e.target.value)}
-                placeholder="05/2028"
-                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs text-center"
-              />
-            </div>
-          </div>
-
-          {/* Checklist */}
-          <div className="space-y-2.5 pt-2">
-            <h3 className="text-xs font-bold text-[var(--text-heading)]">Upload Certificate</h3>
-            <div className="space-y-2 text-xs text-[var(--text-heading)]">
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Lay it flat, all four corners in frame</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Daylight rather than flash, to avoid glare</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Certificate number and dates clearly readable</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Upload Document Box */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
-          >
-            <span className="text-xs font-semibold text-[var(--text-heading)]">
-              {selectedFileName ? selectedFileName : "Upload document"}
-            </span>
-            <Upload className="w-4 h-4 text-[var(--text-heading)]" />
-          </button>
-
-          {selectedPreviewUrl && (
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
-              <img src={selectedPreviewUrl} alt="Certificate preview" className="w-12 h-12 object-cover rounded-xl" />
-              <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
-            </div>
-          )}
-
-          {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
-
-          {/* Bottom Actions */}
-          <div className="flex items-center gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
-            >
-              <Camera className="w-4 h-4 text-[var(--text-heading)]" />
-              <span>Camera</span>
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 py-3 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
-            >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
-            </button>
-          </div>
-        </form>
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // SUB-SCREEN 6: GUARANTOR FORM
-  // ─────────────────────────────────────────────────────────────
-  if (activeItem && activeItem.id === "guarantor-form") {
-    return (
-      <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => setActiveItem(null)}
-            className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
-          </button>
-          <h1 className="text-base font-bold text-[var(--text-heading)]">Guarantor form</h1>
-        </div>
-
-        <form onSubmit={handleSubmitFlow} className="space-y-4">
-          {/* Download Blank Form Action Card */}
-          <div
-            onClick={handleDownloadBlankForm}
-            className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-2xl p-4 flex items-center justify-between shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <FileText className="w-5 h-5 text-[var(--text-heading)]" />
-              <span className="text-xs font-bold text-[var(--text-heading)]">Download the blank form</span>
-            </div>
-            <Download className="w-5 h-5 text-[var(--text-heading)]" />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[var(--text-heading)] block">Guarantor&apos;s full name</label>
-            <input
-              type="text"
-              value={guarantorName}
-              onChange={(e) => setGuarantorName(e.target.value)}
-              placeholder="Enter guarantor's full name"
-              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs"
-              required
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[var(--text-heading)] block">Guarantor&apos;s phone</label>
-            <div className="flex items-center bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full overflow-hidden shadow-2xs focus-within:border-[var(--primary)] transition-all">
-              <span className="px-4 py-3 text-xs font-bold text-[var(--text-heading)] border-r border-[var(--border-color)]/70 bg-[var(--bg-secondary)]/30">
-                +234
-              </span>
-              <input
-                type="tel"
-                value={guarantorPhone}
-                onChange={(e) => setGuarantorPhone(e.target.value.replace(/\D/g, ""))}
-                placeholder="801 234 5678"
-                className="w-full px-4 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] bg-transparent focus:outline-none font-medium"
+                value={residentialAddress}
+                onChange={(e) => setResidentialAddress(e.target.value)}
+                placeholder="Enter your residential address"
+                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs"
                 required
               />
             </div>
-          </div>
 
-          {/* Checklist */}
-          <div className="space-y-2.5 pt-2">
-            <h3 className="text-xs font-bold text-[var(--text-heading)]">Upload Certificate</h3>
-            <div className="space-y-2 text-xs text-[var(--text-heading)]">
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Employed, aged 25 or over</span>
+            <div className="space-y-2.5 pt-2">
+              <h3 className="text-xs font-bold text-[var(--text-heading)]">We accept any of these document</h3>
+              <div className="space-y-2 text-xs text-[var(--text-heading)]">
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Electricity bill</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Bank statement showing your name and address</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Water or waste bill</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Tenancy agreement signed with your name on it</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Not a relative living at your address</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                <span>Reachable on the phone number they give</span>
-              </div>
+              <p className="text-[11px] text-[var(--text-muted)] pt-1">
+                Note: Document must be dated within the last 3 months.
+              </p>
             </div>
-          </div>
 
-          {/* Upload Document Box */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
-          >
-            <span className="text-xs font-semibold text-[var(--text-heading)]">
-              {selectedFileName ? selectedFileName : "Upload document"}
-            </span>
-            <Upload className="w-4 h-4 text-[var(--text-heading)]" />
-          </button>
-
-          {selectedPreviewUrl && (
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
-              <img src={selectedPreviewUrl} alt="Guarantor form preview" className="w-12 h-12 object-cover rounded-xl" />
-              <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
-            </div>
-          )}
-
-          {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
-
-          {/* Bottom Actions */}
-          <div className="flex items-center gap-3 pt-4">
+            {/* Upload Document Box */}
             <button
               type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
             >
-              <Camera className="w-4 h-4 text-[var(--text-heading)]" />
-              <span>Camera</span>
+              <span className="text-xs font-semibold text-[var(--text-heading)]">
+                {selectedFileName ? selectedFileName : "Upload document"}
+              </span>
+              <Upload className="w-4 h-4 text-[var(--text-heading)]" />
             </button>
+
+            {selectedPreviewUrl && (
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
+                <img src={selectedPreviewUrl} alt="Document preview" className="w-12 h-12 object-cover rounded-xl" />
+                <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setSelectedFileName(null);
+                    setSelectedPreviewUrl(null);
+                  }}
+                  className="p-1 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-red-500 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
+
+            <div className="flex items-center gap-3 pt-6">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
+              >
+                <Camera className="w-4 h-4 text-[var(--text-heading)]" />
+                <span>Camera</span>
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 py-3 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
+              </button>
+            </div>
+          </form>
+        </div>
+      );
+    }
+
+    // 2. Background Check
+    if (activeItem.id === "background-check") {
+      return (
+        <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
+          <div className="flex items-center gap-3 pt-2">
             <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 py-3 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
+              type="button"
+              onClick={() => setActiveItem(null)}
+              className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
             >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
+              <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
             </button>
+            <h1 className="text-base font-bold text-[var(--text-heading)]">Background check</h1>
           </div>
-        </form>
-      </div>
-    );
-  }
+
+          <form onSubmit={handleSubmitFlow} className="space-y-6">
+            <div className="space-y-2.5">
+              <h3 className="text-xs font-bold text-[var(--text-heading)]">What we check</h3>
+              <div className="space-y-2 text-xs text-[var(--text-heading)]">
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Criminal record with the Nigeria Police Force</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>That your NIN and address is genuine</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Socials</span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              onClick={() => setBackgroundConsent(!backgroundConsent)}
+              className="p-4 rounded-2xl border-2 border-[#48bb78] bg-[var(--bg-card)] flex items-start gap-3 cursor-pointer shadow-2xs"
+            >
+              <div
+                className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                  backgroundConsent ? "bg-[#48bb78] text-white" : "border border-[var(--border-color)] bg-transparent"
+                }`}
+              >
+                {backgroundConsent && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+              </div>
+              <p className="text-xs font-semibold text-[var(--text-heading)] leading-relaxed">
+                I permit OverSite to run the checks described above, and confirm the information I&apos;ve given is true.
+              </p>
+            </div>
+
+            {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
+
+            <div className="pt-8">
+              <button
+                type="submit"
+                disabled={isSubmitting || !backgroundConsent}
+                className="w-full py-3.5 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
+              </button>
+            </div>
+          </form>
+        </div>
+      );
+    }
+
+    // 3. NIN Verification
+    if (activeItem.id === "nin-slip") {
+      return (
+        <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setActiveItem(null)}
+              className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+            </button>
+            <h1 className="text-base font-bold text-[var(--text-heading)]">NIN Verification</h1>
+          </div>
+
+          <form onSubmit={handleSubmitFlow} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-[var(--text-heading)] block">Your 11-digit NIN</label>
+              <input
+                type="text"
+                maxLength={11}
+                value={ninInput}
+                onChange={(e) => setNinInput(e.target.value.replace(/\D/g, ""))}
+                placeholder="01234567890"
+                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs font-mono"
+                required
+              />
+            </div>
+
+            <div className="space-y-2.5 pt-2">
+              <h3 className="text-xs font-bold text-[var(--text-heading)]">Upload slip</h3>
+              <div className="space-y-2 text-xs text-[var(--text-heading)]">
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>The printed or digital NIN slip</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Photo, name and NIN all readable</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>No fingers covering any part of it</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Upload Document Box */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
+            >
+              <span className="text-xs font-semibold text-[var(--text-heading)]">
+                {selectedFileName ? selectedFileName : "Upload document"}
+              </span>
+              <Upload className="w-4 h-4 text-[var(--text-heading)]" />
+            </button>
+
+            {selectedPreviewUrl && (
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
+                <img src={selectedPreviewUrl} alt="NIN Preview" className="w-12 h-12 object-cover rounded-xl" />
+                <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setSelectedFileName(null);
+                    setSelectedPreviewUrl(null);
+                  }}
+                  className="p-1 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-red-500 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
+
+            <div className="flex items-center gap-3 pt-6">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
+              >
+                <Camera className="w-4 h-4 text-[var(--text-heading)]" />
+                <span>Camera</span>
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 py-3 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
+              </button>
+            </div>
+          </form>
+        </div>
+      );
+    }
+
+    // 4. Passport Photograph (Camera Only, No Uploading)
+    if (activeItem.id === "passport-photo") {
+      return (
+        <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setActiveItem(null)}
+              className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+            </button>
+            <h1 className="text-base font-bold text-[var(--text-heading)]">Passport photograph</h1>
+          </div>
+
+          <form onSubmit={handleSubmitFlow} className="space-y-6">
+            {/* Dashed Oval Silhouette Guide */}
+            <div className="w-[190px] h-[260px] sm:w-[220px] sm:h-[300px] border-2 border-dashed border-gray-400 rounded-[50%] mx-auto my-4 flex items-center justify-center relative overflow-hidden bg-[var(--bg-card)]/50 shadow-inner">
+              {selectedPreviewUrl ? (
+                <img
+                  src={selectedPreviewUrl}
+                  alt="Captured Passport"
+                  className="w-full h-full object-cover rounded-[50%]"
+                />
+              ) : (
+                <div className="text-center p-4">
+                  <Camera className="w-8 h-8 text-[var(--text-muted)]/50 mx-auto mb-2" />
+                  <span className="text-[11px] text-[var(--text-muted)] font-medium">
+                    Face outline guide
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2.5 pt-1">
+              <h3 className="text-xs font-bold text-[var(--text-heading)]">For the passport to be accepted</h3>
+              <div className="space-y-2 text-xs text-[var(--text-heading)]">
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Line your face up inside the outline</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Face the camera straight on, eyes open</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Plain wall behind you, good daylight</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>No cap, sunglasses or face covering</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Just you in frame, no one else</span>
+                </div>
+              </div>
+            </div>
+
+            {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
+
+            {/* Bottom Action: Camera Only (No Upload Document Button) */}
+            <div className="pt-4">
+              {selectedPreviewUrl ? (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => selfieInputRef.current?.click()}
+                    className="px-5 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-1.5 hover:bg-[var(--bg-secondary)] cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Retake</span>
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex-1 py-3.5 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
+                  >
+                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Photograph"}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => selfieInputRef.current?.click()}
+                  className="w-full py-3.5 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>Take photo</span>
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      );
+    }
+
+    // 5. Investigation Certificate
+    if (activeItem.id === "investigation-cert") {
+      return (
+        <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setActiveItem(null)}
+              className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+            </button>
+            <h1 className="text-base font-bold text-[var(--text-heading)]">Investigation certificate</h1>
+          </div>
+
+          <form onSubmit={handleSubmitFlow} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--text-heading)] block">Issuing body</label>
+              <input
+                type="text"
+                value={issuingBody}
+                onChange={(e) => setIssuingBody(e.target.value)}
+                placeholder="Nigeria Institute of private investigators"
+                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--text-heading)] block">Certificate number</label>
+              <input
+                type="text"
+                value={certNumber}
+                onChange={(e) => setCertNumber(e.target.value)}
+                placeholder="NIPI/2024/08812"
+                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs font-mono"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[var(--text-heading)] block">Issued</label>
+                <input
+                  type="text"
+                  value={certIssuedDate}
+                  onChange={(e) => setCertIssuedDate(e.target.value)}
+                  placeholder="05/2025"
+                  className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs text-center"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[var(--text-heading)] block">Expires</label>
+                <input
+                  type="text"
+                  value={certExpiryDate}
+                  onChange={(e) => setCertExpiryDate(e.target.value)}
+                  placeholder="05/2028"
+                  className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs text-center"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2.5 pt-2">
+              <h3 className="text-xs font-bold text-[var(--text-heading)]">Upload Certificate</h3>
+              <div className="space-y-2 text-xs text-[var(--text-heading)]">
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Lay it flat, all four corners in frame</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Daylight rather than flash, to avoid glare</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Certificate number and dates clearly readable</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Upload Document Box */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
+            >
+              <span className="text-xs font-semibold text-[var(--text-heading)]">
+                {selectedFileName ? selectedFileName : "Upload document"}
+              </span>
+              <Upload className="w-4 h-4 text-[var(--text-heading)]" />
+            </button>
+
+            {selectedPreviewUrl && (
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
+                <img src={selectedPreviewUrl} alt="Certificate preview" className="w-12 h-12 object-cover rounded-xl" />
+                <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setSelectedFileName(null);
+                    setSelectedPreviewUrl(null);
+                  }}
+                  className="p-1 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-red-500 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
+
+            <div className="flex items-center gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
+              >
+                <Camera className="w-4 h-4 text-[var(--text-heading)]" />
+                <span>Camera</span>
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 py-3 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
+              </button>
+            </div>
+          </form>
+        </div>
+      );
+    }
+
+    // 6. Guarantor Form
+    if (activeItem.id === "guarantor-form") {
+      return (
+        <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setActiveItem(null)}
+              className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+            </button>
+            <h1 className="text-base font-bold text-[var(--text-heading)]">Guarantor form</h1>
+          </div>
+
+          <form onSubmit={handleSubmitFlow} className="space-y-4">
+            {/* Download Blank Form Action Card */}
+            <div
+              onClick={handleDownloadBlankForm}
+              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-2xl p-4 flex items-center justify-between shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-[var(--text-heading)]" />
+                <span className="text-xs font-bold text-[var(--text-heading)]">Download the blank form</span>
+              </div>
+              <Download className="w-5 h-5 text-[var(--text-heading)]" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--text-heading)] block">Guarantor&apos;s full name</label>
+              <input
+                type="text"
+                value={guarantorName}
+                onChange={(e) => setGuarantorName(e.target.value)}
+                placeholder="Enter guarantor's full name"
+                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--text-heading)] block">Guarantor&apos;s phone</label>
+              <div className="flex items-center bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full overflow-hidden shadow-2xs focus-within:border-[var(--primary)] transition-all">
+                <span className="px-4 py-3 text-xs font-bold text-[var(--text-heading)] border-r border-[var(--border-color)]/70 bg-[var(--bg-secondary)]/30">
+                  +234
+                </span>
+                <input
+                  type="tel"
+                  value={guarantorPhone}
+                  onChange={(e) => setGuarantorPhone(e.target.value.replace(/\D/g, ""))}
+                  placeholder="801 234 5678"
+                  className="w-full px-4 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] bg-transparent focus:outline-none font-medium"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2.5 pt-2">
+              <h3 className="text-xs font-bold text-[var(--text-heading)]">Upload Certificate</h3>
+              <div className="space-y-2 text-xs text-[var(--text-heading)]">
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Employed, aged 25 or over</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Not a relative living at your address</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
+                  <span>Reachable on the phone number they give</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Upload Document Box */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
+            >
+              <span className="text-xs font-semibold text-[var(--text-heading)]">
+                {selectedFileName ? selectedFileName : "Upload document"}
+              </span>
+              <Upload className="w-4 h-4 text-[var(--text-heading)]" />
+            </button>
+
+            {selectedPreviewUrl && (
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
+                <img src={selectedPreviewUrl} alt="Guarantor form preview" className="w-12 h-12 object-cover rounded-xl" />
+                <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setSelectedFileName(null);
+                    setSelectedPreviewUrl(null);
+                  }}
+                  className="p-1 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-red-500 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
+
+            <div className="flex items-center gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
+              >
+                <Camera className="w-4 h-4 text-[var(--text-heading)]" />
+                <span>Camera</span>
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 py-3 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit"}
+              </button>
+            </div>
+          </form>
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   // ─────────────────────────────────────────────────────────────
-  // MAIN VERIFICATION OVERVIEW (CHECKLIST OF 6 ITEMS)
+  // MAIN OVERVIEW (CHECKLIST OF 6 ITEMS)
   // ─────────────────────────────────────────────────────────────
+  const renderOverview = () => {
+    return (
+      <>
+        {/* Header */}
+        <AgentTopNav
+          showBack={true}
+          backHref="/agent/more"
+          title="Verification"
+          hideRightControls={true}
+        />
+
+        {/* Top Application Progress Card */}
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-[22px] p-5 space-y-3 shadow-[0_0_10px_rgba(0,0,0,0.03)]">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[14px] font-bold text-[var(--text-heading)]">
+              {submittedOrVerifiedCount === totalCount
+                ? "All documents submitted"
+                : "Application in progress"}
+            </h2>
+            <span className="text-[13px] font-semibold text-[var(--text-muted)]">
+              {submittedOrVerifiedCount}/{totalCount}
+            </span>
+          </div>
+
+          <div className="w-full h-2 rounded-full bg-[var(--primary-light)] overflow-hidden">
+            <div
+              className="h-full rounded-full bg-[var(--primary)] transition-all duration-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+
+          <p className="text-xs text-[var(--text-muted)] leading-relaxed pt-0.5">
+            Finish all six items to start receiving task offers. Most agents complete this in 2–3 days.
+          </p>
+        </div>
+
+        {/* 6 Verification Checklist Items */}
+        <div className="space-y-3">
+          {items.map((item) => {
+            const isVerified = item.status === "verified";
+            const isReviewing = item.status === "reviewing";
+            const isRejected = item.status === "rejected";
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => openFlowScreen(item)}
+                className="w-full flex items-center justify-between gap-3 p-3 rounded-[20px] hover:bg-[var(--bg-card)] border border-transparent hover:border-[var(--border-color)]/70 transition-all cursor-pointer text-left group"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  {isVerified ? (
+                    <div className="w-10 h-10 rounded-full bg-[var(--primary)] text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Check className="w-5 h-5 stroke-[2.5]" />
+                    </div>
+                  ) : isReviewing ? (
+                    <div className="w-10 h-10 rounded-full bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center shrink-0">
+                      <Clock className="w-5 h-5 stroke-[1.8]" />
+                    </div>
+                  ) : isRejected ? (
+                    <div className="w-10 h-10 rounded-full bg-[var(--danger-light)] text-[var(--danger)] flex items-center justify-center shrink-0">
+                      <X className="w-5 h-5 stroke-[2.2]" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-[var(--border-color)]/70 dark:bg-[var(--bg-card)] text-[var(--text-muted)] flex items-center justify-center shrink-0 group-hover:bg-[var(--primary-light)] group-hover:text-[var(--primary)] transition-colors">
+                      <Plus className="w-5 h-5 stroke-[2]" />
+                    </div>
+                  )}
+
+                  <div className="min-w-0">
+                    <h3 className="text-[14.5px] font-semibold text-[var(--text-heading)] truncate group-hover:text-[var(--primary)] transition-colors">
+                      {item.title}
+                    </h3>
+                    <p className="text-[12px] text-[var(--text-muted)] truncate mt-0.5">
+                      {item.subtitle}
+                    </p>
+                  </div>
+                </div>
+
+                {isVerified && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--primary-light)] text-[var(--primary)] text-[11px] font-semibold shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />
+                    Verified
+                  </span>
+                )}
+
+                {isReviewing && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--primary-light)] text-[var(--primary)] text-[11px] font-semibold shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />
+                    Reviewing
+                  </span>
+                )}
+
+                {isRejected && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--danger-light)] text-[var(--danger)] text-[11px] font-semibold shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--danger)]" />
+                    Re-upload
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="space-y-6 max-w-full pb-12">
-      {/* Hidden File / Camera Inputs */}
+      {/* Hidden File / Camera Inputs — ALWAYS mounted so .click() is guaranteed to work in any view */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*,application/pdf"
         onChange={handleFileChange}
         className="hidden"
+        aria-hidden="true"
       />
       <input
         ref={cameraInputRef}
@@ -1040,6 +1181,7 @@ export default function AgentVerificationPage() {
         capture="environment"
         onChange={handleFileChange}
         className="hidden"
+        aria-hidden="true"
       />
       <input
         ref={selfieInputRef}
@@ -1048,6 +1190,7 @@ export default function AgentVerificationPage() {
         capture="user"
         onChange={handleFileChange}
         className="hidden"
+        aria-hidden="true"
       />
 
       {/* Toast Notification */}
@@ -1062,106 +1205,8 @@ export default function AgentVerificationPage() {
         </div>
       )}
 
-      {/* Header */}
-      <AgentTopNav
-        showBack={true}
-        backHref="/agent/more"
-        title="Verification"
-        hideRightControls={true}
-      />
-
-      {/* Top Application Progress Card */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-[22px] p-5 space-y-3 shadow-[0_0_10px_rgba(0,0,0,0.03)]">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[14px] font-bold text-[var(--text-heading)]">
-            {submittedOrVerifiedCount === totalCount
-              ? "All documents submitted"
-              : "Application in progress"}
-          </h2>
-          <span className="text-[13px] font-semibold text-[var(--text-muted)]">
-            {submittedOrVerifiedCount}/{totalCount}
-          </span>
-        </div>
-
-        <div className="w-full h-2 rounded-full bg-[var(--primary-light)] overflow-hidden">
-          <div
-            className="h-full rounded-full bg-[var(--primary)] transition-all duration-500"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-
-        <p className="text-xs text-[var(--text-muted)] leading-relaxed pt-0.5">
-          Finish all six items to start receiving task offers. Most agents complete this in 2–3 days.
-        </p>
-      </div>
-
-      {/* 6 Verification Checklist Items */}
-      <div className="space-y-3">
-        {items.map((item) => {
-          const isVerified = item.status === "verified";
-          const isReviewing = item.status === "reviewing";
-          const isRejected = item.status === "rejected";
-
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => openFlowScreen(item)}
-              className="w-full flex items-center justify-between gap-3 p-3 rounded-[20px] hover:bg-[var(--bg-card)] border border-transparent hover:border-[var(--border-color)]/70 transition-all cursor-pointer text-left group"
-            >
-              <div className="flex items-center gap-3.5 min-w-0">
-                {isVerified ? (
-                  <div className="w-10 h-10 rounded-full bg-[var(--primary)] text-white flex items-center justify-center shrink-0 shadow-xs">
-                    <Check className="w-5 h-5 stroke-[2.5]" />
-                  </div>
-                ) : isReviewing ? (
-                  <div className="w-10 h-10 rounded-full bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center shrink-0">
-                    <Clock className="w-5 h-5 stroke-[1.8]" />
-                  </div>
-                ) : isRejected ? (
-                  <div className="w-10 h-10 rounded-full bg-[var(--danger-light)] text-[var(--danger)] flex items-center justify-center shrink-0">
-                    <X className="w-5 h-5 stroke-[2.2]" />
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-[var(--border-color)]/70 dark:bg-[var(--bg-card)] text-[var(--text-muted)] flex items-center justify-center shrink-0 group-hover:bg-[var(--primary-light)] group-hover:text-[var(--primary)] transition-colors">
-                    <Plus className="w-5 h-5 stroke-[2]" />
-                  </div>
-                )}
-
-                <div className="min-w-0">
-                  <h3 className="text-[14.5px] font-semibold text-[var(--text-heading)] truncate group-hover:text-[var(--primary)] transition-colors">
-                    {item.title}
-                  </h3>
-                  <p className="text-[12px] text-[var(--text-muted)] truncate mt-0.5">
-                    {item.subtitle}
-                  </p>
-                </div>
-              </div>
-
-              {isVerified && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--primary-light)] text-[var(--primary)] text-[11px] font-semibold shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />
-                  Verified
-                </span>
-              )}
-
-              {isReviewing && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--primary-light)] text-[var(--primary)] text-[11px] font-semibold shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />
-                  Reviewing
-                </span>
-              )}
-
-              {isRejected && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--danger-light)] text-[var(--danger)] text-[11px] font-semibold shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--danger)]" />
-                  Re-upload
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {/* Render active subscreen or overview */}
+      {activeItem ? renderSubScreen() : renderOverview()}
     </div>
   );
 }

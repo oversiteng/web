@@ -5,6 +5,7 @@ export interface EmailJobData {
   subject: string;
   template: string;
   payload: Record<string, unknown>;
+  from?: string;
 }
 
 export interface TaskAutoReleaseJobData {

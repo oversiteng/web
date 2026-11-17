@@ -73,6 +73,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     const docEntry = {
       type: normalizedType,
       fileRef,
+      documentUrl: fileRef,
       uploadedAt: now.toISOString(),
       metadata: metadata || null,
       status: "SUBMITTED",
@@ -87,14 +88,19 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     const isAddressDoc = ["UTILITY_BILL", "PROOF_OF_ADDRESS"].includes(normalizedType);
     const isBackgroundDoc = normalizedType === "BACKGROUND_CHECK";
     const isPassportPhoto = normalizedType === "PASSPORT_PHOTO";
+    const isNinDoc = normalizedType === "GOVERNMENT_ID";
+
+    const newKycStatus = currentUser.kycStatus === "VERIFIED" ? "VERIFIED" : "SUBMITTED";
 
     await db
       .update(users)
       .set({
         accreditationDocuments: updatedDocs,
+        kycStatus: newKycStatus,
         addressVerificationStatus: isAddressDoc ? "submitted" : currentUser.addressVerificationStatus,
+        ninVerificationStatus: isNinDoc ? "submitted" : currentUser.ninVerificationStatus,
         address: isAddressDoc && metadata?.residentialAddress ? String(metadata.residentialAddress).trim() : currentUser.address,
-        avatarUrl: isPassportPhoto && fileRef.startsWith("http") ? fileRef : currentUser.avatarUrl,
+        avatarUrl: isPassportPhoto && (fileRef.startsWith("http") || fileRef.startsWith("data:")) ? fileRef : currentUser.avatarUrl,
         consentSignedAt: isBackgroundDoc && !currentUser.consentSignedAt ? now : currentUser.consentSignedAt,
         updatedAt: now,
       })

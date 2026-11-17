@@ -154,6 +154,22 @@ export const PATCH = withAuth<{ id: string }>(
         if (kycStatus === "VERIFIED") {
           userUpdates.ninVerificationStatus = "verified";
           userUpdates.addressVerificationStatus = "verified";
+          const currentDocs =
+            targetUser.accreditationDocuments &&
+            typeof targetUser.accreditationDocuments === "object"
+              ? { ...(targetUser.accreditationDocuments as Record<string, any>) }
+              : {};
+          for (const k of Object.keys(currentDocs)) {
+            if (currentDocs[k] && typeof currentDocs[k] === "object") {
+              currentDocs[k] = {
+                ...currentDocs[k],
+                status: "VERIFIED",
+                reviewedAt: now.toISOString(),
+                rejectionReason: null,
+              };
+            }
+          }
+          userUpdates.accreditationDocuments = currentDocs;
         }
       }
       if (ninVerificationStatus) userUpdates.ninVerificationStatus = ninVerificationStatus;
@@ -166,10 +182,11 @@ export const PATCH = withAuth<{ id: string }>(
 
       if (documentKey && documentStatus) {
         const docs =
-          targetUser.accreditationDocuments &&
+          (userUpdates.accreditationDocuments as Record<string, any>) ||
+          (targetUser.accreditationDocuments &&
           typeof targetUser.accreditationDocuments === "object"
             ? { ...(targetUser.accreditationDocuments as Record<string, any>) }
-            : {};
+            : {});
         if (docs[documentKey] && typeof docs[documentKey] === "object") {
           docs[documentKey] = {
             ...docs[documentKey],
@@ -178,6 +195,17 @@ export const PATCH = withAuth<{ id: string }>(
             rejectionReason: documentStatus === "REJECTED" ? rejectionReason : undefined,
           };
           userUpdates.accreditationDocuments = docs;
+
+          if (documentStatus === "REJECTED") {
+            await db.insert(notifications).values({
+              userId: targetUserId,
+              type: "ALERT",
+              title: `${documentKey.replace(/_/g, " ").toUpperCase()} Rejected`,
+              body: rejectionReason
+                ? `Rejection reason: ${rejectionReason}. Please re-submit.`
+                : "Please re-submit a clearer document copy in your verification portal.",
+            });
+          }
         }
       }
 
