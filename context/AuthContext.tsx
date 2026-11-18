@@ -28,6 +28,7 @@ export interface AuthUser {
   avatarUrl?: string | null;
   avatar?: string;
   kycStatus?: string;
+  twoFactorEnabled?: boolean;
   adminPolicy?: AdminPolicy | null;
   agentProfile?: {
     tier?: string;
@@ -68,6 +69,7 @@ export function extractNonSensitiveUser(raw: any): AuthUser | null {
     avatarUrl: raw.avatarUrl || raw.avatar || null,
     avatar: raw.avatar || raw.avatarUrl || undefined,
     kycStatus: raw.kycStatus || "PENDING",
+    twoFactorEnabled: typeof raw.twoFactorEnabled === "boolean" ? raw.twoFactorEnabled : undefined,
     adminPolicy: raw.adminPolicy || null,
     agentProfile: raw.agentProfile || null,
   };

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
 import { getRedisClient } from "@/lib/cache/redis";
+import { getDbReady } from "@/lib/db/client";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export interface UserSettings {
   notifications: {
@@ -61,9 +64,21 @@ async function saveStoredSettings(userId: string, settings: UserSettings): Promi
 export const GET = withAuth(async (req: NextRequest, { user }) => {
   try {
     const settings = await getStoredSettings(user.sub);
+    const db = await getDbReady();
+    const rows = await db
+      .select({ twoFactorEnabled: users.twoFactorEnabled })
+      .from(users)
+      .where(eq(users.id, user.sub))
+      .limit(1);
+
+    const liveTwoFactor = rows.length > 0 ? Boolean(rows[0].twoFactorEnabled) : settings.twoFactorEnabled;
+
     return NextResponse.json<ApiResponse<UserSettings>>({
       success: true,
-      data: settings,
+      data: {
+        ...settings,
+        twoFactorEnabled: liveTwoFactor,
+      },
       message: "User settings retrieved successfully",
     });
   } catch (error) {
@@ -95,6 +110,18 @@ export const PATCH = withAuth(async (req: NextRequest, { user }) => {
     };
 
     await saveStoredSettings(user.sub, updated);
+
+    // If 2FA setting was explicitly passed, sync to PostgreSQL users table
+    if (body.twoFactorEnabled !== undefined) {
+      const db = await getDbReady();
+      await db
+        .update(users)
+        .set({
+          twoFactorEnabled: Boolean(body.twoFactorEnabled),
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, user.sub));
+    }
 
     return NextResponse.json<ApiResponse<UserSettings>>({
       success: true,

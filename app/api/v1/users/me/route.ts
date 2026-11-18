@@ -24,6 +24,7 @@ export interface FullUserProfileResponse {
   avatarUrl: string | null;
   role: string;
   kycStatus: string;
+  twoFactorEnabled: boolean;
   ninVerificationStatus: string;
   nbaVerificationStatus: string;
   isActive: boolean;
@@ -109,6 +110,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
       avatarUrl: dbUser.avatarUrl || null,
       role: dbUser.role,
       kycStatus: dbUser.kycStatus,
+      twoFactorEnabled: Boolean(dbUser.twoFactorEnabled),
       ninVerificationStatus: dbUser.ninVerificationStatus || dbUser.kycStatus.toLowerCase(),
       nbaVerificationStatus: dbUser.nbaVerificationStatus || "pending",
       isActive: dbUser.isActive,

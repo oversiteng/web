@@ -87,7 +87,6 @@ export default function SettingsPage() {
   const [pushEnabled, setPushEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [smsEnabled, setSmsEnabled] = useState(false);
-  const [biometricsEnabled, setBiometricsEnabled] = useState(true);
   const [selectedLanguage, setSelectedLanguage] = useState("English");
   const [languageDrawerOpen, setLanguageDrawerOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -99,12 +98,6 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setMounted(true);
-    if (typeof window !== "undefined") {
-      const savedBio = localStorage.getItem("oversite_biometrics");
-      if (savedBio !== null) {
-        setBiometricsEnabled(savedBio === "true");
-      }
-    }
 
     async function loadSettings() {
       try {
@@ -177,18 +170,6 @@ export default function SettingsPage() {
     if (key === "email") setEmailEnabled(nextVal);
     if (key === "sms") setSmsEnabled(nextVal);
     persistSettings({ notifications: updated });
-  };
-
-  const handleBiometricsToggle = (nextVal: boolean) => {
-    setBiometricsEnabled(nextVal);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("oversite_biometrics", String(nextVal));
-    }
-    showToast(
-      nextVal
-        ? "Fingerprint / Biometric login enabled"
-        : "Fingerprint / Biometric login disabled"
-    );
   };
 
   const handleSelectLanguage = (lang: { code: string; label: string }) => {
@@ -386,27 +367,6 @@ export default function SettingsPage() {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Fingerprint / Biometric Login */}
-          <div className="flex items-center justify-between gap-3 pt-1">
-            <div className="flex items-center gap-3.5">
-              <div className="w-7 h-7 flex items-center justify-center text-[var(--text-heading)] shrink-0">
-                <Scan className="w-5 h-5 stroke-[1.8]" />
-              </div>
-              <div>
-                <h3 className="text-[14.5px] font-semibold text-[var(--text-heading)]">
-                  Fingerprint / Biometric Login
-                </h3>
-                <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-                  Sign in quickly using fingerprint or Face ID
-                </p>
-              </div>
-            </div>
-            <ToggleSwitch
-              checked={biometricsEnabled}
-              onChange={handleBiometricsToggle}
-            />
           </div>
 
           {/* Language */}

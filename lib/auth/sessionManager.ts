@@ -48,31 +48,84 @@ export function parseClientDevice(req: NextRequest | Request): DeviceInfo {
   const countryHeader = headers.get("cf-ipcountry");
   const location = countryHeader ? `Location (${countryHeader})` : "Nigeria";
 
-  // Parse OS
-  let os = "Unknown OS";
-  if (/windows/i.test(userAgent)) os = "Windows";
-  else if (/macintosh|mac os x/i.test(userAgent)) os = "macOS";
-  else if (/iphone|ipad|ipod/i.test(userAgent)) os = "iOS";
-  else if (/android/i.test(userAgent)) os = "Android";
-  else if (/linux/i.test(userAgent)) os = "Linux";
+  // Check explicit mobile / platform headers from native apps (iOS / Android / React Native / Flutter)
+  const explicitDeviceName =
+    headers.get("x-device-name") ||
+    headers.get("x-device-model") ||
+    headers.get("device-name");
 
-  // Parse Browser
-  let browser = "Unknown Browser";
-  if (/edg/i.test(userAgent)) browser = "Microsoft Edge";
-  else if (/opr|opera/i.test(userAgent)) browser = "Opera";
-  else if (/chrome|crios/i.test(userAgent)) browser = "Chrome";
-  else if (/firefox|fxios/i.test(userAgent)) browser = "Firefox";
-  else if (/safari/i.test(userAgent)) browser = "Safari";
+  const explicitPlatform =
+    headers.get("x-platform") ||
+    headers.get("x-os") ||
+    headers.get("sec-ch-ua-platform");
 
-  // Parse Device Type
+  const explicitDeviceType = headers.get("x-device-type");
+
+  const isMobileClient =
+    /mobile|iphone|ipod|android|okhttp|cfnetwork|darwin|expo|dart|react-native|alamofire|dalvik/i.test(userAgent) ||
+    /ios|android/i.test(explicitPlatform || "") ||
+    explicitDeviceType === "mobile";
+
+  const isTabletClient =
+    /ipad|tablet/i.test(userAgent) ||
+    explicitDeviceType === "tablet";
+
   let deviceType: "desktop" | "mobile" | "tablet" = "desktop";
-  if (/ipad|tablet/i.test(userAgent)) {
+  if (isTabletClient) {
     deviceType = "tablet";
-  } else if (/mobile|iphone|android/i.test(userAgent)) {
+  } else if (isMobileClient) {
     deviceType = "mobile";
   }
 
-  const deviceName = `${browser} on ${os}`;
+  // Parse OS
+  let os = "Unknown OS";
+  if (/windows/i.test(userAgent) || /windows/i.test(explicitPlatform || "")) {
+    os = "Windows";
+  } else if (/iphone|ipad|ipod|ios/i.test(userAgent) || /ios/i.test(explicitPlatform || "")) {
+    os = "iOS";
+  } else if (/android|okhttp|dalvik/i.test(userAgent) || /android/i.test(explicitPlatform || "")) {
+    os = "Android";
+  } else if (/macintosh|mac os x|darwin|cfnetwork/i.test(userAgent)) {
+    os = deviceType === "mobile" ? "iOS" : "macOS";
+  } else if (/linux/i.test(userAgent)) {
+    os = deviceType === "mobile" ? "Android" : "Linux";
+  }
+
+  // Parse Browser / App Client
+  let browser = "Web Browser";
+  if (
+    deviceType === "mobile" &&
+    /okhttp|cfnetwork|darwin|expo|dart|dalvik|react-native|alamofire/i.test(userAgent)
+  ) {
+    browser = "Oversite Mobile App";
+  } else if (/edg/i.test(userAgent)) {
+    browser = "Microsoft Edge";
+  } else if (/opr|opera/i.test(userAgent)) {
+    browser = "Opera";
+  } else if (/chrome|crios/i.test(userAgent)) {
+    browser = "Chrome";
+  } else if (/firefox|fxios/i.test(userAgent)) {
+    browser = "Firefox";
+  } else if (/safari/i.test(userAgent) && !/chrome/i.test(userAgent)) {
+    browser = "Safari";
+  }
+
+  // Build clean, recognizable device name
+  let deviceName = `${browser} on ${os}`;
+  if (explicitDeviceName) {
+    deviceName = explicitDeviceName;
+  } else if (deviceType === "mobile") {
+    if (os === "iOS") {
+      deviceName = /ipad/i.test(userAgent) ? "Apple iPad" : "Apple iPhone";
+    } else if (os === "Android") {
+      const brandMatch = userAgent.match(
+        /(samsung|pixel|redmi|xiaomi|infinix|tecno|oppo|vivo|huawei|oneplus|realme)[\s_-]?([a-zA-Z0-9_\-]+)?/i
+      );
+      deviceName = brandMatch
+        ? `${brandMatch[1].charAt(0).toUpperCase() + brandMatch[1].slice(1)} ${brandMatch[2] || ""}`.trim()
+        : "Android Mobile";
+    }
+  }
 
   return {
     deviceName,
@@ -86,9 +139,12 @@ export function parseClientDevice(req: NextRequest | Request): DeviceInfo {
 }
 
 /**
- * Creates a new session record for the user, enforcing the ceiling of 
- * MAXIMUM 2 concurrent active sessions on different devices.
- * If 2 sessions already exist, automatically revokes the oldest session.
+ * Creates or updates an active session record for the user, enforcing the ceiling of 
+ * MAXIMUM 2 concurrent active sessions on DIFFERENT devices.
+ * If the session is from the SAME device (e.g. another window on the same laptop),
+ * updates the existing session record instead of creating a duplicate session.
+ * If 2 distinct device sessions already exist and a new distinct device signs in,
+ * automatically revokes the oldest session.
  * Dispatches an asynchronous non-blocking security alert email if an unrecognized device/IP is used.
  */
 export async function createSession(params: {
@@ -111,17 +167,60 @@ export async function createSession(params: {
         id: userSessions.id,
         sessionTokenHash: userSessions.sessionTokenHash,
         deviceName: userSessions.deviceName,
+        deviceType: userSessions.deviceType,
+        browser: userSessions.browser,
+        os: userSessions.os,
         ipAddress: userSessions.ipAddress,
+        userAgent: userSessions.userAgent,
         createdAt: userSessions.createdAt,
       })
       .from(userSessions)
       .where(and(eq(userSessions.userId, userId), eq(userSessions.isRevoked, false)))
       .orderBy(asc(userSessions.createdAt));
 
-    // 2. Enforce strict max 2 sessions:
-    // If user already has 2 or more active sessions, revoke the oldest ones so only 1 remains before inserting the new one.
+    // 2. Check if a session already exists for this SAME physical device
+    // Matches by exact token hash OR same device signature (deviceType + OS + browser/deviceName)
+    const existingDeviceSession = activeSessions.find((s) => {
+      if (s.sessionTokenHash === tokenHash) return true;
+      const sameDeviceSignature =
+        s.deviceType === deviceInfo.deviceType &&
+        s.os === deviceInfo.os &&
+        (s.browser === deviceInfo.browser ||
+          s.deviceName === deviceInfo.deviceName ||
+          (s.deviceType === "mobile" && deviceInfo.deviceType === "mobile"));
+      return sameDeviceSignature;
+    });
+
+    if (existingDeviceSession) {
+      // Update the existing device session in place (keeps laptop as ONE session regardless of windows)
+      await db
+        .update(userSessions)
+        .set({
+          sessionTokenHash: tokenHash,
+          ipAddress: deviceInfo.ipAddress,
+          location: deviceInfo.location,
+          userAgent: deviceInfo.userAgent,
+          deviceName: deviceInfo.deviceName,
+          browser: deviceInfo.browser,
+          os: deviceInfo.os,
+          lastActiveAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(userSessions.id, existingDeviceSession.id));
+
+      if (redis) {
+        if (existingDeviceSession.sessionTokenHash !== tokenHash) {
+          await redis.del(`session:${existingDeviceSession.sessionTokenHash}`);
+        }
+        await redis.set(`session:${tokenHash}`, userId, "EX", 60 * 60 * 24 * 7);
+      }
+      return;
+    }
+
+    // 3. Enforce strict max 2 DIFFERENT device sessions:
+    // If user already has 2 or more distinct device sessions, revoke the oldest ones before adding the new device.
     if (activeSessions.length >= 2) {
-      const numToRevoke = activeSessions.length - 1; // leave 1 space for the incoming session
+      const numToRevoke = activeSessions.length - 1; // leave 1 space for the incoming new device
       const sessionsToRevoke = activeSessions.slice(0, numToRevoke);
       const idsToRevoke = sessionsToRevoke.map((s) => s.id);
 
@@ -130,7 +229,6 @@ export async function createSession(params: {
         .set({ isRevoked: true })
         .where(inArray(userSessions.id, idsToRevoke));
 
-      // Invalidate revoked session caches in Redis
       if (redis) {
         for (const s of sessionsToRevoke) {
           await redis.del(`session:${s.sessionTokenHash}`);
@@ -138,14 +236,12 @@ export async function createSession(params: {
       }
     }
 
-    // 3. Detect unrecognized device/IP for security alert
-    // If user has prior session history and this IP/Device is completely new, send session alert
+    // 4. Detect unrecognized device/IP for security alert
     const isKnownDevice = activeSessions.some(
       (s) => s.ipAddress === deviceInfo.ipAddress || s.deviceName === deviceInfo.deviceName
     );
 
     if (!isKnownDevice && activeSessions.length > 0 && userEmail) {
-      // Non-blocking security alert email
       sendEmailAsync({
         to: userEmail,
         subject: "Security Alert: New Sign-In to Oversite",
@@ -160,7 +256,7 @@ export async function createSession(params: {
       }).catch((err) => console.error("[SessionManager] Security alert email dispatch error:", err));
     }
 
-    // 4. Save new active session
+    // 5. Save new active session for the distinct device
     await db.insert(userSessions).values({
       userId,
       sessionTokenHash: tokenHash,
@@ -174,7 +270,6 @@ export async function createSession(params: {
       isRevoked: false,
     });
 
-    // 5. Cache active session token in Redis (7 days TTL)
     if (redis) {
       await redis.set(`session:${tokenHash}`, userId, "EX", 60 * 60 * 24 * 7);
     }
@@ -289,7 +384,7 @@ export async function listUserSessions(
   const db = await getDbReady();
   const currentHash = currentToken ? hashSessionToken(currentToken) : null;
 
-  const sessions = await db
+  const rawSessions = await db
     .select({
       id: userSessions.id,
       sessionTokenHash: userSessions.sessionTokenHash,
@@ -304,10 +399,29 @@ export async function listUserSessions(
     })
     .from(userSessions)
     .where(and(eq(userSessions.userId, userId), eq(userSessions.isRevoked, false)))
-    .orderBy(desc(userSessions.lastActiveAt))
-    .limit(2); // strictly max 2 devices
+    .orderBy(desc(userSessions.lastActiveAt));
 
-  return sessions.map((s) => ({
+  // Deduplicate by device fingerprint so multiple windows of the same device never show as multiple sessions
+  const seenDevices = new Set<string>();
+  const uniqueSessions: typeof rawSessions = [];
+
+  for (const s of rawSessions) {
+    const isCurrent = Boolean(currentHash && s.sessionTokenHash === currentHash);
+    const deviceKey = `${s.deviceType}:${s.os}:${s.browser || s.deviceName}`;
+    if (!seenDevices.has(deviceKey) || isCurrent) {
+      seenDevices.add(deviceKey);
+      uniqueSessions.push(s);
+    } else {
+      // Auto-revoke redundant duplicate session records in background
+      db.update(userSessions)
+        .set({ isRevoked: true })
+        .where(eq(userSessions.id, s.id))
+        .catch(() => null);
+    }
+    if (uniqueSessions.length >= 2) break;
+  }
+
+  return uniqueSessions.map((s) => ({
     id: s.id,
     deviceName: s.deviceName,
     deviceType: s.deviceType,

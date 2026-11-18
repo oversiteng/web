@@ -37,7 +37,6 @@ const AGENT_SIDEBAR_NAV = [
   { label: "Earnings", href: "/agent/wallet", icon: Wallet },
   { label: "Performance", href: "/agent/stats", icon: BarChart3 },
   { label: "Verification", href: "/agent/verification", icon: ShieldCheck },
-  { label: "Where You Work", href: "/agent/coverage", icon: MapPin },
   { label: "Settings", href: "/settings", icon: Settings },
   { label: "More", href: "/agent/more", icon: MoreHorizontal },
 ];

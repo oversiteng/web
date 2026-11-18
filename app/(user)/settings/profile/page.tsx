@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -8,6 +9,9 @@ import {
   Check,
   ChevronDown,
   Lock,
+  MapPin,
+  Briefcase,
+  Calendar,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getStoredToken } from "@/lib/storage/clientStorage";
@@ -82,6 +86,42 @@ export default function PersonalDetailsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isEditingPersonal, setIsEditingPersonal] = useState(false);
+
+  // Agent "Where you work" summary state
+  const [coverageAreas, setCoverageAreas] = useState<string[]>(["Ikoyi", "Victoria Island", "Lekki", "Ajah"]);
+  const [workAgentType, setWorkAgentType] = useState("Field Investigator");
+  const [acceptWeekendTasks, setAcceptWeekendTasks] = useState(true);
+
+  useEffect(() => {
+    const syncWorkPrefs = () => {
+      if (typeof window === "undefined") return;
+      try {
+        const raw = localStorage.getItem("oversite_agent_work_prefs");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed.coverageAreas) && parsed.coverageAreas.length > 0) {
+            setCoverageAreas(parsed.coverageAreas);
+          }
+          if (parsed.agentType) setWorkAgentType(parsed.agentType);
+          if (typeof parsed.acceptWeekendTasks === "boolean") {
+            setAcceptWeekendTasks(parsed.acceptWeekendTasks);
+          }
+        } else if (authUser?.location) {
+          const split = authUser.location
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+          if (split.length > 0) setCoverageAreas(split);
+        }
+      } catch {
+        // Keep defaults
+      }
+    };
+    syncWorkPrefs();
+    window.addEventListener("oversite:coverage-updated", syncWorkPrefs);
+    return () => window.removeEventListener("oversite:coverage-updated", syncWorkPrefs);
+  }, [authUser?.location]);
 
   // Sync state if AuthContext finishes hydrating or updates
   useEffect(() => {
@@ -309,8 +349,9 @@ export default function PersonalDetailsPage() {
       setToastMessage("Personal details saved successfully!");
       setTimeout(() => {
         setSavedSuccess(false);
+        setIsEditingPersonal(false);
         setToastMessage(null);
-      }, 3000);
+      }, 1500);
     } catch {
       setToastMessage("Failed to save changes.");
       setTimeout(() => setToastMessage(null), 2500);
@@ -328,6 +369,194 @@ export default function PersonalDetailsPage() {
       .slice(0, 2)
       .toUpperCase() || "AU";
 
+  const isAgent = authUser?.role === "AGENT";
+  const formattedPhone = phoneNumber ? `${phoneCode} ${phoneNumber}` : "Not set";
+  const formattedLocation = [location, state, country].filter(Boolean).join(", ") || "Not set";
+
+  if (!isEditingPersonal) {
+    return (
+      <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-12 select-none">
+        {/* ── Toast Notification Banner ── */}
+        {toastMessage && (
+          <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
+            <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
+              <div className="w-5 h-5 rounded-full bg-[var(--primary-light)] flex items-center justify-center shrink-0">
+                <Check className="w-3.5 h-3.5 text-[var(--primary)] stroke-[3]" />
+              </div>
+              <span className="text-[13px] font-medium tracking-wide">{toastMessage}</span>
+            </div>
+          </div>
+        )}
+
+        {/* ── Top Header ── */}
+        <div className="flex items-center gap-3 py-3 mb-4">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                router.back();
+              } else {
+                router.push(isAgent ? "/agent/more" : "/settings");
+              }
+            }}
+            aria-label="Go back"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-colors cursor-pointer -ml-1"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-[17px] sm:text-[18px] font-bold text-[var(--text-heading)]">
+            Profile
+          </h1>
+        </div>
+
+        {/* ── Avatar & Identity Header ── */}
+        <div className="flex flex-col items-center text-center mb-6">
+          <div className="relative mb-3">
+            {avatarPreview ? (
+              <img
+                src={avatarPreview}
+                alt="Profile avatar"
+                className="w-24 h-24 rounded-full object-cover shadow-md border-2 border-[var(--border-color)]"
+              />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-[var(--info-light)] flex items-center justify-center text-[var(--info)] font-bold text-2xl">
+                {initials}
+              </div>
+            )}
+          </div>
+          <h2 className="text-[17px] font-bold text-[var(--text-heading)]">
+            {name || "User"}
+          </h2>
+          <p className="text-[13px] text-[var(--text-muted)] mt-0.5">{email}</p>
+        </div>
+
+        <div className="space-y-5">
+          {/* ── Section 1: Personal Details ── */}
+          <div className="rounded-[24px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[15px] font-bold text-[var(--text-heading)]">
+                Personal details
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEditingPersonal(true)}
+                aria-label="Edit personal details"
+                className="w-8 h-8 rounded-full bg-[var(--bg-secondary)] hover:bg-[var(--primary-light)] text-[var(--text-heading)] hover:text-[var(--primary)] flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-[13px] divide-y divide-[var(--border-color)]/60">
+              <div className="flex items-center justify-between gap-4 pt-1">
+                <span className="text-[var(--text-muted)]">Full name</span>
+                <span className="font-semibold text-[var(--text-heading)] text-right">
+                  {title && title !== "Mr/Mrs" ? `${title} ` : ""}
+                  {name || "Not set"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4 pt-3">
+                <span className="text-[var(--text-muted)]">Email</span>
+                <span className="font-semibold text-[var(--text-heading)] text-right truncate max-w-[200px]">
+                  {email || "Not set"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4 pt-3">
+                <span className="text-[var(--text-muted)]">Phone</span>
+                <span className="font-semibold text-[var(--text-heading)] text-right">
+                  {formattedPhone}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4 pt-3">
+                <span className="text-[var(--text-muted)]">Occupation</span>
+                <span className="font-semibold text-[var(--text-heading)] text-right">
+                  {occupation || "Not set"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4 pt-3">
+                <span className="text-[var(--text-muted)]">Address</span>
+                <span className="font-semibold text-[var(--text-heading)] text-right max-w-[210px] truncate">
+                  {address || "Not set"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4 pt-3">
+                <span className="text-[var(--text-muted)]">Location</span>
+                <span className="font-semibold text-[var(--text-heading)] text-right max-w-[210px] truncate">
+                  {formattedLocation}
+                </span>
+              </div>
+              {residence && (
+                <div className="flex items-center justify-between gap-4 pt-3">
+                  <span className="text-[var(--text-muted)]">Residence</span>
+                  <span className="font-semibold text-[var(--text-heading)] text-right">
+                    {residence}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Section 2: Where You Work (Agents) ── */}
+          {isAgent && (
+            <div className="rounded-[24px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[15px] font-bold text-[var(--text-heading)]">
+                  Where you work
+                </h3>
+                <Link
+                  href="/agent/coverage"
+                  aria-label="Edit where you work"
+                  className="w-8 h-8 rounded-full bg-[var(--bg-secondary)] hover:bg-[var(--primary-light)] text-[var(--text-heading)] hover:text-[var(--primary)] flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <Pencil className="w-4 h-4" />
+                </Link>
+              </div>
+
+              <div className="space-y-3.5 text-[13px]">
+                <div>
+                  <div className="flex items-center gap-1.5 text-[var(--text-muted)] text-[12px] mb-2">
+                    <MapPin className="w-3.5 h-3.5 text-[var(--primary)]" />
+                    <span>Coverage areas</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {coverageAreas.map((area) => (
+                      <span
+                        key={area}
+                        className="px-3 py-1 rounded-full bg-[var(--primary-light)] text-[var(--primary)] text-[11.5px] font-semibold"
+                      >
+                        {area}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 pt-3 border-t border-[var(--border-color)]/60">
+                  <span className="text-[var(--text-muted)] flex items-center gap-1.5">
+                    <Briefcase className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                    Operative role
+                  </span>
+                  <span className="font-semibold text-[var(--text-heading)] text-right">
+                    {workAgentType}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 pt-3 border-t border-[var(--border-color)]/60">
+                  <span className="text-[var(--text-muted)] flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                    Weekend tasks
+                  </span>
+                  <span className="font-semibold text-[var(--text-heading)] text-right">
+                    {acceptWeekendTasks ? "Available" : "Weekdays only"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-12 select-none">
       {/* ── Toast Notification Banner ── */}
@@ -342,18 +571,12 @@ export default function PersonalDetailsPage() {
         </div>
       )}
 
-      {/* ── Top Header (Matches Screenshots 2 & 3) ── */}
+      {/* ── Top Header (Edit Personal Details Form) ── */}
       <div className="flex items-center gap-3 py-3 mb-4">
         <button
           type="button"
-          onClick={() => {
-            if (window.history.length > 1) {
-              router.back();
-            } else {
-              router.push("/settings");
-            }
-          }}
-          aria-label="Go back"
+          onClick={() => setIsEditingPersonal(false)}
+          aria-label="Go back to profile"
           className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-colors cursor-pointer -ml-1"
         >
           <ArrowLeft className="w-5 h-5" />

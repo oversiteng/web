@@ -155,7 +155,7 @@ export default function AgentCoveragePage() {
       {/* Header */}
       <AgentTopNav
         showBack={true}
-        backHref="/agent/more"
+        backHref="/settings/profile"
         title="Where you work"
         hideRightControls={true}
         className="mb-5"

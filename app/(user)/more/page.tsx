@@ -115,7 +115,7 @@ export default function MorePage() {
         {/* Unified Page Header */}
         <PageHeader title="More" />
 
-          {/* ── Profile Card ── */}
+          {/* â”€â”€ Profile Card â”€â”€ */}
           <Link
             href="/settings/profile"
             className="flex items-center gap-3.5 p-4 rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs mb-4 hover:border-[var(--primary)]/30 transition-all cursor-pointer group"
@@ -147,7 +147,7 @@ export default function MorePage() {
             <ChevronRight className="w-5 h-5 text-[var(--text-muted)] group-hover:text-[var(--text-heading)] transition-colors shrink-0" />
           </Link>
 
-          {/* ── Group 1: General Menu Card ── */}
+          {/* â”€â”€ Group 1: General Menu Card â”€â”€ */}
           <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs mb-4 overflow-hidden divide-y divide-[var(--border-color)]">
             {/* Settings */}
             <Link
@@ -183,24 +183,6 @@ export default function MorePage() {
                     </h3>
                     <p className="text-[12px] text-[var(--text-muted)] truncate">
                       Tier progress, rating &amp; acceptance rate
-                    </p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-[var(--text-muted)] group-hover:text-[var(--text-heading)] transition-colors shrink-0" />
-                </Link>
-
-                <Link
-                  href="/agent/coverage"
-                  className="flex items-center gap-3.5 p-3.5 hover:bg-[var(--bg-secondary)] transition-colors group cursor-pointer"
-                >
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-[var(--text-heading)] shrink-0">
-                    <MapPin className="w-5 h-5 stroke-[1.8]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[14.5px] font-semibold text-[var(--text-heading)]">
-                      Where You Work
-                    </h3>
-                    <p className="text-[12px] text-[var(--text-muted)] truncate">
-                      Coverage areas, agent type &amp; weekend tasks
                     </p>
                   </div>
                   <ChevronRight className="w-5 h-5 text-[var(--text-muted)] group-hover:text-[var(--text-heading)] transition-colors shrink-0" />
@@ -322,7 +304,7 @@ export default function MorePage() {
             </Link>
           </div>
 
-          {/* ── Group 2: Account Actions Card ── */}
+          {/* â”€â”€ Group 2: Account Actions Card â”€â”€ */}
           <div className="rounded-[22px] bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs overflow-hidden divide-y divide-[var(--border-color)]">
             {/* Logout Action */}
             <button
@@ -369,7 +351,7 @@ export default function MorePage() {
         {/* Space above mobile bottom nav */}
         <div className="pb-32" />
 
-      {/* ── Logout Confirmation Modal ── */}
+      {/* â”€â”€ Logout Confirmation Modal â”€â”€ */}
       {isLogoutModalOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
           <div
@@ -409,7 +391,7 @@ export default function MorePage() {
         </div>
       )}
 
-      {/* ── Delete Account Confirmation Modal ── */}
+      {/* â”€â”€ Delete Account Confirmation Modal â”€â”€ */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
           <div

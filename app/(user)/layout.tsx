@@ -45,7 +45,6 @@ const AGENT_SIDEBAR_ITEMS = [
   { label: "Earnings", href: "/agent/wallet", icon: AgentWalletIcon },
   { label: "Performance", href: "/agent/stats", icon: AgentStatsIcon },
   { label: "Verification", href: "/agent/verification", icon: AgentVerificationIcon },
-  { label: "Where You Work", href: "/agent/coverage", icon: AgentCoverageIcon },
   { label: "Settings", href: "/settings", icon: AgentSettingsIcon },
   { label: "More", href: "/agent/more", icon: AgentMoreIcon },
 ];

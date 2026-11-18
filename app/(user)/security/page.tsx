@@ -58,7 +58,6 @@ export default function SecurityPage() {
   const { user } = useAuth();
 
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  const [biometricsEnabled, setBiometricsEnabled] = useState(true);
   const [ndprConsent, setNdprConsent] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -162,9 +161,6 @@ export default function SecurityPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const savedBio = localStorage.getItem("oversite_biometrics");
-      if (savedBio !== null) setBiometricsEnabled(savedBio === "true");
-
       const savedNdpr = localStorage.getItem("oversite_ndpr_consent");
       if (savedNdpr !== null) setNdprConsent(savedNdpr === "true");
     }
@@ -174,7 +170,7 @@ export default function SecurityPage() {
         const token = await getStoredToken();
         if (!token) return;
 
-        const res = await fetch("/api/v1/users/me/settings", {
+        const res = await fetch("/api/v1/users/me/2fa", {
           credentials: "include",
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -285,19 +281,6 @@ export default function SecurityPage() {
     } catch {
       // Non-blocking fallback
     }
-  };
-
-  // ── Biometrics Handling ──
-  const handleToggleBiometrics = (val: boolean) => {
-    setBiometricsEnabled(val);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("oversite_biometrics", String(val));
-    }
-    showToast(
-      val
-        ? "Biometric login enabled on this device"
-        : "Biometric login disabled"
-    );
   };
 
   // ── NDPR Handling ──
@@ -416,22 +399,6 @@ export default function SecurityPage() {
           <SecuritySwitch
             checked={twoFactorEnabled}
             onChange={handleToggle2FAClick}
-          />
-        </div>
-
-        {/* Biometric Login */}
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-[14px] sm:text-[15px] font-semibold text-[var(--text-heading)]">
-              Biometric login
-            </h3>
-            <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-              Fingerprint or Face ID on this device
-            </p>
-          </div>
-          <SecuritySwitch
-            checked={biometricsEnabled}
-            onChange={handleToggleBiometrics}
           />
         </div>
       </div>
