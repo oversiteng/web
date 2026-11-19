@@ -9,9 +9,25 @@ export interface UploadedAgentMedia {
   fileName: string;
   contentType: string;
   storedOnServer: boolean;
+  originalSize?: number;
+  compressedSize?: number;
 }
 
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB
+// Streamlined Client-Side Upload Policy Constants
+export const MAX_RAW_UPLOAD_MB = 10;
+export const MAX_RAW_UPLOAD_BYTES = MAX_RAW_UPLOAD_MB * 1024 * 1024; // 10MB raw ceiling before compression
+export const MAX_DOCUMENT_MB = 5;
+export const MAX_DOCUMENT_BYTES = MAX_DOCUMENT_MB * 1024 * 1024; // 5MB max for PDFs / documents
+export const MAX_AVATAR_MB = 2;
+export const MAX_AVATAR_BYTES = MAX_AVATAR_MB * 1024 * 1024; // 2MB max for avatars / passport photos
+
+export function formatFileSize(bytes?: number | null): string {
+  if (!bytes || bytes <= 0) return "0 KB";
+  if (bytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
 
 export function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -24,38 +40,123 @@ export function readFileAsDataUrl(file: File): Promise<string> {
 
 export function validateAgentUploadFile(
   file: File,
-  options: { allowPdf?: boolean } = {}
+  options: { allowPdf?: boolean; maxMb?: number } = {}
 ): string | null {
-  const isImage = file.type.startsWith("image/");
-  const isPdf = options.allowPdf && file.type === "application/pdf";
+  const isImage =
+    file.type.startsWith("image/") ||
+    /\.(jpg|jpeg|png|webp|gif|heic|heif)$/i.test(file.name);
+  const isPdf =
+    options.allowPdf &&
+    (file.type === "application/pdf" || /\.pdf$/i.test(file.name));
 
   if (!isImage && !isPdf) {
     return options.allowPdf
-      ? "Please select a valid image (JPG, PNG, WEBP) or PDF file."
-      : "Please select a valid image file (JPG, PNG, WEBP, GIF).";
+      ? "Please select a valid image (JPG, PNG, WEBP) or PDF document."
+      : "Please select a valid image file (JPG, PNG, WEBP).";
   }
 
-  if (file.size > MAX_UPLOAD_BYTES) {
-    return "File size must be less than 10MB.";
+  if (isPdf && file.size > MAX_DOCUMENT_BYTES) {
+    return `PDF document (${formatFileSize(file.size)}) exceeds the ${MAX_DOCUMENT_MB}MB maximum limit.`;
+  }
+
+  const maxAllowedBytes = options.maxMb
+    ? options.maxMb * 1024 * 1024
+    : MAX_RAW_UPLOAD_BYTES;
+
+  if (file.size > maxAllowedBytes) {
+    return `File size (${formatFileSize(file.size)}) exceeds the ${
+      options.maxMb || MAX_RAW_UPLOAD_MB
+    }MB maximum limit.`;
   }
 
   return null;
 }
 
 /**
- * Uploads an image or document for the agent workflow modeled on the user avatar S3 pipeline:
- * 1) Direct multipart upload to /api/v1/agent/upload
- * 2) Presigned S3 URL fallback via /api/v1/agent/upload/presign
- * 3) Graceful local Data URL preview fallback when running without live AWS credentials
+ * Client-side Canvas Image Compression Utility.
+ * Compresses large camera photos (up to 10MB) down to crisp, readable JPEGs (< 1MB)
+ * before transmitting over the network. Leaves PDFs untouched.
+ */
+export async function compressClientImageFile(
+  file: File,
+  options: { maxDimension?: number; quality?: number } = {}
+): Promise<File> {
+  const isImage = file.type.startsWith("image/") && !/gif/i.test(file.type);
+  if (!isImage || typeof window === "undefined") {
+    return file;
+  }
+
+  const { maxDimension = 1920, quality = 0.82 } = options;
+
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Image decode failed"));
+      el.src = dataUrl;
+    });
+
+    let width = img.naturalWidth || img.width;
+    let height = img.naturalHeight || img.height;
+
+    if (width > maxDimension || height > maxDimension) {
+      if (width >= height) {
+        height = Math.round((height * maxDimension) / width);
+        width = maxDimension;
+      } else {
+        width = Math.round((width * maxDimension) / height);
+        height = maxDimension;
+      }
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/jpeg", quality)
+    );
+
+    if (!blob || blob.size >= file.size) {
+      return file;
+    }
+
+    const cleanName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+    return new File([blob], cleanName, {
+      type: "image/jpeg",
+      lastModified: Date.now(),
+    });
+  } catch {
+    return file;
+  }
+}
+
+/**
+ * Uploads an image or document for the agent workflow with automatic client + server compression:
+ * 1) Client-side canvas compression for images
+ * 2) Direct multipart upload to /api/v1/agent/upload (which runs server-side sharp compression middleware)
+ * 3) Presigned S3 URL fallback via /api/v1/agent/upload/presign
+ * 4) Graceful local Data URL preview fallback when running without live AWS credentials
  */
 export async function uploadAgentMedia(
-  file: File,
+  rawFile: File,
   folder: "evidence" | "kyc" | "tax" | "avatar" = "evidence"
 ): Promise<UploadedAgentMedia> {
+  const originalSize = rawFile.size;
+  const file = await compressClientImageFile(rawFile, {
+    maxDimension: folder === "avatar" ? 800 : 1920,
+    quality: folder === "avatar" ? 0.8 : 0.82,
+  });
+
   const previewUrl = await readFileAsDataUrl(file);
   const token = await getStoredToken();
 
-  // 1. Direct server-side upload to S3
+  // 1. Direct server-side upload to S3 (with server compression middleware)
   try {
     const formData = new FormData();
     formData.append("file", file);
@@ -83,6 +184,8 @@ export async function uploadAgentMedia(
           fileName: file.name,
           contentType: file.type || "image/jpeg",
           storedOnServer: true,
+          originalSize,
+          compressedSize: json?.data?.compressedSize || file.size,
         };
       }
     }
@@ -124,6 +227,8 @@ export async function uploadAgentMedia(
             fileName: file.name,
             contentType: file.type || "image/jpeg",
             storedOnServer: true,
+            originalSize,
+            compressedSize: file.size,
           };
         }
       }
@@ -139,6 +244,7 @@ export async function uploadAgentMedia(
     fileName: file.name,
     contentType: file.type || "image/jpeg",
     storedOnServer: false,
+    originalSize,
+    compressedSize: file.size,
   };
 }
-

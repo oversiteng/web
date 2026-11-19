@@ -9,9 +9,16 @@ import { eq } from "drizzle-orm";
 export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
     const body = await req.json().catch(() => ({}));
-    const { documentType, s3ObjectKey, documentUrl, metadata } = body;
+    const {
+      documentType,
+      s3ObjectKey,
+      documentUrl,
+      backDocumentUrl,
+      backS3ObjectKey,
+      metadata,
+    } = body;
 
-    const fileRef = s3ObjectKey || documentUrl;
+    const fileRef = documentUrl || s3ObjectKey;
     if (!documentType || !fileRef) {
       return NextResponse.json(
         {
@@ -70,10 +77,14 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     const prevDocs = (currentUser.accreditationDocuments as Record<string, any>) || {};
 
     const now = new Date();
+    const backRef = backDocumentUrl || backS3ObjectKey || metadata?.backDocumentUrl || null;
     const docEntry = {
       type: normalizedType,
       fileRef,
-      documentUrl: fileRef,
+      documentUrl: documentUrl || fileRef,
+      s3ObjectKey: s3ObjectKey || null,
+      backDocumentUrl: backRef,
+      backS3ObjectKey: backS3ObjectKey || metadata?.backObjectKey || null,
       uploadedAt: now.toISOString(),
       metadata: metadata || null,
       status: "SUBMITTED",

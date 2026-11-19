@@ -1,20 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { uploadBufferToS3 } from "@/lib/aws/s3";
+import { processAndCompressMedia } from "@/lib/middleware/mediaCompression";
 
 export const runtime = "nodejs";
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-  "image/jpg",
-  "image/heic",
-  "image/heif",
-  "application/pdf",
-];
 
 const handleAgentUpload = withAuth(
   async (req: NextRequest, { user }) => {
@@ -29,7 +18,7 @@ const handleAgentUpload = withAuth(
       const rawFolder = String(formData.get("folder") || "evidence")
         .toLowerCase()
         .replace(/[^a-z0-9-_]/g, "");
-      const folder = rawFolder || "evidence";
+      const folder = (rawFolder || "evidence") as "evidence" | "kyc" | "tax" | "avatar";
 
       if (!file) {
         return NextResponse.json(
@@ -38,36 +27,30 @@ const handleAgentUpload = withAuth(
         );
       }
 
-      if (file.size > MAX_FILE_SIZE) {
+      // Run Media Validation & Compression Middleware
+      let compressed;
+      try {
+        compressed = await processAndCompressMedia(file, {
+          category: folder,
+          allowPdf: folder !== "avatar",
+        });
+      } catch (validationErr: any) {
         return NextResponse.json(
-          { success: false, error: "File exceeds the 10MB limit" },
+          { success: false, error: validationErr?.message || "Invalid media file" },
           { status: 400 }
         );
       }
 
-      const contentType = (file.type || "image/jpeg").toLowerCase();
-      if (!ALLOWED_MIME_TYPES.includes(contentType)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Only JPEG, PNG, WEBP, GIF, HEIC images or PDF files are supported",
-          },
-          { status: 400 }
-        );
-      }
-
-      const ext =
-        file.name.split(".").pop()?.toLowerCase() ||
-        contentType.split("/")[1] ||
-        "jpg";
       const timestamp = Date.now();
-      const objectKey = `agent/${user.sub}/${folder}/${timestamp}.${ext}`;
+      const randomSuffix = Math.random().toString(36).slice(2, 7);
+      const objectKey = `agent/${user.sub}/${folder}/${timestamp}-${randomSuffix}.${compressed.extension}`;
 
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      // Direct server-side upload to AWS S3
-      const { publicUrl } = await uploadBufferToS3(buffer, objectKey, contentType);
+      // Direct server-side upload of compressed buffer to AWS S3
+      const { publicUrl } = await uploadBufferToS3(
+        compressed.buffer,
+        objectKey,
+        compressed.contentType
+      );
 
       const resData = {
         url: publicUrl,
@@ -79,13 +62,16 @@ const handleAgentUpload = withAuth(
         file_url: publicUrl,
         objectKey,
         object_key: objectKey,
-        contentType,
+        contentType: compressed.contentType,
         fileName: file.name,
+        originalSize: compressed.originalSize,
+        compressedSize: compressed.compressedSize,
+        wasCompressed: compressed.wasCompressed,
       };
 
       return NextResponse.json({
         success: true,
-        message: "File uploaded successfully",
+        message: "File compressed and uploaded successfully",
         ...resData,
         data: resData,
       });
@@ -105,4 +91,3 @@ const handleAgentUpload = withAuth(
 
 export const POST = handleAgentUpload;
 export const PUT = handleAgentUpload;
-

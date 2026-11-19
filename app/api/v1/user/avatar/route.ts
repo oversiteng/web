@@ -4,16 +4,18 @@ import { uploadBufferToS3 } from "@/lib/aws/s3";
 import { getDbReady } from "@/lib/db/client";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { processAndCompressMedia } from "@/lib/middleware/mediaCompression";
 
 export const runtime = "nodejs";
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/jpg"];
 
 const handleAvatarUpload = withAuth(async (req: NextRequest, { user }) => {
   try {
     const formData = await req.formData();
-    const file = (formData.get("avatar") || formData.get("file") || formData.get("image") || formData.get("photo") || formData.get("picture")) as File | null;
+    const file = (formData.get("avatar") ||
+      formData.get("file") ||
+      formData.get("image") ||
+      formData.get("photo") ||
+      formData.get("picture")) as File | null;
 
     if (!file) {
       return NextResponse.json(
@@ -22,30 +24,29 @@ const handleAvatarUpload = withAuth(async (req: NextRequest, { user }) => {
       );
     }
 
-    if (file.size > MAX_FILE_SIZE) {
+    // Run Media Validation & Compression Middleware (strictly image-only, compressed to <= 2MB)
+    let compressed;
+    try {
+      compressed = await processAndCompressMedia(file, {
+        category: "avatar",
+        allowPdf: false,
+      });
+    } catch (validationErr: any) {
       return NextResponse.json(
-        { success: false, error: "Image file exceeds the 10MB limit" },
+        { success: false, error: validationErr?.message || "Invalid avatar image" },
         { status: 400 }
       );
     }
 
-    const contentType = file.type || "image/jpeg";
-    if (!ALLOWED_MIME_TYPES.includes(contentType.toLowerCase())) {
-      return NextResponse.json(
-        { success: false, error: "Only JPEG, PNG, WEBP, and GIF images are supported" },
-        { status: 400 }
-      );
-    }
-
-    const ext = file.name.split(".").pop() || contentType.split("/")[1] || "jpg";
     const timestamp = Date.now();
-    const objectKey = `profiles/${user.sub}-${timestamp}.${ext}`;
+    const objectKey = `profiles/${user.sub}-${timestamp}.${compressed.extension}`;
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Direct server-side upload to AWS S3 (eu-west-2)
-    const { publicUrl } = await uploadBufferToS3(buffer, objectKey, contentType);
+    // Direct server-side upload to AWS S3
+    const { publicUrl } = await uploadBufferToS3(
+      compressed.buffer,
+      objectKey,
+      compressed.contentType
+    );
 
     // Update user avatar in the database
     const db = await getDbReady();
@@ -67,11 +68,14 @@ const handleAvatarUpload = withAuth(async (req: NextRequest, { user }) => {
       image_url: publicUrl,
       objectKey,
       object_key: objectKey,
+      originalSize: compressed.originalSize,
+      compressedSize: compressed.compressedSize,
+      wasCompressed: compressed.wasCompressed,
     };
 
     return NextResponse.json({
       success: true,
-      message: "Avatar uploaded successfully",
+      message: "Avatar compressed and uploaded successfully",
       ...resData,
       data: resData,
     });

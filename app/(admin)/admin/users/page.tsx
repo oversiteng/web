@@ -1,16 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
-  Users,
   Search,
-  Check,
-  X,
-  Eye,
-  ShieldCheck,
+  SlidersHorizontal,
+  ArrowLeft,
+  ArrowRight,
+  ChevronLeft,
+  ChevronDown,
   FileText,
-  Award,
-  Wallet,
+  Eye,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
@@ -42,20 +41,263 @@ const AGENT_TIERS = [
   "ENFORCEMENT_LIAISON",
 ];
 
+const PAGE_SIZE = 10;
+
+function formatShortDate(iso: string): string {
+  try {
+    return new Date(iso).toISOString().slice(0, 10);
+  } catch {
+    return iso;
+  }
+}
+
+function formatFieldLabel(raw: string): string {
+  return raw
+    .replace(/[._-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+function isMediaRefString(val: string): boolean {
+  const s = val.trim();
+  if (!s) return false;
+  return (
+    s.startsWith("http://") ||
+    s.startsWith("https://") ||
+    s.startsWith("/api/v1/media") ||
+    s.startsWith("data:image/") ||
+    s.startsWith("data:application/pdf") ||
+    /^(agent|user|admin|kyc|uploads|documents|reports|media)\//i.test(s) ||
+    /\.(jpg|jpeg|png|webp|gif|pdf)(\?.*)?$/i.test(s)
+  );
+}
+
+function resolveMediaPreviewUrl(raw: string): string {
+  const s = raw.trim();
+  if (
+    s.startsWith("/api/v1/media") ||
+    s.startsWith("data:image/") ||
+    s.startsWith("data:application/pdf")
+  ) {
+    return s;
+  }
+  if (s.startsWith("http://") || s.startsWith("https://")) {
+    if (s.includes(".amazonaws.com/")) {
+      return `/api/v1/media?url=${encodeURIComponent(s)}`;
+    }
+    return s;
+  }
+  return `/api/v1/media?key=${encodeURIComponent(s)}`;
+}
+
+interface KycDocItem {
+  key: string;
+  label: string;
+  url: string;
+  backUrl?: string | null;
+  backIsPdf?: boolean;
+  status?: string;
+  isPdf?: boolean;
+  submittedAt?: string;
+}
+
+function extractKycArtifacts(
+  raw: unknown,
+  prefix = ""
+): {
+  docs: KycDocItem[];
+  fields: Array<{ key: string; label: string; value: string }>;
+} {
+  const docs: KycDocItem[] = [];
+  const fields: Array<{ key: string; label: string; value: string }> = [];
+  const SKIP_KEYS = new Set([
+    "withdrawalPinHash",
+    "withdrawalPinUpdatedAt",
+    "adminPolicy",
+    "supportTicket",
+    "supportFaqs",
+    "objectKey",
+    "fileRef",
+    "documentUrl",
+    "backDocumentUrl",
+    "backS3ObjectKey",
+    "backObjectKey",
+    "backFileName",
+    "backContentType",
+    "contentType",
+    "fileName",
+    "uploadedAt",
+    "submittedAt",
+    "mimeType",
+    "bucket",
+    "etag",
+  ]);
+  const DOC_INTERNAL_KEYS = new Set([
+    "type",
+    "status",
+    "fileRef",
+    "documentUrl",
+    "url",
+    "mediaUrl",
+    "uploadedAt",
+    "submittedAt",
+    "metadata",
+    "contentType",
+    "fileName",
+    "objectKey",
+    "mimeType",
+  ]);
+
+  if (!raw || typeof raw !== "object") return { docs, fields };
+
+  const walk = (node: unknown, path: string) => {
+    if (node === null || node === undefined || node === "") return;
+
+    if (typeof node === "string") {
+      if (isMediaRefString(node)) {
+        const lower = node.toLowerCase();
+        docs.push({
+          key: path || `doc-${docs.length + 1}`,
+          label: formatFieldLabel(path || `Document ${docs.length + 1}`),
+          url: resolveMediaPreviewUrl(node),
+          isPdf: lower.includes(".pdf") || lower.startsWith("data:application/pdf"),
+        });
+      } else if (path) {
+        fields.push({
+          key: path,
+          label: formatFieldLabel(path),
+          value: node,
+        });
+      }
+      return;
+    }
+
+    if (typeof node === "number" || typeof node === "boolean") {
+      if (path) {
+        fields.push({
+          key: path,
+          label: formatFieldLabel(path),
+          value: typeof node === "boolean" ? (node ? "Yes" : "No") : String(node),
+        });
+      }
+      return;
+    }
+
+    if (Array.isArray(node)) {
+      node.forEach((item, idx) => {
+        walk(item, path ? `${path} #${idx + 1}` : `Item ${idx + 1}`);
+      });
+      return;
+    }
+
+    if (typeof node === "object") {
+      const obj = node as Record<string, unknown>;
+      const meta =
+        obj.metadata && typeof obj.metadata === "object"
+          ? (obj.metadata as Record<string, unknown>)
+          : null;
+
+      // Detect a structured KYC document object (e.g. { type, status, fileRef, documentUrl, metadata: { objectKey, contentType } })
+      const rawRefCandidate = [
+        obj.documentUrl,
+        obj.fileRef,
+        obj.url,
+        obj.mediaUrl,
+        meta?.objectKey,
+      ].find((v): v is string => typeof v === "string" && isMediaRefString(v));
+
+      if (rawRefCandidate) {
+        const contentType = String(meta?.contentType || obj.contentType || "").toLowerCase();
+        const isPdf =
+          contentType.includes("pdf") ||
+          rawRefCandidate.toLowerCase().includes(".pdf") ||
+          rawRefCandidate.startsWith("data:application/pdf");
+        const docLabel = formatFieldLabel(
+          path || (typeof obj.type === "string" ? obj.type : `Document ${docs.length + 1}`)
+        );
+        const rawBackCandidate = [
+          obj.backDocumentUrl,
+          obj.backS3ObjectKey,
+          meta?.backDocumentUrl,
+          meta?.backObjectKey,
+        ].find((v): v is string => typeof v === "string" && isMediaRefString(v));
+        const backContentType = String(meta?.backContentType || "").toLowerCase();
+        const backIsPdf = rawBackCandidate
+          ? backContentType.includes("pdf") ||
+            rawBackCandidate.toLowerCase().includes(".pdf") ||
+            rawBackCandidate.startsWith("data:application/pdf")
+          : false;
+
+        docs.push({
+          key: path || `doc-${docs.length + 1}`,
+          label: docLabel,
+          url: resolveMediaPreviewUrl(rawRefCandidate),
+          backUrl: rawBackCandidate ? resolveMediaPreviewUrl(rawBackCandidate) : null,
+          backIsPdf,
+          status: typeof obj.status === "string" ? obj.status : undefined,
+          isPdf,
+          submittedAt:
+            typeof obj.uploadedAt === "string"
+              ? obj.uploadedAt
+              : typeof meta?.submittedAt === "string"
+              ? meta.submittedAt
+              : undefined,
+        });
+
+        // Only surface any extra human-readable fields on the doc object (e.g. documentNumber, issuingAuthority)
+        for (const [k, v] of Object.entries(obj)) {
+          if (DOC_INTERNAL_KEYS.has(k) || SKIP_KEYS.has(k)) continue;
+          walk(v, path ? `${path} · ${k}` : k);
+        }
+        return;
+      }
+
+      for (const [k, v] of Object.entries(obj)) {
+        if (SKIP_KEYS.has(k)) continue;
+        const nextPath = path ? `${path} · ${k}` : k;
+        walk(v, nextPath);
+      }
+    }
+  };
+
+  walk(raw, prefix);
+  return { docs, fields };
+}
+
 export default function AdminUsersKycPage() {
   const [users, setUsers] = useState<AdminUserItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("ALL");
+  const [roleTab, setRoleTab] = useState<"AGENT" | "USER">("AGENT");
+  const [activityTab, setActivityTab] = useState<"ACTIVE" | "DORMANT">("ACTIVE");
   const [kycFilter, setKycFilter] = useState<string>("ALL");
+  const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Slide-over Dossier Drawer state
+  // Full-Page Detail View state (modeled after Profile & KYC / Permissions mockup)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<"PROFILE_KYC" | "PERMISSIONS">(
+    "PROFILE_KYC"
+  );
   const [userDetail, setUserDetail] = useState<any>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [rejectionInput, setRejectionInput] = useState("");
-  const [previewDocument, setPreviewDocument] = useState<{ title: string; url: string } | null>(null);
+  const [selectedDocKey, setSelectedDocKey] = useState<string | null>(null);
+
+  // KYC form state
+  const [kycStatusInput, setKycStatusInput] = useState<string>("VERIFIED");
+  const [kycNoteInput, setKycNoteInput] = useState<string>("");
+  const [savingKyc, setSavingKyc] = useState(false);
+  const [savingItemKey, setSavingItemKey] = useState<string | null>(null);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+
+  // Permissions form state
+  const [permActiveInput, setPermActiveInput] = useState<"ACTIVE" | "DORMANT">(
+    "ACTIVE"
+  );
+  const [permTierInput, setPermTierInput] = useState<string>("GENERAL");
+  const [savingPerms, setSavingPerms] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -67,15 +309,13 @@ export default function AdminUsersKycPage() {
       setIsLoading(true);
       try {
         const token =
-          typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+          typeof window !== "undefined"
+            ? localStorage.getItem("oversite_token")
+            : null;
         const headers: Record<string, string> = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        const params = new URLSearchParams();
-        if (roleFilter !== "ALL") params.set("role", roleFilter);
-        if (kycFilter !== "ALL") params.set("kycStatus", kycFilter);
-
-        const res = await fetch(`/api/v1/admin/users?${params.toString()}`, {
+        const res = await fetch("/api/v1/admin/users?limit=200", {
           credentials: "include",
           headers,
         });
@@ -94,14 +334,23 @@ export default function AdminUsersKycPage() {
     }
 
     loadUsers();
-  }, [roleFilter, kycFilter]);
+  }, []);
 
-  const openUserDossier = async (id: string) => {
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [roleTab, activityTab, kycFilter, searchQuery]);
+
+  const openUserDetail = async (id: string) => {
     setSelectedUserId(id);
+    setDetailTab("PROFILE_KYC");
     setIsLoadingDetail(true);
+    setSelectedDocKey(null);
+    setKycNoteInput("");
     try {
       const token =
-        typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+        typeof window !== "undefined"
+          ? localStorage.getItem("oversite_token")
+          : null;
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -110,643 +359,1252 @@ export default function AdminUsersKycPage() {
         headers,
       });
       const json = await res.json();
-      if (json.success) {
-        setUserDetail(json.data);
+      if (json.success && json.data) {
+        const d = json.data;
+        setUserDetail(d);
+        setKycStatusInput(d.kycStatus || "PENDING");
+        setPermActiveInput(d.isActive ? "ACTIVE" : "DORMANT");
+        setPermTierInput(d.agentProfile?.tier || "GENERAL");
+
+        const extracted = extractKycArtifacts(d.accreditationDocuments);
+        if (extracted.docs.length > 0) {
+          setSelectedDocKey(extracted.docs[0].key);
+        }
       }
     } catch {
-      showToast("Failed to load user dossier");
+      showToast("Failed to load user details");
     } finally {
       setIsLoadingDetail(false);
     }
   };
 
-  const handleApproveKyc = async (id: string, name: string | null) => {
+  const handleSubmitKyc = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userDetail) return;
+    setSavingKyc(true);
     try {
       const token =
-        typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+        typeof window !== "undefined"
+          ? localStorage.getItem("oversite_token")
+          : null;
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch(`/api/v1/admin/users/${id}/verify`, {
-        method: "POST",
-        credentials: "include",
-        headers,
-      });
-
-      const json = await res.json();
-      if (json.success) {
-        setUsers((prev) =>
-          prev.map((u) => (u.id === id ? { ...u, kycStatus: "VERIFIED" } : u))
-        );
-        if (userDetail?.id === id) {
-          setUserDetail((prev: any) => ({ ...prev, kycStatus: "VERIFIED" }));
+      if (kycStatusInput === "VERIFIED") {
+        const res = await fetch(`/api/v1/admin/users/${userDetail.id}/verify`, {
+          method: "POST",
+          credentials: "include",
+          headers,
+        });
+        const json = await res.json();
+        if (!json.success) {
+          throw new Error(json.error?.message || "Verification failed");
         }
-        showToast(`KYC verified for ${name || "User"}`);
       } else {
-        showToast(json.error?.message || "Failed to verify user");
+        const res = await fetch(`/api/v1/admin/users/${userDetail.id}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers,
+          body: JSON.stringify({
+            kycStatus: kycStatusInput,
+            rejectionReason: kycNoteInput.trim() || undefined,
+          }),
+        });
+        const json = await res.json();
+        if (!json.success) {
+          throw new Error(json.error?.message || "Update failed");
+        }
       }
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userDetail.id ? { ...u, kycStatus: kycStatusInput } : u
+        )
+      );
+      setUserDetail((prev: any) => ({ ...prev, kycStatus: kycStatusInput }));
+      setKycNoteInput("");
+      showToast(`KYC status updated to ${kycStatusInput}`);
     } catch (err: any) {
-      showToast(err.message || "Failed to verify user");
+      showToast(err.message || "Failed to update KYC status");
+    } finally {
+      setSavingKyc(false);
     }
   };
 
-  const handleUpdateUserPatch = async (id: string, payload: Record<string, any>) => {
+  const handleItemVerification = async (
+    itemKey: string,
+    payload: Record<string, any>,
+    successLabel: string
+  ) => {
+    if (!userDetail) return;
+    setSavingItemKey(itemKey);
     try {
       const token =
-        typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+        typeof window !== "undefined"
+          ? localStorage.getItem("oversite_token")
+          : null;
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch(`/api/v1/admin/users/${id}`, {
+      const res = await fetch(`/api/v1/admin/users/${userDetail.id}`, {
         method: "PATCH",
         credentials: "include",
         headers,
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
-      if (json.success) {
-        setUsers((prev) =>
-          prev.map((u) =>
-            u.id === id
-              ? {
-                  ...u,
-                  ...(payload.kycStatus ? { kycStatus: payload.kycStatus } : {}),
-                  ...(payload.agentTier ? { agentTier: payload.agentTier } : {}),
-                }
-              : u
-          )
-        );
-        openUserDossier(id);
-        showToast(json.message || "Profile updated");
-      } else {
-        showToast(json.error?.message || "Update failed");
-      }
-    } catch (err: any) {
-      showToast(err.message || "Update error");
-    }
-  };
-
-  const handleToggleSuspend = async (id: string, currentActive: boolean) => {
-    try {
-      const token =
-        typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      const res = await fetch(`/api/v1/admin/users/${id}/suspend`, {
-        method: "POST",
-        credentials: "include",
-        headers,
         body: JSON.stringify({
-          isActive: !currentActive,
-          reason: currentActive ? "Administrative suspension" : "Reinstated by Admin",
+          ...payload,
+          rejectionReason: kycNoteInput.trim() || undefined,
         }),
       });
-
       const json = await res.json();
-      if (json.success) {
-        setUsers((prev) =>
-          prev.map((u) => (u.id === id ? { ...u, isActive: !currentActive } : u))
-        );
-        if (userDetail?.id === id) {
-          setUserDetail((prev: any) => ({ ...prev, isActive: !currentActive }));
-        }
-        showToast(currentActive ? "Account suspended" : "Account reinstated");
+      if (!json.success) {
+        throw new Error(json.error?.message || "Update failed");
       }
+
+      // Refresh detail so all individual statuses stay in sync
+      const detailRes = await fetch(`/api/v1/admin/users/${userDetail.id}`, {
+        credentials: "include",
+        headers,
+      });
+      const detailJson = await detailRes.json();
+      if (detailJson.success && detailJson.data) {
+        setUserDetail(detailJson.data);
+      }
+      showToast(successLabel);
     } catch (err: any) {
-      showToast(err.message || "Failed to update account status");
+      showToast(err.message || "Failed to update verification item");
+    } finally {
+      setSavingItemKey(null);
     }
   };
 
-  const filtered = users.filter((u) => {
-    const q = searchQuery.toLowerCase();
-    return (
-      (u.name && u.name.toLowerCase().includes(q)) ||
-      u.email.toLowerCase().includes(q) ||
-      (u.phone && u.phone.includes(q)) ||
-      (u.operativeCode && u.operativeCode.toLowerCase().includes(q))
-    );
-  });
+  const handleSavePermissions = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userDetail) return;
+    setSavingPerms(true);
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("oversite_token")
+          : null;
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
 
+      const wantActive = permActiveInput === "ACTIVE";
+      if (wantActive !== Boolean(userDetail.isActive)) {
+        await fetch(`/api/v1/admin/users/${userDetail.id}/suspend`, {
+          method: "POST",
+          credentials: "include",
+          headers,
+          body: JSON.stringify({
+            isActive: wantActive,
+            reason: wantActive
+              ? "Reinstated by Admin"
+              : "Marked dormant by Admin",
+          }),
+        });
+      }
+
+      if (
+        userDetail.role === "AGENT" &&
+        permTierInput !== userDetail.agentProfile?.tier
+      ) {
+        await fetch(`/api/v1/admin/users/${userDetail.id}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers,
+          body: JSON.stringify({ agentTier: permTierInput }),
+        });
+      }
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userDetail.id
+            ? { ...u, isActive: wantActive, agentTier: permTierInput }
+            : u
+        )
+      );
+      setUserDetail((prev: any) => ({
+        ...prev,
+        isActive: wantActive,
+        agentProfile: prev.agentProfile
+          ? { ...prev.agentProfile, tier: permTierInput }
+          : prev.agentProfile,
+      }));
+      showToast("Account permissions saved");
+    } catch (err: any) {
+      showToast(err.message || "Failed to save permissions");
+    } finally {
+      setSavingPerms(false);
+    }
+  };
+
+  const agentsList = useMemo(
+    () => users.filter((u) => u.role === "AGENT"),
+    [users]
+  );
+  const endUsersList = useMemo(
+    () => users.filter((u) => u.role === "USER"),
+    [users]
+  );
+
+  const currentRoleList = roleTab === "AGENT" ? agentsList : endUsersList;
+  const activeCount = useMemo(
+    () => currentRoleList.filter((u) => u.isActive).length,
+    [currentRoleList]
+  );
+  const dormantCount = useMemo(
+    () => currentRoleList.filter((u) => !u.isActive).length,
+    [currentRoleList]
+  );
+
+  const filtered = useMemo(() => {
+    return currentRoleList.filter((u) => {
+      if (activityTab === "ACTIVE" && !u.isActive) return false;
+      if (activityTab === "DORMANT" && u.isActive) return false;
+      if (kycFilter !== "ALL" && u.kycStatus !== kycFilter) return false;
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const match =
+          (u.name && u.name.toLowerCase().includes(q)) ||
+          u.email.toLowerCase().includes(q) ||
+          (u.phone && u.phone.toLowerCase().includes(q)) ||
+          (u.operativeCode && u.operativeCode.toLowerCase().includes(q));
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [currentRoleList, activityTab, kycFilter, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginatedUsers = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  const activeLabel = roleTab === "AGENT" ? "Active Agents" : "Active Users";
+  const dormantLabel = roleTab === "AGENT" ? "Dormant Agents" : "Dormant Users";
+
+  // ─── FULL DETAIL VIEW (Matches Profile & KYC / Permissions Mockup) ───
+  if (selectedUserId) {
+    const { docs: docsList, fields: kycFields } = extractKycArtifacts(
+      userDetail?.accreditationDocuments
+    );
+
+    const activeDoc =
+      docsList.find((d) => d.key === selectedDocKey) || docsList[0] || null;
+    const activeDocUrl = activeDoc?.url || null;
+    const isPdfDoc = Boolean(
+      activeDoc?.isPdf ||
+        (activeDocUrl &&
+          (activeDocUrl.toLowerCase().includes(".pdf") ||
+            activeDocUrl.startsWith("data:application/pdf")))
+    );
+
+    const fullName = userDetail?.name || "Unnamed User";
+    const nameParts = fullName.trim().split(/\s+/);
+    const firstName = nameParts[0] || "—";
+    const lastName = nameParts.slice(1).join(" ") || "—";
+    const initials = fullName.slice(0, 2).toUpperCase();
+
+    const kycBadgeClass =
+      userDetail?.kycStatus === "VERIFIED"
+        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+        : userDetail?.kycStatus === "REJECTED"
+        ? "bg-red-500/15 text-red-500"
+        : "bg-amber-500/20 text-amber-700 dark:text-amber-300";
+
+    return (
+      <div className="max-w-3xl mx-auto space-y-5">
+        {toastMessage && (
+          <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none">
+            <div className="bg-[var(--bg-card)] border border-[var(--primary)] text-[var(--text-heading)] px-4 py-2 rounded-md shadow-lg text-xs font-semibold">
+              {toastMessage}
+            </div>
+          </div>
+        )}
+
+        {/* Top Bar: < Back + Profile & KYC / Permissions Tabs */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedUserId(null);
+              setUserDetail(null);
+            }}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-heading)] hover:text-[var(--primary)] cursor-pointer w-fit"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+
+          <div className="flex items-center gap-6 border-b border-[var(--border-color)] sm:border-none">
+            <button
+              type="button"
+              onClick={() => setDetailTab("PROFILE_KYC")}
+              className={`pb-2 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
+                detailTab === "PROFILE_KYC"
+                  ? "border-[var(--primary)] text-[var(--primary)]"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+              }`}
+            >
+              Profile &amp; KYC
+            </button>
+            <button
+              type="button"
+              onClick={() => setDetailTab("PERMISSIONS")}
+              className={`pb-2 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
+                detailTab === "PERMISSIONS"
+                  ? "border-[var(--primary)] text-[var(--primary)]"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+              }`}
+            >
+              Permissions
+            </button>
+          </div>
+        </div>
+
+        {isLoadingDetail || !userDetail ? (
+          <DynamicLoadingState variant="documents" count={3} />
+        ) : detailTab === "PROFILE_KYC" ? (
+          <div className="space-y-6">
+            {/* Personal Information Card */}
+            <div className="space-y-2.5">
+              <h2 className="text-sm font-semibold text-[var(--text-heading)]">
+                Personal Information
+              </h2>
+              <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-5 sm:p-6 space-y-6">
+                <div className="flex items-start justify-between gap-4">
+                  {userDetail.avatarUrl ? (
+                    <img
+                      src={resolveMediaPreviewUrl(userDetail.avatarUrl)}
+                      alt={fullName}
+                      className="w-20 h-20 rounded-full object-cover border border-[var(--border-color)] pointer-events-none"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-[var(--primary)]/15 text-[var(--primary)] font-bold text-xl flex items-center justify-center border border-[var(--primary)]/20">
+                      {initials}
+                    </div>
+                  )}
+                  <span
+                    className={`px-3 py-1 rounded text-xs font-semibold ${kycBadgeClass}`}
+                  >
+                    KYC {userDetail.kycStatus}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 text-xs">
+                  <div>
+                    <p className="text-[var(--text-muted)] mb-1">First Name</p>
+                    <p className="font-semibold text-[var(--text-heading)]">
+                      {firstName}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[var(--text-muted)] mb-1">Last Name</p>
+                    <p className="font-semibold text-[var(--text-heading)]">
+                      {lastName}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[var(--text-muted)] mb-1">
+                      {userDetail.role === "AGENT" ? "Operative ID" : "Role"}
+                    </p>
+                    <p className="font-semibold text-[var(--text-heading)] font-mono">
+                      {userDetail.operativeCode || userDetail.role}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[var(--text-muted)] mb-1">Email</p>
+                    <p className="font-semibold text-[var(--text-heading)] break-all">
+                      {userDetail.email}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[var(--text-muted)] mb-1">
+                      Phone Number
+                    </p>
+                    <p className="font-semibold text-[var(--text-heading)]">
+                      {userDetail.phone || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[var(--text-muted)] mb-1">
+                      Account Status
+                    </p>
+                    <p className="font-semibold text-[var(--text-heading)]">
+                      {userDetail.isActive ? "Active" : "Dormant"}
+                    </p>
+                  </div>
+
+                  {userDetail.wallet && (
+                    <div>
+                      <p className="text-[var(--text-muted)] mb-1">
+                        Wallet Balance
+                      </p>
+                      <p className="font-semibold text-[var(--primary)]">
+                        {formatCurrency(
+                          Number(userDetail.wallet.balanceNgn || 0)
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  {userDetail.agentProfile && (
+                    <div>
+                      <p className="text-[var(--text-muted)] mb-1">
+                        Operative Tier
+                      </p>
+                      <p className="font-semibold text-[var(--text-heading)]">
+                        {userDetail.agentProfile.tier}
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-[var(--text-muted)] mb-1">Joined On</p>
+                    <p className="font-semibold text-[var(--text-heading)]">
+                      {formatShortDate(userDetail.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* KYC Information Card */}
+            <div className="space-y-2.5">
+              <h2 className="text-sm font-semibold text-[var(--text-heading)]">
+                KYC Information
+              </h2>
+              <form
+                onSubmit={handleSubmitKyc}
+                className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-5 sm:p-6 space-y-5 text-xs"
+              >
+                {/* Unified Independent Collapsible Verification Sections */}
+                {(() => {
+                  const statusBadgeStyle = (raw: string | undefined | null) => {
+                    const s = String(raw || "pending").toLowerCase();
+                    if (s === "verified" || s === "approved") {
+                      return {
+                        label: "Verified",
+                        cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+                        dot: "bg-emerald-500",
+                        isVerified: true,
+                      };
+                    }
+                    if (s === "rejected") {
+                      return {
+                        label: "Rejected",
+                        cls: "bg-red-500/15 text-red-600 dark:text-red-400",
+                        dot: "bg-red-500",
+                        isVerified: false,
+                      };
+                    }
+                    if (s === "submitted" || s === "reviewing") {
+                      return {
+                        label: "Pending Review",
+                        cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                        dot: "bg-amber-500",
+                        isVerified: false,
+                      };
+                    }
+                    return {
+                      label: "Pending",
+                      cls: "bg-[var(--bg-secondary)] text-[var(--text-muted)] border border-[var(--border-color)]",
+                      dot: "bg-[var(--text-muted)]",
+                      isVerified: false,
+                    };
+                  };
+
+                  type UnifiedSection = {
+                    id: string;
+                    title: string;
+                    subtitle: string;
+                    status: string;
+                    detailValue?: string | null;
+                    doc?: KycDocItem | null;
+                    approvePayload: Record<string, any>;
+                    rejectPayload: Record<string, any>;
+                  };
+
+                  const ninDoc =
+                    docsList.find((d) =>
+                      ["government_id", "nin_slip"].includes(d.key.toLowerCase())
+                    ) || null;
+                  const addressDoc =
+                    docsList.find((d) =>
+                      ["proof_of_address", "utility_bill"].includes(d.key.toLowerCase())
+                    ) || null;
+                  const usedDocKeys = new Set(
+                    [ninDoc?.key, addressDoc?.key].filter(Boolean) as string[]
+                  );
+
+                  const sections: UnifiedSection[] = [
+                    {
+                      id: "nin",
+                      title: "NIN Verification",
+                      subtitle:
+                        userDetail.agentProfile?.ninId ||
+                        userDetail.accreditationDocuments?.ninNumber ||
+                        (ninDoc ? "ID document uploaded" : "Not submitted"),
+                      status: userDetail.ninVerificationStatus || ninDoc?.status || "pending",
+                      detailValue:
+                        userDetail.agentProfile?.ninId ||
+                        userDetail.accreditationDocuments?.ninNumber ||
+                        null,
+                      doc: ninDoc,
+                      approvePayload: {
+                        ninVerificationStatus: "verified",
+                        ...(ninDoc ? { documentKey: ninDoc.key, documentStatus: "VERIFIED" } : {}),
+                      },
+                      rejectPayload: {
+                        ninVerificationStatus: "rejected",
+                        ...(ninDoc ? { documentKey: ninDoc.key, documentStatus: "REJECTED" } : {}),
+                      },
+                    },
+                    {
+                      id: "address",
+                      title: "Address Verification",
+                      subtitle:
+                        userDetail.address ||
+                        userDetail.location ||
+                        (addressDoc ? "Proof of address uploaded" : "Not submitted"),
+                      status:
+                        userDetail.addressVerificationStatus || addressDoc?.status || "pending",
+                      detailValue: userDetail.address || userDetail.location || null,
+                      doc: addressDoc,
+                      approvePayload: {
+                        addressVerificationStatus: "verified",
+                        ...(addressDoc
+                          ? { documentKey: addressDoc.key, documentStatus: "VERIFIED" }
+                          : {}),
+                      },
+                      rejectPayload: {
+                        addressVerificationStatus: "rejected",
+                        ...(addressDoc
+                          ? { documentKey: addressDoc.key, documentStatus: "REJECTED" }
+                          : {}),
+                      },
+                    },
+                    {
+                      id: "nba",
+                      title: "NBA Verification",
+                      subtitle: userDetail.agentProfile?.nbaNumber || "Not submitted",
+                      status: userDetail.nbaVerificationStatus || "pending",
+                      detailValue: userDetail.agentProfile?.nbaNumber || null,
+                      doc: null,
+                      approvePayload: { nbaVerificationStatus: "verified" },
+                      rejectPayload: { nbaVerificationStatus: "rejected" },
+                    },
+                    ...docsList
+                      .filter((d) => !usedDocKeys.has(d.key))
+                      .map((doc) => ({
+                        id: `doc:${doc.key}`,
+                        title: doc.label,
+                        subtitle: doc.submittedAt
+                          ? `Uploaded ${formatShortDate(doc.submittedAt)}`
+                          : "Submitted document",
+                        status: doc.status || "SUBMITTED",
+                        detailValue: null,
+                        doc,
+                        approvePayload: {
+                          documentKey: doc.key,
+                          documentStatus: "VERIFIED",
+                        },
+                        rejectPayload: {
+                          documentKey: doc.key,
+                          documentStatus: "REJECTED",
+                        },
+                      })),
+                  ];
+
+                  const verifiedTotal = sections.filter(
+                    (s) => statusBadgeStyle(s.status).isVerified
+                  ).length;
+                  const pct =
+                    sections.length > 0
+                      ? Math.round((verifiedTotal / sections.length) * 100)
+                      : 0;
+                  const progressTheme =
+                    pct >= 100
+                      ? {
+                          bar: "bg-emerald-500",
+                          track: "bg-emerald-500/15",
+                          badge: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+                        }
+                      : pct >= 50
+                      ? {
+                          bar: "bg-amber-500",
+                          track: "bg-amber-500/15",
+                          badge: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                        }
+                      : {
+                          bar: "bg-red-500",
+                          track: "bg-red-500/15",
+                          badge: "bg-red-500/15 text-red-600 dark:text-red-400",
+                        };
+
+                  return (
+                    <div className="space-y-4">
+                      {/* Verification Progress Bar */}
+                      <div className="p-3.5 rounded-md bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-[var(--text-heading)]">
+                            Verification Progress
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10.5px] font-semibold ${progressTheme.badge}`}
+                          >
+                            {verifiedTotal}/{sections.length} Verified ({pct}%)
+                          </span>
+                        </div>
+                        <div className={`w-full h-2 rounded-full ${progressTheme.track} overflow-hidden`}>
+                          <div
+                            className={`h-full rounded-full ${progressTheme.bar} transition-all duration-300`}
+                            style={{ width: `${Math.max(pct, verifiedTotal === 0 ? 4 : pct)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Independent Collapsible Verification Sections */}
+                      <div className="space-y-2">
+                        {sections.map((sec) => {
+                          const badge = statusBadgeStyle(sec.status);
+                          const isOpen = expandedSection === sec.id;
+                          return (
+                            <div
+                              key={sec.id}
+                              className="rounded-md border border-[var(--border-color)] bg-[var(--bg-secondary)] overflow-hidden"
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedSection(isOpen ? null : sec.id)
+                                }
+                                className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-[var(--bg-card)]/60 transition-colors cursor-pointer"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold text-[var(--text-heading)] truncate">
+                                    {sec.title}
+                                  </p>
+                                  <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">
+                                    {sec.subtitle}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2.5 shrink-0">
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-semibold ${badge.cls}`}
+                                  >
+                                    <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                                    {badge.label}
+                                  </span>
+                                  <ChevronDown
+                                    className={`w-4 h-4 text-[var(--text-muted)] transition-transform ${
+                                      isOpen ? "rotate-180" : ""
+                                    }`}
+                                  />
+                                </div>
+                              </button>
+
+                              {isOpen && (
+                                <div className="px-4 pb-4 pt-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] space-y-3">
+                                  {sec.detailValue && (
+                                    <div className="p-2.5 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)]">
+                                      <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-0.5">
+                                        Submitted Value
+                                      </p>
+                                      <p className="text-xs font-semibold text-[var(--text-heading)] break-words">
+                                        {sec.detailValue}
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {sec.doc ? (
+                                    <div className="space-y-3">
+                                      <div className="w-full rounded-md bg-[var(--bg-secondary)] border border-[var(--border-color)] p-3 flex flex-col items-center justify-center gap-2">
+                                        {sec.doc.backUrl && (
+                                          <span className="self-start text-[10px] font-bold uppercase tracking-wider text-[var(--primary)]">
+                                            Front Side
+                                          </span>
+                                        )}
+                                        {sec.doc.isPdf ? (
+                                          <iframe
+                                            src={`${sec.doc.url}#toolbar=0`}
+                                            title={sec.title}
+                                            className="w-full h-80 rounded bg-white"
+                                          />
+                                        ) : (
+                                          <img
+                                            src={sec.doc.url}
+                                            alt={sec.title}
+                                            className="max-h-80 w-auto object-contain rounded select-none"
+                                          />
+                                        )}
+                                      </div>
+
+                                      {sec.doc.backUrl && (
+                                        <div className="w-full rounded-md bg-[var(--bg-secondary)] border border-[var(--border-color)] p-3 flex flex-col items-center justify-center gap-2">
+                                          <span className="self-start text-[10px] font-bold uppercase tracking-wider text-[var(--primary)]">
+                                            Back Side
+                                          </span>
+                                          {sec.doc.backIsPdf ? (
+                                            <iframe
+                                              src={`${sec.doc.backUrl}#toolbar=0`}
+                                              title={`${sec.title} (Back)`}
+                                              className="w-full h-80 rounded bg-white"
+                                            />
+                                          ) : (
+                                            <img
+                                              src={sec.doc.backUrl}
+                                              alt={`${sec.title} (Back)`}
+                                              className="max-h-80 w-auto object-contain rounded select-none"
+                                            />
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {sec.doc.submittedAt && (
+                                        <p className="text-[10.5px] text-[var(--text-muted)] text-center">
+                                          Uploaded {formatShortDate(sec.doc.submittedAt)}
+                                        </p>
+                                      )}
+                                    </div>
+                                  ) : !sec.detailValue ? (
+                                    <div className="p-4 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] text-center text-[var(--text-muted)]">
+                                      <Eye className="w-4 h-4 mx-auto opacity-40 mb-1" />
+                                      <p className="text-[11px]">No file or details submitted yet.</p>
+                                    </div>
+                                  ) : null}
+
+                                  <div className="flex items-center justify-end gap-2 pt-1">
+                                    <button
+                                      type="button"
+                                      disabled={savingItemKey === sec.id}
+                                      onClick={() =>
+                                        handleItemVerification(
+                                          sec.id,
+                                          sec.rejectPayload,
+                                          `${sec.title} rejected`
+                                        )
+                                      }
+                                      className="px-3.5 h-8 rounded-md bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                                    >
+                                      Reject
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={savingItemKey === sec.id}
+                                      onClick={() =>
+                                        handleItemVerification(
+                                          sec.id,
+                                          sec.approvePayload,
+                                          `${sec.title} approved`
+                                        )
+                                      }
+                                      className="px-3.5 h-8 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                                    >
+                                      Approve
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Additional Human-Readable Form Fields (if any) */}
+                      {kycFields.length > 0 && (
+                        <div className="pt-2 border-t border-[var(--border-color)]">
+                          <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2.5">
+                            Additional Form Details
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                            {kycFields.map((f) => (
+                              <div
+                                key={f.key}
+                                className="p-2.5 rounded-md bg-[var(--bg-secondary)] border border-[var(--border-color)]"
+                              >
+                                <p className="text-[10.5px] text-[var(--text-muted)] mb-0.5">
+                                  {f.label}
+                                </p>
+                                <p className="text-xs font-semibold text-[var(--text-heading)] break-words">
+                                  {f.value}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Status Select & Leave a Note */}
+                <div className="space-y-4 pt-1">
+                  <div className="max-w-xs space-y-1.5">
+                    <label className="text-xs font-medium text-[var(--text-heading)] block">
+                      Status
+                    </label>
+                    <select
+                      value={kycStatusInput}
+                      onChange={(e) => setKycStatusInput(e.target.value)}
+                      className="w-full h-10 px-3 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                    >
+                      <option value="PENDING">Pending</option>
+                      <option value="SUBMITTED">Submitted</option>
+                      <option value="VERIFIED">Verified (Approve)</option>
+                      <option value="REJECTED">Rejected</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-[var(--text-heading)] block">
+                      Leave a note
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={kycNoteInput}
+                      onChange={(e) => setKycNoteInput(e.target.value)}
+                      placeholder="Optional compliance note or rejection reason..."
+                      className="w-full p-3 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                    />
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={savingKyc}
+                      className="px-5 h-9 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                    >
+                      {savingKyc ? "Submitting..." : "Submit"}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : (
+          /* PERMISSIONS TAB */
+          <div className="space-y-2.5">
+            <h2 className="text-sm font-semibold text-[var(--text-heading)]">
+              Account Permissions
+            </h2>
+            <form
+              onSubmit={handleSavePermissions}
+              className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-5 sm:p-6 space-y-6"
+            >
+              <div className="flex items-start justify-between gap-4">
+                {userDetail.avatarUrl ? (
+                  <img
+                    src={userDetail.avatarUrl}
+                    alt={fullName}
+                    className="w-20 h-20 rounded-full object-cover border border-[var(--border-color)] pointer-events-none"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-[var(--primary)]/15 text-[var(--primary)] font-bold text-xl flex items-center justify-center border border-[var(--primary)]/20">
+                    {initials}
+                  </div>
+                )}
+                <span
+                  className={`px-3 py-1 rounded text-xs font-semibold ${kycBadgeClass}`}
+                >
+                  KYC {userDetail.kycStatus}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-[var(--text-heading)] block">
+                    Status
+                  </label>
+                  <select
+                    value={permActiveInput}
+                    onChange={(e) =>
+                      setPermActiveInput(e.target.value as "ACTIVE" | "DORMANT")
+                    }
+                    className="w-full h-10 px-3 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="DORMANT">Dormant (Suspended)</option>
+                  </select>
+                </div>
+
+                {userDetail.role === "AGENT" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-[var(--text-heading)] block">
+                      Agent Role / Specialization (Admin Override)
+                    </label>
+                    <select
+                      value={permTierInput}
+                      onChange={(e) => setPermTierInput(e.target.value)}
+                      className="w-full h-10 px-3 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                    >
+                      {AGENT_TIERS.map((tier) => (
+                        <option key={tier} value={tier}>
+                          {tier}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-[var(--text-muted)]">
+                      Initially set from agent signup (locked for the agent).
+                      Override here if a role change is requested or after KYC
+                      review.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={savingPerms}
+                  className="px-5 h-9 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  {savingPerms ? "Saving..." : "Save changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── LIST VIEW ───
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none">
-          <div className="bg-[var(--bg-card)] border border-[var(--primary-border)] text-[var(--text-heading)] px-4 py-2.5 rounded-2xl shadow-xl text-xs font-semibold">
+          <div className="bg-[var(--bg-card)] border border-[var(--primary)] text-[var(--text-heading)] px-4 py-2 rounded-md shadow-lg text-xs font-semibold">
             {toastMessage}
           </div>
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--text-heading)] tracking-tight flex items-center gap-2">
-            <Users className="w-6 h-6 text-[var(--primary)]" />
-            User & Operative Directory (KYC & Tier Vault)
-          </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            Audit 6-point KYC accreditation documents, NIN/NBA credentials, anonymized OS-IDs, and operative tiers.
-          </p>
+      {/* Role Switcher: Field Agents vs End Users */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="inline-flex rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-1 w-fit">
+          <button
+            type="button"
+            onClick={() => setRoleTab("AGENT")}
+            className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer flex items-center gap-2 ${
+              roleTab === "AGENT"
+                ? "bg-[var(--primary)] text-white"
+                : "text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+            }`}
+          >
+            <span>Field Agents</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                roleTab === "AGENT"
+                  ? "bg-white/20 text-white"
+                  : "bg-[var(--bg-secondary)] text-[var(--text-muted)]"
+              }`}
+            >
+              {agentsList.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setRoleTab("USER")}
+            className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer flex items-center gap-2 ${
+              roleTab === "USER"
+                ? "bg-[var(--primary)] text-white"
+                : "text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+            }`}
+          >
+            <span>End Users</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                roleTab === "USER"
+                  ? "bg-white/20 text-white"
+                  : "bg-[var(--bg-secondary)] text-[var(--text-muted)]"
+              }`}
+            >
+              {endUsersList.length}
+            </span>
+          </button>
+        </div>
+
+        {/* Mobile Search & Filters Bar */}
+        <div className="flex md:hidden items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search"
+              className="w-full h-9 pl-9 pr-3 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            className="h-9 px-3 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-medium text-[var(--text-heading)] flex items-center gap-1.5 cursor-pointer"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Filters</span>
+          </button>
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, email, phone, or OS-123ABC code..."
-            className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl pl-9 pr-4 py-2 text-xs text-[var(--text-heading)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
-          />
-        </div>
-
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          aria-label="Filter users by role"
-          className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-medium text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
-        >
-          <option value="ALL">All Roles</option>
-          <option value="AGENT">Field Operatives (AGENT)</option>
-          <option value="USER">End Users (CLIENT)</option>
-          <option value="ADMIN">Admins</option>
-        </select>
-
-        <select
-          value={kycFilter}
-          onChange={(e) => setKycFilter(e.target.value)}
-          aria-label="Filter users by KYC status"
-          className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-medium text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
-        >
-          <option value="ALL">All KYC Statuses</option>
-          <option value="SUBMITTED">Submitted (Awaiting Review)</option>
-          <option value="PENDING">Pending Upload</option>
-          <option value="VERIFIED">Verified</option>
-          <option value="REJECTED">Rejected</option>
-        </select>
-      </div>
-
-      {/* Users Table */}
-      {isLoading ? (
-        <DynamicLoadingState variant="documents" count={4} />
-      ) : filtered.length === 0 ? (
-        <div className="p-8 text-center text-xs text-[var(--text-muted)] rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
-          No registered users found matching the query.
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xs">
-          <table className="w-full text-left text-xs text-[var(--text-body)]">
-            <thead className="bg-[var(--bg-secondary)] text-[11px] uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-color)]">
-              <tr>
-                <th className="px-4 py-3 font-semibold">User / Operative ID</th>
-                <th className="px-4 py-3 font-semibold">Role & Tier</th>
-                <th className="px-4 py-3 font-semibold">KYC Status</th>
-                <th className="px-4 py-3 font-semibold">Joined</th>
-                <th className="px-4 py-3 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {filtered.map((u) => (
-                <tr
-                  key={u.id}
-                  className="hover:bg-[var(--bg-secondary)]/60 transition-colors"
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      {u.operativeCode && (
-                        <span className="px-2 py-0.5 rounded bg-[var(--primary-light)] text-[var(--primary)] font-mono font-bold text-[10px]">
-                          {u.operativeCode}
-                        </span>
-                      )}
-                      <span className="font-semibold text-[var(--text-heading)]">
-                        {u.name || "Unnamed"}
-                      </span>
-                      {!u.isActive && (
-                        <span className="px-1.5 py-0.5 rounded bg-red-500/15 text-red-500 text-[9px] font-bold">
-                          SUSPENDED
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-[var(--text-muted)]">{u.email}</div>
-                    {u.phone && (
-                      <div className="text-[10px] text-[var(--text-muted)]">{u.phone}</div>
-                    )}
-                  </td>
-
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          u.role === "AGENT"
-                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                            : u.role === "ADMIN" || u.role === "SUPER_ADMIN"
-                              ? "bg-purple-500/15 text-purple-600 dark:text-purple-400"
-                              : "bg-blue-500/15 text-blue-600 dark:text-blue-400"
-                        }`}
-                      >
-                        {u.role}
-                      </span>
-                      {u.role === "AGENT" && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-muted)]">
-                          {u.agentTier || "GENERAL"}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                        u.kycStatus === "VERIFIED"
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                          : u.kycStatus === "SUBMITTED"
-                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                            : u.kycStatus === "REJECTED"
-                              ? "bg-red-500/15 text-red-600 dark:text-red-400"
-                              : "bg-[var(--bg-secondary)] text-[var(--text-muted)]"
-                      }`}
-                    >
-                      {u.kycStatus}
-                    </span>
-                  </td>
-
-                  <td className="px-4 py-3 text-[var(--text-muted)]">
-                    {new Date(u.createdAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </td>
-
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => openUserDossier(u.id)}
-                        className="px-2.5 py-1 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--primary-light)] text-[var(--text-heading)] border border-[var(--border-color)] text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                      >
-                        <Eye className="w-3 h-3 text-[var(--primary)]" />
-                        <span>Inspect KYC</span>
-                      </button>
-
-                      {u.kycStatus !== "VERIFIED" && (
-                        <button
-                          type="button"
-                          onClick={() => handleApproveKyc(u.id, u.name)}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <Check className="w-3 h-3" />
-                          <span>Verify</span>
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => handleToggleSuspend(u.id, u.isActive)}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
-                          u.isActive
-                            ? "bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400"
-                            : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                        }`}
-                      >
-                        {u.isActive ? "Suspend" : "Reinstate"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Slide-Over KYC & Operative Dossier Drawer */}
-      {selectedUserId && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end">
-          <div className="w-full max-w-xl bg-[var(--bg-card)] border-l border-[var(--border-color)] h-full overflow-y-auto p-6 space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-[var(--border-color)]">
-              <div>
-                <h2 className="text-lg font-bold text-[var(--text-heading)] flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-[var(--primary)]" />
-                  <span>Identity & KYC Accreditation Dossier</span>
-                </h2>
-                {userDetail?.operativeCode && (
-                  <p className="text-xs text-[var(--primary)] font-mono font-bold mt-0.5">
-                    Client-Facing ID: {userDetail.operativeCode}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedUserId(null);
-                  setUserDetail(null);
-                }}
-                className="p-2 rounded-xl bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-heading)] cursor-pointer"
+      {/* Directory Card */}
+      <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] overflow-hidden">
+        <div className="px-4 sm:px-6 pt-4 border-b border-[var(--border-color)] flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-6">
+            <button
+              type="button"
+              onClick={() => setActivityTab("ACTIVE")}
+              className={`pb-3 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+                activityTab === "ACTIVE"
+                  ? "border-[var(--primary)] text-[var(--primary)]"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+              }`}
+            >
+              <span>{activeLabel}</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                  activityTab === "ACTIVE"
+                    ? "bg-[var(--primary)]/15 text-[var(--primary)]"
+                    : "bg-[var(--bg-secondary)] text-[var(--text-muted)]"
+                }`}
               >
-                <X className="w-4 h-4" />
-              </button>
+                {activeCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActivityTab("DORMANT")}
+              className={`pb-3 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+                activityTab === "DORMANT"
+                  ? "border-[var(--primary)] text-[var(--primary)]"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+              }`}
+            >
+              <span>{dormantLabel}</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                  activityTab === "DORMANT"
+                    ? "bg-[var(--primary)]/15 text-[var(--primary)]"
+                    : "bg-[var(--bg-secondary)] text-[var(--text-muted)]"
+                }`}
+              >
+                {dormantCount}
+              </span>
+            </button>
+          </div>
+
+          <div className="hidden md:flex items-center gap-3 pb-3">
+            <div className="relative w-64">
+              <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search"
+                className="w-full h-9 pl-9 pr-3 rounded-md bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+              />
             </div>
+            <button
+              type="button"
+              onClick={() => setShowFilters((v) => !v)}
+              className={`h-9 px-3 rounded-md border text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors ${
+                showFilters || kycFilter !== "ALL"
+                  ? "bg-[var(--primary)]/10 border-[var(--primary)] text-[var(--primary)]"
+                  : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-heading)] hover:bg-[var(--bg-secondary)]"
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Filters</span>
+            </button>
+          </div>
+        </div>
 
-            {isLoadingDetail || !userDetail ? (
-              <DynamicLoadingState variant="documents" count={3} />
-            ) : (
-              <div className="space-y-6">
-                {/* Identity Summary */}
-                <div className="p-4 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-muted)]">Full Name</span>
-                    <span className="font-bold text-[var(--text-heading)]">
-                      {userDetail.name || "Unnamed"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-muted)]">Email</span>
-                    <span className="font-semibold text-[var(--text-heading)]">
-                      {userDetail.email}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-muted)]">Phone</span>
-                    <span className="font-semibold text-[var(--text-heading)]">
-                      {userDetail.phone || "Not provided"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-muted)]">Location / State</span>
-                    <span className="font-semibold text-[var(--text-heading)]">
-                      {userDetail.state || userDetail.location || "Nigeria"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-muted)]">NIN / NBA Status</span>
-                    <span className="font-mono font-semibold text-[var(--primary)]">
-                      NIN: {userDetail.ninVerificationStatus} · NBA:{" "}
-                      {userDetail.nbaVerificationStatus}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Operative Tier & Wallet Summary */}
-                {userDetail.role === "AGENT" && (
-                  <div className="p-4 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[var(--text-heading)] flex items-center gap-1.5">
-                        <Award className="w-4 h-4 text-[var(--primary)]" />
-                        Operative Tier Classification
-                      </span>
-                      <select
-                        value={userDetail.agentProfile?.tier || "GENERAL"}
-                        onChange={(e) =>
-                          handleUpdateUserPatch(userDetail.id, {
-                            agentTier: e.target.value,
-                          })
-                        }
-                        className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs font-bold text-[var(--primary)]"
-                      >
-                        {AGENT_TIERS.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {userDetail.wallet && (
-                      <div className="flex items-center justify-between pt-2 border-t border-[var(--border-color)] text-xs">
-                        <span className="text-[var(--text-muted)] flex items-center gap-1">
-                          <Wallet className="w-3.5 h-3.5 text-[var(--primary)]" />
-                          Wallet Balance / Total Earned
-                        </span>
-                        <span className="font-bold text-[var(--text-heading)]">
-                          {formatCurrency(userDetail.wallet.balanceNgn)} /{" "}
-                          {formatCurrency(userDetail.wallet.totalEarnedNgn)}
-                        </span>
-                      </div>
-                    )}
-
-                    {userDetail.agentProfile?.bankAccountNumber && (
-                      <div className="text-[11px] text-[var(--text-muted)]">
-                        Settlement Bank: {userDetail.agentProfile.bankAccountName} (
-                        {userDetail.agentProfile.bankAccountNumber})
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Uploaded Accreditation Documents */}
-                <div className="space-y-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                    Uploaded KYC & Accreditation Artifacts
-                  </h3>
-
-                  {Object.keys(userDetail.accreditationDocuments || {}).length === 0 ? (
-                    <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-muted)]">
-                      No accreditation documents uploaded yet.
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {Object.entries(userDetail.accreditationDocuments).map(
-                        ([docKey, docVal]: [string, any]) => {
-                          if (!docVal || typeof docVal !== "object") return null;
-                          const docUrl = docVal.documentUrl || docVal.fileRef || docVal.url;
-                          const isVerified = String(docVal.status || "").toUpperCase() === "VERIFIED";
-                          const isRejected = String(docVal.status || "").toUpperCase() === "REJECTED";
-
-                          return (
-                            <div
-                              key={docKey}
-                              className="p-3.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-2 text-xs"
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="font-bold text-[var(--text-heading)] uppercase flex items-center gap-1.5">
-                                  <FileText className="w-3.5 h-3.5 text-[var(--primary)]" />
-                                  {docKey.replace(/_/g, " ")}
-                                </p>
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    isVerified
-                                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                                      : isRejected
-                                      ? "bg-red-500/15 text-red-600 dark:text-red-400"
-                                      : "bg-blue-500/15 text-blue-600 dark:text-blue-400"
-                                  }`}
-                                >
-                                  {isVerified ? "Verified" : isRejected ? "Rejected" : "Submitted"}
-                                </span>
-                              </div>
-
-                              {/* Metadata if present */}
-                              {docVal.metadata && (
-                                <div className="text-[11px] text-[var(--text-muted)] space-y-0.5 bg-[var(--bg-card)]/60 p-2.5 rounded-lg border border-[var(--border-color)]/60">
-                                  {docVal.metadata.residentialAddress && (
-                                    <p><strong className="text-[var(--text-heading)]">Address:</strong> {docVal.metadata.residentialAddress}</p>
-                                  )}
-                                  {docVal.metadata.guarantorName && (
-                                    <p><strong className="text-[var(--text-heading)]">Guarantor:</strong> {docVal.metadata.guarantorName} ({docVal.metadata.guarantorPhone})</p>
-                                  )}
-                                  {docVal.metadata.issuingBody && (
-                                    <p><strong className="text-[var(--text-heading)]">Issuer:</strong> {docVal.metadata.issuingBody} | <strong className="text-[var(--text-heading)]">Cert #:</strong> {docVal.metadata.certificateNumber}</p>
-                                  )}
-                                  {docVal.metadata.fileName && (
-                                    <p><strong className="text-[var(--text-heading)]">File:</strong> {docVal.metadata.fileName}</p>
-                                  )}
-                                </div>
-                              )}
-
-                              {isRejected && docVal.rejectionReason && (
-                                <p className="text-[11px] text-red-500 italic bg-red-500/10 p-2 rounded-lg">
-                                  Rejection Reason: {docVal.rejectionReason}
-                                </p>
-                              )}
-
-                              <div className="flex items-center justify-between pt-1">
-                                <div className="flex items-center gap-2">
-                                  {docUrl ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => setPreviewDocument({ title: docKey.replace(/_/g, " ").toUpperCase(), url: docUrl })}
-                                      className="px-2.5 py-1 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-[11px] font-semibold text-[var(--primary)] hover:border-[var(--primary)] transition-colors cursor-pointer"
-                                    >
-                                      Inspect / View
-                                    </button>
-                                  ) : (
-                                    <span className="text-[11px] text-[var(--text-muted)]">No file uploaded</span>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center gap-1.5">
-                                  {!isVerified && (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleUpdateUserPatch(userDetail.id, {
-                                          documentKey: docKey,
-                                          documentStatus: "VERIFIED",
-                                        })
-                                      }
-                                      className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold cursor-pointer transition-colors"
-                                    >
-                                      Approve
-                                    </button>
-                                  )}
-                                  {!isRejected && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const reason = prompt(`Enter rejection reason for ${docKey.replace(/_/g, " ")}:`, rejectionInput || "Unclear copy, please re-upload a readable version.");
-                                        if (reason !== null) {
-                                          handleUpdateUserPatch(userDetail.id, {
-                                            documentKey: docKey,
-                                            documentStatus: "REJECTED",
-                                            rejectionReason: reason,
-                                          });
-                                        }
-                                      }}
-                                      className="px-2.5 py-1 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-600 dark:text-red-400 text-[11px] font-bold cursor-pointer transition-colors"
-                                    >
-                                      Reject
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        }
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Master KYC Decision Footer */}
-                <div className="p-4 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-3">
-                  <label className="block text-xs font-semibold text-[var(--text-heading)]">
-                    KYC Decision / Rejection Note
-                  </label>
-                  <input
-                    type="text"
-                    value={rejectionInput}
-                    onChange={(e) => setRejectionInput(e.target.value)}
-                    placeholder="Reason if rejecting KYC (sent to operative)..."
-                    className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-heading)]"
-                  />
-
-                  <div className="flex items-center justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleUpdateUserPatch(userDetail.id, {
-                          kycStatus: "REJECTED",
-                          rejectionReason: rejectionInput,
-                        })
-                      }
-                      className="px-3.5 py-2 rounded-xl bg-red-500/15 text-red-600 dark:text-red-400 text-xs font-bold cursor-pointer"
-                    >
-                      Reject KYC
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleApproveKyc(userDetail.id, userDetail.name)}
-                      className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Verify Full KYC</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+        {showFilters && (
+          <div className="px-4 sm:px-6 py-3 bg-[var(--bg-secondary)]/60 border-b border-[var(--border-color)] flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-[11px] font-semibold text-[var(--text-muted)] mr-1">
+              KYC Status:
+            </span>
+            {["ALL", "PENDING", "SUBMITTED", "VERIFIED", "REJECTED"].map(
+              (st) => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => setKycFilter(st)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold cursor-pointer transition-colors ${
+                    kycFilter === st
+                      ? "bg-[var(--primary)] text-white"
+                      : "bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+                  }`}
+                >
+                  {st}
+                </button>
+              )
             )}
           </div>
-        </div>
-      )}
-      {/* Document Lightbox Modal */}
-      {previewDocument && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in duration-200">
-            <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
-              <h3 className="text-sm font-bold text-[var(--text-heading)]">
-                {previewDocument.title}
-              </h3>
-              <div className="flex items-center gap-2">
-                <a
-                  href={previewDocument.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-3 py-1 rounded-lg bg-[var(--bg-secondary)] text-[11px] font-semibold text-[var(--primary)] hover:underline"
-                >
-                  Open in Tab
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setPreviewDocument(null)}
-                  className="p-1.5 rounded-lg bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-heading)] cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <div className="p-4 flex-1 overflow-auto flex items-center justify-center bg-[var(--bg-secondary)]/30 min-h-[300px]">
-              {previewDocument.url.startsWith("data:application/pdf") || previewDocument.url.endsWith(".pdf") ? (
-                <iframe
-                  src={previewDocument.url}
-                  title={previewDocument.title}
-                  className="w-full h-[600px] rounded-lg border border-[var(--border-color)]"
-                />
-              ) : (
-                <img
-                  src={previewDocument.url}
-                  alt={previewDocument.title}
-                  className="max-h-[70vh] max-w-full object-contain rounded-xl shadow-md"
-                />
-              )}
-            </div>
+        )}
+
+        {isLoading ? (
+          <div className="p-6">
+            <DynamicLoadingState variant="documents" count={4} />
           </div>
-        </div>
-      )}
+        ) : paginatedUsers.length === 0 ? (
+          <div className="p-10 text-center text-xs text-[var(--text-muted)]">
+            No {activityTab.toLowerCase()}{" "}
+            {roleTab === "AGENT" ? "agents" : "users"} match your current search
+            or filter.
+          </div>
+        ) : (
+          <>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-[var(--border-color)] text-[11px] font-semibold text-[var(--text-muted)]">
+                    <th className="py-3.5 px-6">Full Name</th>
+                    <th className="py-3.5 px-4">
+                      {roleTab === "AGENT" ? "Operative ID" : "KYC Status"}
+                    </th>
+                    <th className="py-3.5 px-4">Phone Number</th>
+                    <th className="py-3.5 px-4">Email</th>
+                    <th className="py-3.5 px-4">Created on</th>
+                    <th className="py-3.5 px-6 text-right" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-color)] text-xs">
+                  {paginatedUsers.map((u) => (
+                    <tr
+                      key={u.id}
+                      className="hover:bg-[var(--bg-secondary)]/40 transition-colors"
+                    >
+                      <td className="py-3.5 px-6 font-medium text-[var(--text-heading)]">
+                        {u.name || "Unnamed"}
+                      </td>
+                      <td className="py-3.5 px-4 text-[var(--text-muted)]">
+                        {roleTab === "AGENT" ? (
+                          <span className="font-mono text-[11px] text-[var(--primary)] font-semibold">
+                            {u.operativeCode || "OS-AGENT"}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[10px] font-semibold">
+                            {u.kycStatus}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-[var(--text-heading)]">
+                        {u.phone || "—"}
+                      </td>
+                      <td className="py-3.5 px-4 text-[var(--text-heading)]">
+                        {u.email}
+                      </td>
+                      <td className="py-3.5 px-4 text-[var(--text-muted)]">
+                        {formatShortDate(u.createdAt)}
+                      </td>
+                      <td className="py-3.5 px-6 text-right">
+                        <button
+                          type="button"
+                          onClick={() => openUserDetail(u.id)}
+                          className="px-3.5 py-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] hover:border-[var(--primary)] hover:text-[var(--primary)] text-xs font-medium text-[var(--text-heading)] transition-colors cursor-pointer"
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="md:hidden divide-y divide-[var(--border-color)]">
+              {paginatedUsers.map((u) => (
+                <div key={u.id} className="p-4 space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[var(--text-muted)]">Full Name</span>
+                    <span className="font-semibold text-[var(--text-heading)]">
+                      {u.name || "Unnamed"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[var(--text-muted)]">
+                      {roleTab === "AGENT" ? "Operative ID" : "KYC Status"}
+                    </span>
+                    <span className="font-medium text-[var(--text-heading)]">
+                      {roleTab === "AGENT"
+                        ? u.operativeCode || "OS-AGENT"
+                        : u.kycStatus}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[var(--text-muted)]">Email</span>
+                    <span className="text-[var(--text-heading)] truncate max-w-[65%]">
+                      {u.email}
+                    </span>
+                  </div>
+                  <div className="pt-1 text-center">
+                    <button
+                      type="button"
+                      onClick={() => openUserDetail(u.id)}
+                      className="text-xs font-semibold text-[var(--primary)] hover:underline cursor-pointer"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-6 py-4 border-t border-[var(--border-color)] flex items-center justify-center gap-4 text-xs">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="inline-flex items-center gap-1.5 text-[var(--text-heading)] hover:text-[var(--primary)] disabled:opacity-40 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Previous</span>
+              </button>
+
+              <div className="hidden sm:flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .slice(0, 7)
+                  .map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-7 h-7 rounded-md text-xs font-semibold cursor-pointer transition-colors ${
+                        currentPage === pageNum
+                          ? "bg-[var(--primary)]/15 text-[var(--primary)]"
+                          : "text-[var(--text-muted)] hover:bg-[var(--bg-secondary)]"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+              </div>
+
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                className="inline-flex items-center gap-1.5 text-[var(--text-heading)] hover:text-[var(--primary)] disabled:opacity-40 cursor-pointer"
+              >
+                <span>Next</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

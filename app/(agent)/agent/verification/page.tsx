@@ -4,6 +4,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { getStoredToken } from "@/lib/storage/clientStorage";
 import { AgentTopNav } from "@/components/agent/AgentTopNav";
 import {
+  compressClientImageFile,
+  formatFileSize,
+  MAX_DOCUMENT_MB,
   readFileAsDataUrl,
   uploadAgentMedia,
   validateAgentUploadFile,
@@ -22,6 +25,7 @@ import {
   FileText,
   Shield,
   RotateCcw,
+  Eye,
 } from "lucide-react";
 
 type VerificationStatus = "awaiting" | "verified" | "reviewing" | "rejected";
@@ -121,10 +125,19 @@ export default function AgentVerificationPage() {
   const [certExpiryDate, setCertExpiryDate] = useState("");
   const [backgroundConsent, setBackgroundConsent] = useState(true);
 
-  // Upload & capture states
+  // Upload & capture states (Front / Primary)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [selectedPreviewUrl, setSelectedPreviewUrl] = useState<string | null>(null);
+
+  // Upload & capture states (Back / Page 2 — Optional)
+  const [selectedBackFile, setSelectedBackFile] = useState<File | null>(null);
+  const [selectedBackFileName, setSelectedBackFileName] = useState<string | null>(null);
+  const [selectedBackPreviewUrl, setSelectedBackPreviewUrl] = useState<string | null>(null);
+  const [showBackSlot, setShowBackSlot] = useState(false);
+  const [activeCaptureSlot, setActiveCaptureSlot] = useState<"front" | "back">("front");
+  const [lightboxPreview, setLightboxPreview] = useState<{ title: string; url: string; isPdf?: boolean } | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -210,11 +223,33 @@ export default function AgentVerificationPage() {
     syncLiveKycStatus();
   }, []);
 
+  const verifiedCount = items.filter((item) => item.status === "verified").length;
   const submittedOrVerifiedCount = items.filter(
     (item) => item.status === "verified" || item.status === "reviewing"
   ).length;
   const totalCount = items.length;
-  const progressPct = Math.round((submittedOrVerifiedCount / totalCount) * 100);
+  const progressPct = Math.round((verifiedCount / totalCount) * 100);
+  const progressColor =
+    progressPct >= 100
+      ? {
+          bar: "bg-emerald-500",
+          track: "bg-emerald-500/15",
+          badge: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+          label: "Fully verified",
+        }
+      : progressPct >= 50
+      ? {
+          bar: "bg-amber-500",
+          track: "bg-amber-500/15",
+          badge: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+          label: "Verification in progress",
+        }
+      : {
+          bar: "bg-red-500",
+          track: "bg-red-500/15",
+          badge: "bg-red-500/15 text-red-600 dark:text-red-400",
+          label: "Verification incomplete",
+        };
 
   const stopCamera = () => {
     if (mediaStreamRef.current) {
@@ -324,11 +359,12 @@ export default function AgentVerificationPage() {
     }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    const slotSuffix = activeCaptureSlot === "back" ? "back" : "front";
     const fileLabel =
       activeItem?.id === "passport-photo"
         ? `passport-photo-${Date.now()}.jpg`
-        : `${activeItem?.id || "document"}-capture-${Date.now()}.jpg`;
+        : `${activeItem?.id || "document"}-${slotSuffix}-${Date.now()}.jpg`;
 
     canvas.toBlob(
       (blob) => {
@@ -337,14 +373,21 @@ export default function AgentVerificationPage() {
           return;
         }
         const capturedFile = new File([blob], fileLabel, { type: "image/jpeg" });
-        setSelectedFile(capturedFile);
-        setSelectedFileName(fileLabel);
-        setSelectedPreviewUrl(dataUrl);
+        if (activeCaptureSlot === "back" && activeItem?.id !== "passport-photo") {
+          setSelectedBackFile(capturedFile);
+          setSelectedBackFileName(fileLabel);
+          setSelectedBackPreviewUrl(dataUrl);
+          setShowBackSlot(true);
+        } else {
+          setSelectedFile(capturedFile);
+          setSelectedFileName(fileLabel);
+          setSelectedPreviewUrl(dataUrl);
+        }
         setFormError(null);
         stopCamera();
       },
       "image/jpeg",
-      0.9
+      0.85
     );
   };
 
@@ -354,37 +397,70 @@ export default function AgentVerificationPage() {
     setSelectedFile(null);
     setSelectedFileName(null);
     setSelectedPreviewUrl(null);
+    setSelectedBackFile(null);
+    setSelectedBackFileName(null);
+    setSelectedBackPreviewUrl(null);
+    setShowBackSlot(item.id === "nin-slip");
+    setActiveCaptureSlot("front");
     setFormError(null);
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
+  const triggerFilePicker = (slot: "front" | "back") => {
+    setActiveCaptureSlot(slot);
+    fileInputRef.current?.click();
+  };
 
-    const validationError = validateAgentUploadFile(file, { allowPdf: true });
+  const triggerCameraForSlot = (slot: "front" | "back") => {
+    setActiveCaptureSlot(slot);
+    startLiveCamera("doc-modal", "environment");
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawFile = e.target.files?.[0];
+    e.target.value = "";
+    if (!rawFile) return;
+
+    const validationError = validateAgentUploadFile(rawFile, { allowPdf: true });
     if (validationError) {
       setFormError(validationError);
       return;
     }
 
-    setSelectedFile(file);
-    setSelectedFileName(file.name);
     setFormError(null);
 
     const isImage =
-      file.type.startsWith("image/") ||
-      /\.(jpg|jpeg|png|webp|gif|heic|heif)$/i.test(file.name);
+      rawFile.type.startsWith("image/") ||
+      /\.(jpg|jpeg|png|webp|gif|heic|heif)$/i.test(rawFile.name);
 
+    // Run client-side image compression before preview & state assignment
+    const processedFile = isImage
+      ? await compressClientImageFile(rawFile, { maxDimension: 1920, quality: 0.82 })
+      : rawFile;
+
+    let preview: string | null = null;
     if (isImage) {
       try {
-        const preview = await readFileAsDataUrl(file);
-        setSelectedPreviewUrl(preview);
+        preview = await readFileAsDataUrl(processedFile);
       } catch {
-        setSelectedPreviewUrl(null);
+        preview = null;
       }
+    } else if (processedFile.type === "application/pdf") {
+      try {
+        preview = await readFileAsDataUrl(processedFile);
+      } catch {
+        preview = null;
+      }
+    }
+
+    if (activeCaptureSlot === "back") {
+      setSelectedBackFile(processedFile);
+      setSelectedBackFileName(processedFile.name);
+      setSelectedBackPreviewUrl(preview);
+      setShowBackSlot(true);
     } else {
-      setSelectedPreviewUrl(null);
+      setSelectedFile(processedFile);
+      setSelectedFileName(processedFile.name);
+      setSelectedPreviewUrl(preview);
     }
   };
 
@@ -470,6 +546,11 @@ export default function AgentVerificationPage() {
         uploadedMedia = await uploadAgentMedia(selectedFile, "kyc");
       }
 
+      let uploadedBackMedia = null;
+      if (selectedBackFile) {
+        uploadedBackMedia = await uploadAgentMedia(selectedBackFile, "kyc");
+      }
+
       const token = await getStoredToken();
       if (!token) throw new Error("Authentication token not found.");
 
@@ -507,7 +588,15 @@ export default function AgentVerificationPage() {
         fileName: uploadedMedia?.fileName || selectedFileName || `${activeItem.id}-submitted`,
         objectKey: uploadedMedia?.objectKey,
         contentType: uploadedMedia?.contentType,
+        fileSize: uploadedMedia?.compressedSize || selectedFile?.size,
       };
+
+      if (uploadedBackMedia) {
+        metadata.backDocumentUrl = uploadedBackMedia.url;
+        metadata.backFileName = uploadedBackMedia.fileName || selectedBackFileName;
+        metadata.backObjectKey = uploadedBackMedia.objectKey;
+        metadata.backContentType = uploadedBackMedia.contentType;
+      }
 
       if (activeItem.id === "proof-of-address") {
         metadata.residentialAddress = residentialAddress.trim();
@@ -530,6 +619,8 @@ export default function AgentVerificationPage() {
           documentType: activeItem.docType,
           documentUrl: uploadedMedia?.url || `kyc/${activeItem.id}/completed.pdf`,
           s3ObjectKey: uploadedMedia?.objectKey,
+          backDocumentUrl: uploadedBackMedia?.url || undefined,
+          backS3ObjectKey: uploadedBackMedia?.objectKey || undefined,
           metadata,
         }),
       });
@@ -542,6 +633,196 @@ export default function AgentVerificationPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // REUSABLE DOCUMENT UPLOAD & HIGH-CLARITY PREVIEW SLOTS (FRONT + OPTIONAL BACK)
+  // ─────────────────────────────────────────────────────────────
+  const renderSingleSlotCard = (
+    slot: "front" | "back",
+    label: string,
+    isOptional: boolean
+  ) => {
+    const file = slot === "front" ? selectedFile : selectedBackFile;
+    const fileName = slot === "front" ? selectedFileName : selectedBackFileName;
+    const previewUrl = slot === "front" ? selectedPreviewUrl : selectedBackPreviewUrl;
+    const isPdf =
+      file?.type === "application/pdf" ||
+      (fileName ? /\.pdf$/i.test(fileName) : false);
+
+    const clearSlot = () => {
+      if (slot === "front") {
+        setSelectedFile(null);
+        setSelectedFileName(null);
+        setSelectedPreviewUrl(null);
+      } else {
+        setSelectedBackFile(null);
+        setSelectedBackFileName(null);
+        setSelectedBackPreviewUrl(null);
+      }
+    };
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-[var(--text-heading)]">
+            {label}{" "}
+            {isOptional ? (
+              <span className="text-[11px] font-normal text-[var(--text-muted)]">
+                (Optional)
+              </span>
+            ) : (
+              <span className="text-[11px] font-semibold text-[var(--primary)]">
+                *
+              </span>
+            )}
+          </span>
+          <span className="text-[10.5px] text-[var(--text-muted)]">
+            Max {MAX_DOCUMENT_MB}MB · Auto-compressed
+          </span>
+        </div>
+
+        {!file ? (
+          <div className="flex items-stretch gap-2.5">
+            <button
+              type="button"
+              onClick={() => triggerFilePicker(slot)}
+              className="flex-1 bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-6 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
+            >
+              <span className="text-xs font-semibold text-[var(--text-heading)]">
+                {slot === "front" ? "Upload document" : "Upload back side"}
+              </span>
+              <Upload className="w-4 h-4 text-[var(--text-heading)]" />
+            </button>
+            <button
+              type="button"
+              onClick={() => triggerCameraForSlot(slot)}
+              className="px-5 rounded-3xl bg-[var(--bg-card)] border border-[var(--border-color)]/70 hover:border-[var(--primary)] text-xs font-semibold text-[var(--text-heading)] flex flex-col items-center justify-center gap-1 cursor-pointer transition-all shadow-2xs"
+              title={`Capture ${label} with camera`}
+            >
+              <Camera className="w-4 h-4 text-[var(--primary)]" />
+              <span className="text-[11px]">Camera</span>
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-[var(--bg-card)] border border-[var(--primary)]/50 overflow-hidden shadow-xs animate-in fade-in duration-150">
+            {/* Full-Visibility Document Media Preview Viewport */}
+            <div className="relative h-48 sm:h-52 w-full bg-zinc-950/5 dark:bg-black/40 flex items-center justify-center p-2.5">
+              {isPdf ? (
+                <div className="flex flex-col items-center justify-center text-center p-4 space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <p className="text-xs font-bold text-[var(--text-heading)] max-w-[220px] truncate">
+                    {fileName}
+                  </p>
+                  <span className="text-[11px] text-[var(--text-muted)]">
+                    PDF Document · {formatFileSize(file.size)}
+                  </span>
+                </div>
+              ) : previewUrl ? (
+                <img
+                  src={previewUrl}
+                  alt={fileName || label}
+                  className="max-h-full max-w-full object-contain rounded-lg shadow-2xs"
+                />
+              ) : (
+                <div className="text-xs text-[var(--text-muted)]">Preview loaded</div>
+              )}
+
+              {/* Top-Right Fullscreen Inspect Button */}
+              {previewUrl && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLightboxPreview({
+                      title: `${activeItem?.title || "Document"} — ${label}`,
+                      url: previewUrl,
+                      isPdf,
+                    })
+                  }
+                  className="absolute top-2.5 right-2.5 px-2.5 py-1.5 rounded-full bg-black/70 hover:bg-black/85 text-white text-[11px] font-semibold flex items-center gap-1 backdrop-blur-xs cursor-pointer transition-colors"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Inspect</span>
+                </button>
+              )}
+            </div>
+
+            {/* Preview Footer Bar with Metadata & Replace / Retake / Remove Actions */}
+            <div className="px-3.5 py-2.5 border-t border-[var(--border-color)]/60 flex items-center justify-between gap-2 bg-[var(--bg-card)]">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-[var(--text-heading)] truncate">
+                  {fileName}
+                </p>
+                <p className="text-[10.5px] text-[var(--primary)] font-medium">
+                  {formatFileSize(file.size)} · Ready to submit
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => triggerFilePicker(slot)}
+                  className="px-2.5 py-1 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--border-color)] text-[11px] font-semibold text-[var(--text-heading)] cursor-pointer transition-colors"
+                >
+                  Replace
+                </button>
+                <button
+                  type="button"
+                  onClick={() => triggerCameraForSlot(slot)}
+                  className="px-2.5 py-1 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--border-color)] text-[11px] font-semibold text-[var(--text-heading)] flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <Camera className="w-3 h-3" />
+                  <span>Retake</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={clearSlot}
+                  aria-label="Remove document"
+                  className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 cursor-pointer transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderDocumentUploadSlots = (options: {
+    frontLabel?: string;
+    backLabel?: string;
+    alwaysShowBack?: boolean;
+  } = {}) => {
+    const {
+      frontLabel = "Front of document",
+      backLabel = "Back of document",
+      alwaysShowBack = false,
+    } = options;
+
+    const shouldShowBack = alwaysShowBack || showBackSlot || Boolean(selectedBackFile);
+
+    return (
+      <div className="space-y-4">
+        {renderSingleSlotCard("front", frontLabel, false)}
+
+        {shouldShowBack ? (
+          renderSingleSlotCard("back", backLabel, true)
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowBackSlot(true)}
+            className="w-full py-2.5 px-4 rounded-2xl border border-dashed border-[var(--border-color)] hover:border-[var(--primary)] text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add back side or second page (Optional)</span>
+          </button>
+        )}
+      </div>
+    );
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -605,42 +886,21 @@ export default function AgentVerificationPage() {
               </p>
             </div>
 
-            {/* Upload Document Box */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
-            >
-              <span className="text-xs font-semibold text-[var(--text-heading)]">
-                {selectedFileName ? selectedFileName : "Upload document"}
-              </span>
-              <Upload className="w-4 h-4 text-[var(--text-heading)]" />
-            </button>
-
-            {selectedPreviewUrl && (
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
-                <img src={selectedPreviewUrl} alt="Document preview" className="w-12 h-12 object-cover rounded-xl" />
-                <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedFile(null);
-                    setSelectedFileName(null);
-                    setSelectedPreviewUrl(null);
-                  }}
-                  className="p-1 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-red-500 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+            {/* Front & Optional Back Upload + Proper Document Preview */}
+            {renderDocumentUploadSlots({
+              frontLabel: "Proof of address document (Front / Page 1)",
+              backLabel: "Back side / Page 2",
+              alwaysShowBack: false,
+            })}
 
             {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
 
-            <div className="flex items-center gap-3 pt-6">
+            <div className="flex items-center gap-3 pt-4">
               <button
                 type="button"
-                onClick={() => startLiveCamera("doc-modal", "environment")}
+                onClick={() =>
+                  triggerCameraForSlot(selectedFile && showBackSlot && !selectedBackFile ? "back" : "front")
+                }
                 className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
               >
                 <Camera className="w-4 h-4 text-[var(--text-heading)]" />
@@ -772,42 +1032,21 @@ export default function AgentVerificationPage() {
               </div>
             </div>
 
-            {/* Upload Document Box */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
-            >
-              <span className="text-xs font-semibold text-[var(--text-heading)]">
-                {selectedFileName ? selectedFileName : "Upload document"}
-              </span>
-              <Upload className="w-4 h-4 text-[var(--text-heading)]" />
-            </button>
-
-            {selectedPreviewUrl && (
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
-                <img src={selectedPreviewUrl} alt="NIN Preview" className="w-12 h-12 object-cover rounded-xl" />
-                <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedFile(null);
-                    setSelectedFileName(null);
-                    setSelectedPreviewUrl(null);
-                  }}
-                  className="p-1 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-red-500 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+            {/* Front (Required) & Back (Optional) NIN Slip Upload + High-Clarity Media Previews */}
+            {renderDocumentUploadSlots({
+              frontLabel: "Front of NIN slip / ID",
+              backLabel: "Back of NIN slip / ID",
+              alwaysShowBack: true,
+            })}
 
             {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
 
-            <div className="flex items-center gap-3 pt-6">
+            <div className="flex items-center gap-3 pt-4">
               <button
                 type="button"
-                onClick={() => startLiveCamera("doc-modal", "environment")}
+                onClick={() =>
+                  triggerCameraForSlot(selectedFile && !selectedBackFile ? "back" : "front")
+                }
                 className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
               >
                 <Camera className="w-4 h-4 text-[var(--text-heading)]" />
@@ -1044,42 +1283,21 @@ export default function AgentVerificationPage() {
               </div>
             </div>
 
-            {/* Upload Document Box */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
-            >
-              <span className="text-xs font-semibold text-[var(--text-heading)]">
-                {selectedFileName ? selectedFileName : "Upload document"}
-              </span>
-              <Upload className="w-4 h-4 text-[var(--text-heading)]" />
-            </button>
-
-            {selectedPreviewUrl && (
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
-                <img src={selectedPreviewUrl} alt="Certificate preview" className="w-12 h-12 object-cover rounded-xl" />
-                <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedFile(null);
-                    setSelectedFileName(null);
-                    setSelectedPreviewUrl(null);
-                  }}
-                  className="p-1 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-red-500 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+            {/* Front & Optional Back Upload + Proper Certificate Preview */}
+            {renderDocumentUploadSlots({
+              frontLabel: "Certificate (Front / Page 1)",
+              backLabel: "Certificate (Back / Page 2)",
+              alwaysShowBack: false,
+            })}
 
             {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
 
             <div className="flex items-center gap-3 pt-4">
               <button
                 type="button"
-                onClick={() => startLiveCamera("doc-modal", "environment")}
+                onClick={() =>
+                  triggerCameraForSlot(selectedFile && showBackSlot && !selectedBackFile ? "back" : "front")
+                }
                 className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
               >
                 <Camera className="w-4 h-4 text-[var(--text-heading)]" />
@@ -1173,42 +1391,21 @@ export default function AgentVerificationPage() {
               </div>
             </div>
 
-            {/* Upload Document Box */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-3xl py-7 px-4 flex items-center justify-center gap-2.5 shadow-2xs hover:border-[var(--primary)] cursor-pointer transition-all"
-            >
-              <span className="text-xs font-semibold text-[var(--text-heading)]">
-                {selectedFileName ? selectedFileName : "Upload document"}
-              </span>
-              <Upload className="w-4 h-4 text-[var(--text-heading)]" />
-            </button>
-
-            {selectedPreviewUrl && (
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]">
-                <img src={selectedPreviewUrl} alt="Guarantor form preview" className="w-12 h-12 object-cover rounded-xl" />
-                <div className="text-xs truncate flex-1 font-medium">{selectedFileName}</div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedFile(null);
-                    setSelectedFileName(null);
-                    setSelectedPreviewUrl(null);
-                  }}
-                  className="p-1 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-red-500 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+            {/* Front & Optional Back Upload + Proper Guarantor Form Preview */}
+            {renderDocumentUploadSlots({
+              frontLabel: "Signed guarantor form (Front / Page 1)",
+              backLabel: "Guarantor ID or Page 2",
+              alwaysShowBack: false,
+            })}
 
             {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
 
             <div className="flex items-center gap-3 pt-4">
               <button
                 type="button"
-                onClick={() => startLiveCamera("doc-modal", "environment")}
+                onClick={() =>
+                  triggerCameraForSlot(selectedFile && showBackSlot && !selectedBackFile ? "back" : "front")
+                }
                 className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
               >
                 <Camera className="w-4 h-4 text-[var(--text-heading)]" />
@@ -1246,26 +1443,28 @@ export default function AgentVerificationPage() {
 
         {/* Top Application Progress Card */}
         <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-[22px] p-5 space-y-3 shadow-[0_0_10px_rgba(0,0,0,0.03)]">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <h2 className="text-[14px] font-bold text-[var(--text-heading)]">
-              {submittedOrVerifiedCount === totalCount
-                ? "All documents submitted"
-                : "Application in progress"}
+              {progressColor.label}
             </h2>
-            <span className="text-[13px] font-semibold text-[var(--text-muted)]">
-              {submittedOrVerifiedCount}/{totalCount}
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-[12px] font-semibold ${progressColor.badge}`}
+            >
+              {verifiedCount}/{totalCount} Verified ({progressPct}%)
             </span>
           </div>
 
-          <div className="w-full h-2 rounded-full bg-[var(--primary-light)] overflow-hidden">
+          <div className={`w-full h-2 rounded-full ${progressColor.track} overflow-hidden`}>
             <div
-              className="h-full rounded-full bg-[var(--primary)] transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
+              className={`h-full rounded-full ${progressColor.bar} transition-all duration-500`}
+              style={{ width: `${Math.max(progressPct, verifiedCount === 0 ? 4 : progressPct)}%` }}
             />
           </div>
 
           <p className="text-xs text-[var(--text-muted)] leading-relaxed pt-0.5">
-            Finish all six items to start receiving task offers. Most agents complete this in 2–3 days.
+            {verifiedCount === totalCount
+              ? "All six verification items are approved. You are cleared for mission offers."
+              : `${submittedOrVerifiedCount}/${totalCount} submitted · Complete and get all six items approved to receive task offers.`}
           </p>
         </div>
 
@@ -1280,20 +1479,27 @@ export default function AgentVerificationPage() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => openFlowScreen(item)}
-                className="w-full flex items-center justify-between gap-3 p-3 rounded-[20px] hover:bg-[var(--bg-card)] border border-transparent hover:border-[var(--border-color)]/70 transition-all cursor-pointer text-left group"
+                disabled={isVerified}
+                onClick={() => {
+                  if (!isVerified) openFlowScreen(item);
+                }}
+                className={`w-full flex items-center justify-between gap-3 p-3 rounded-[20px] border transition-all text-left group ${
+                  isVerified
+                    ? "bg-[var(--bg-card)]/60 border-emerald-500/25 cursor-default opacity-95"
+                    : "hover:bg-[var(--bg-card)] border-transparent hover:border-[var(--border-color)]/70 cursor-pointer"
+                }`}
               >
                 <div className="flex items-center gap-3.5 min-w-0">
                   {isVerified ? (
-                    <div className="w-10 h-10 rounded-full bg-[var(--primary)] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
                       <Check className="w-5 h-5 stroke-[2.5]" />
                     </div>
                   ) : isReviewing ? (
-                    <div className="w-10 h-10 rounded-full bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
                       <Clock className="w-5 h-5 stroke-[1.8]" />
                     </div>
                   ) : isRejected ? (
-                    <div className="w-10 h-10 rounded-full bg-[var(--danger-light)] text-[var(--danger)] flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-red-500/15 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
                       <X className="w-5 h-5 stroke-[2.2]" />
                     </div>
                   ) : (
@@ -1303,7 +1509,11 @@ export default function AgentVerificationPage() {
                   )}
 
                   <div className="min-w-0">
-                    <h3 className="text-[14.5px] font-semibold text-[var(--text-heading)] truncate group-hover:text-[var(--primary)] transition-colors">
+                    <h3
+                      className={`text-[14.5px] font-semibold text-[var(--text-heading)] truncate ${
+                        !isVerified ? "group-hover:text-[var(--primary)] transition-colors" : ""
+                      }`}
+                    >
                       {item.title}
                     </h3>
                     <p className="text-[12px] text-[var(--text-muted)] truncate mt-0.5">
@@ -1313,23 +1523,30 @@ export default function AgentVerificationPage() {
                 </div>
 
                 {isVerified && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--primary-light)] text-[var(--primary)] text-[11px] font-semibold shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     Verified
                   </span>
                 )}
 
                 {isReviewing && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--primary-light)] text-[var(--primary)] text-[11px] font-semibold shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />
-                    Reviewing
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[11px] font-semibold shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Pending Review
                   </span>
                 )}
 
                 {isRejected && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--danger-light)] text-[var(--danger)] text-[11px] font-semibold shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--danger)]" />
-                    Re-upload
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/15 text-red-600 dark:text-red-400 text-[11px] font-semibold shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                    Rejected
+                  </span>
+                )}
+
+                {!isVerified && !isReviewing && !isRejected && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-secondary)] text-[var(--text-muted)] text-[11px] font-semibold shrink-0 border border-[var(--border-color)]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)]" />
+                    Pending
                   </span>
                 )}
               </button>
@@ -1426,6 +1643,48 @@ export default function AgentVerificationPage() {
                 <Camera className="w-4 h-4" />
                 <span>Capture Document</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Screen Media Lightbox Inspect Modal */}
+      {lightboxPreview && (
+        <div
+          className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-xs flex flex-col items-center justify-center p-4"
+          onClick={() => setLightboxPreview(null)}
+        >
+          <div
+            className="w-full max-w-2xl bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[88vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
+              <span className="text-xs font-bold text-[var(--text-heading)] truncate">
+                {lightboxPreview.title}
+              </span>
+              <button
+                type="button"
+                onClick={() => setLightboxPreview(null)}
+                className="p-1.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-heading)] cursor-pointer"
+                aria-label="Close preview"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 flex-1 overflow-auto flex items-center justify-center bg-black/40 min-h-[280px]">
+              {lightboxPreview.isPdf ? (
+                <iframe
+                  src={lightboxPreview.url}
+                  title={lightboxPreview.title}
+                  className="w-full h-[65vh] rounded-lg border border-[var(--border-color)] bg-white"
+                />
+              ) : (
+                <img
+                  src={lightboxPreview.url}
+                  alt={lightboxPreview.title}
+                  className="max-h-[72vh] max-w-full object-contain rounded-xl"
+                />
+              )}
             </div>
           </div>
         </div>
