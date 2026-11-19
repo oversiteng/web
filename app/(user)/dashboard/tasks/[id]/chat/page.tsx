@@ -485,10 +485,10 @@ export default function TaskMissionChatPage({
                 return (
                   <div
                     key={m.id}
-                    className="my-3 rounded-[22px] border border-[#a3e0b5] dark:border-[#22543d] bg-[#f4faf6] dark:bg-[#14261c] p-4.5 shadow-xs space-y-2.5 animate-in zoom-in-95 duration-200"
+                    className="my-3 rounded-[20px] border border-[#22c55e]/45 bg-[#f4faf6] dark:bg-[#111913] p-4.5 shadow-xs space-y-2.5 animate-in zoom-in-95 duration-200"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-[var(--primary)] font-bold text-[11.5px] tracking-wide">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[var(--primary)] font-bold text-[11px] tracking-wider uppercase">
                         <div className="flex flex-col gap-0.5 justify-center">
                           <span className="w-3.5 h-[2px] bg-[var(--primary)] rounded-full" />
                           <span className="w-2.5 h-[2px] bg-[var(--primary)] rounded-full" />
@@ -496,7 +496,7 @@ export default function TaskMissionChatPage({
                         </div>
                         <span>{headerBadgeLabel}</span>
                       </div>
-                      <span className="text-[12px] font-bold text-[var(--primary)]">
+                      <span className="px-2.5 py-0.5 rounded-full bg-[var(--primary)]/15 text-[11px] font-semibold text-[var(--primary)]">
                         {ms.status ||
                           (isFieldReport ? "Report Message" : "Completed")}
                       </span>
@@ -570,34 +570,38 @@ export default function TaskMissionChatPage({
                 return (
                   <div key={m.id} className="flex flex-col items-end space-y-1">
                     <div
-                      className={`max-w-[85%] sm:max-w-[78%] rounded-[20px] rounded-tr-[4px] px-4.5 py-3 shadow-xs ${
+                      className={`max-w-[85%] sm:max-w-[78%] rounded-[20px] rounded-br-[4px] px-4.5 py-3 shadow-xs ${
                         isRejected
                           ? "bg-red-600/90 text-white"
-                          : "bg-[var(--primary)] text-white"
+                          : "bg-[#29c452] text-[#052e16]"
                       }`}
                     >
-                      <p className="text-[13.5px] sm:text-[14px] leading-relaxed break-words">
+                      <p className="text-[13.5px] sm:text-[14px] font-medium leading-relaxed break-words">
                         {m.message}
                       </p>
-                      <div className="flex items-center justify-end gap-1.5 mt-1 text-[10.5px] text-white/85">
+                      <div
+                        className={`flex items-center justify-between gap-2 mt-1.5 text-[10.5px] font-medium ${
+                          isRejected ? "text-white/85" : "text-[#052e16]/75"
+                        }`}
+                      >
                         <span>{formatMessageTime(m.createdAt)}</span>
                         {isPending ? (
-                          <span className="font-semibold bg-black/20 px-2 py-0.5 rounded-full">
+                          <span className="font-semibold bg-black/15 px-2 py-0.5 rounded-full">
                             Pending Admin Review
                           </span>
                         ) : isRefined ? (
-                          <span className="font-semibold bg-black/20 px-2 py-0.5 rounded-full">
-                            Modified & Approved by Admin
+                          <span className="font-semibold bg-black/15 px-2 py-0.5 rounded-full">
+                            Modified &amp; Approved
                           </span>
                         ) : isRejected ? (
-                          <span className="font-semibold bg-black/30 px-2 py-0.5 rounded-full">
+                          <span className="font-semibold bg-black/25 px-2 py-0.5 rounded-full">
                             Rejected by Admin
                           </span>
                         ) : (
-                          <>
+                          <span className="inline-flex items-center gap-1">
                             <CheckCheck className="w-3.5 h-3.5" />
                             <span>Approved</span>
-                          </>
+                          </span>
                         )}
                       </div>
                     </div>
@@ -616,14 +620,14 @@ export default function TaskMissionChatPage({
                 );
               }
 
-              // ── Case C: Inbound Agent / Admin-Approved Message Bubble (Grey) ──
+              // ── Case C: Inbound Agent / Admin-Approved Message Bubble (Dark / Soft Neutral) ──
               return (
                 <div key={m.id} className="flex flex-col items-start">
-                  <div className="max-w-[85%] sm:max-w-[78%] bg-[#F4F6F4] dark:bg-[var(--bg-card)] text-[var(--text-heading)] border border-[var(--border-color)]/50 rounded-[20px] rounded-tl-[4px] px-4.5 py-3 shadow-xs">
+                  <div className="max-w-[85%] sm:max-w-[78%] bg-[#F4F6F4] dark:bg-[#121612] text-[var(--text-heading)] border border-[var(--border-color)]/40 rounded-[20px] rounded-bl-[4px] px-4.5 py-3 shadow-xs">
                     <p className="text-[13.5px] sm:text-[14px] leading-relaxed break-words">
                       {m.message}
                     </p>
-                    <div className="flex items-center justify-between gap-3 mt-1 text-[10.5px] text-[var(--text-muted)]">
+                    <div className="flex items-center justify-between gap-3 mt-1.5 text-[10.5px] text-[var(--text-muted)]">
                       <span>{formatMessageTime(m.createdAt)}</span>
                       {m.moderationStatus === "REFINED_BY_ADMIN" && (
                         <span className="text-[10px] text-[var(--primary)] font-semibold">

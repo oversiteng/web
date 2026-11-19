@@ -9,6 +9,7 @@ import {
 } from "@/lib/storage/agentUpload";
 import { getStoredToken } from "@/lib/storage/clientStorage";
 import {
+  ArrowLeft,
   MapPin,
   Clock,
   Camera,
@@ -1216,115 +1217,176 @@ export default function AgentTaskExecutionPage({
         </div>
       )}
 
-      {/* Live Mission Chat Modal (Connected to /api/v1/chat/:taskId/messages) */}
+      {/* Live Mission Chat Modal (Matches Agreed Chat Design & User Chat Bubbles) */}
       {showMessageModal && (
         <div
-          className="fixed inset-0 z-[80] bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          className="fixed inset-0 z-[80] bg-black/70 dark:bg-black/85 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={() => setShowMessageModal(false)}
         >
           <div
-            className="bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-[32px] sm:rounded-3xl p-5 pb-8 sm:pb-5 max-w-md w-full space-y-4 shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
+            className="bg-[var(--bg-body)] border-t sm:border border-[var(--border-color)] rounded-t-[28px] sm:rounded-[28px] max-w-md w-full h-[88vh] sm:h-[650px] flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-12 h-1.5 bg-[var(--border-color)] rounded-full mx-auto mb-2 sm:hidden shrink-0" />
-
-            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-[var(--primary-light)] text-[var(--primary)] font-bold text-xs flex items-center justify-center">
-                  {getInitials(clientDisplayName)}
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-[var(--text-heading)]">{clientDisplayName}</h4>
-                  <span className="text-[10px] text-[var(--primary)]">
-                    {isPropertyOversiteTask
-                      ? "Oversite Property Intelligence Desk · Property Brief"
-                      : "Client · Live Mission Feed"}
-                  </span>
-                </div>
-              </div>
+            {/* Top Chat Header */}
+            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[var(--border-color)]/60 bg-[var(--bg-body)] shrink-0">
               <button
                 type="button"
                 onClick={() => setShowMessageModal(false)}
-                className="text-[var(--text-muted)] hover:text-[var(--text-heading)] cursor-pointer"
-                aria-label="Close chat"
+                className="p-1.5 -ml-1 rounded-full text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-colors cursor-pointer"
+                aria-label="Back"
               >
-                <X className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" />
               </button>
+
+              <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-800 text-[var(--text-heading)] font-bold text-[13.5px] flex items-center justify-center shrink-0">
+                {getInitials(clientDisplayName)}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h4 className="text-[15px] font-bold text-[var(--text-heading)] leading-tight truncate">
+                  {clientDisplayName}
+                </h4>
+                <p className="text-[12px] text-[var(--text-muted)] truncate mt-0.5">
+                  {isPropertyOversiteTask
+                    ? `Oversite Desk · ${task?.title || "Property Brief"}`
+                    : `Moderator & Client · ${task?.title || "Task Review"}`}
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-              {chatMessages.map((msg) => {
-                const isMe = msg.senderId === currentUserId || msg.senderId === "agent-tunde-coker";
-
-                if (msg.messageType === "MILESTONE_UPDATE" && msg.parsedMilestone) {
-                  return (
-                    <div
-                      key={msg.id}
-                      className="rounded-xl border border-[#a3e0b5] dark:border-[#22543d] bg-[#f0f9f3] dark:bg-[#14261c] p-3 text-xs space-y-1"
-                    >
-                      <div className="flex items-center justify-between text-[10px] font-bold text-[var(--primary)]">
-                        <span>MILESTONE EVENT UPDATE</span>
-                        <span>{msg.parsedMilestone.status}</span>
-                      </div>
-                      <p className="font-bold text-[var(--text-heading)]">
-                        {msg.parsedMilestone.milestoneTitle}
-                      </p>
-                      {msg.parsedMilestone.stageDetails && (
-                        <p className="text-[11px] text-[var(--text-muted)]">
-                          {msg.parsedMilestone.stageDetails}
-                        </p>
-                      )}
-                    </div>
-                  );
-                }
-
-                return (
-                  <div
-                    key={msg.id}
-                    className={`p-3 rounded-2xl text-xs max-w-[85%] ${
-                      isMe
-                        ? "ml-auto bg-[var(--primary)] text-white font-medium"
-                        : "bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] text-[var(--text-heading)]"
-                    }`}
-                  >
-                    <p>{msg.message}</p>
-                    <span
-                      className={`text-[9px] block text-right mt-1 ${
-                        isMe ? "text-white/80" : "text-[var(--text-muted)]"
-                      }`}
-                    >
-                      {new Date(msg.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+            {/* Messages Timeline */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5">
+              {chatMessages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center px-6 py-12">
+                  <div className="w-16 h-16 rounded-full bg-[#102a18] text-[#22c55e] flex items-center justify-center mb-4 shadow-inner">
+                    <MessageSquare className="w-7 h-7 stroke-[2]" />
+                  </div>
+                  <h3 className="text-[15.5px] font-bold text-[var(--text-heading)]">
+                    Moderator &amp; Task Chat
+                  </h3>
+                  <p className="text-[12.5px] text-[var(--text-muted)] mt-1.5 max-w-[270px] leading-relaxed">
+                    Direct end-to-end communication with OverSite operations moderators and assigned clients.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-center my-1">
+                    <span className="px-3.5 py-1 rounded-full text-[11px] font-medium bg-zinc-200/80 dark:bg-zinc-800 text-[var(--text-muted)]">
+                      Today
                     </span>
                   </div>
-                );
-              })}
+
+                  {chatMessages.map((msg) => {
+                    const isMe = msg.senderId === currentUserId || msg.senderId === "agent-tunde-coker";
+                    const formattedTime = new Date(msg.createdAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+
+                    // Milestone Event Update Card
+                    if (msg.messageType === "MILESTONE_UPDATE" && msg.parsedMilestone) {
+                      return (
+                        <div
+                          key={msg.id}
+                          className="my-2 rounded-[20px] border border-[#22c55e]/45 bg-[#f4faf6] dark:bg-[#111913] p-4 space-y-2 shadow-xs"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider uppercase text-[var(--primary)]">
+                              <ListChecks className="w-4 h-4 shrink-0" />
+                              <span>MILESTONE EVENT UPDATE</span>
+                            </div>
+                            <span className="px-2.5 py-0.5 rounded-full bg-[var(--primary)]/15 text-[var(--primary)] text-[11px] font-semibold">
+                              {msg.parsedMilestone.status || "Completed"}
+                            </span>
+                          </div>
+
+                          <h4 className="text-[14.5px] font-bold text-[var(--text-heading)] leading-snug">
+                            {msg.parsedMilestone.milestoneTitle}
+                          </h4>
+
+                          {msg.parsedMilestone.stageDetails && (
+                            <p className="text-[12px] text-[var(--text-muted)] leading-relaxed">
+                              {msg.parsedMilestone.stageDetails}
+                            </p>
+                          )}
+
+                          <div className="pt-2 flex items-center justify-between text-[11.5px]">
+                            <span className="text-[var(--text-muted)]">{formattedTime}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowMessageModal(false);
+                                setCurrentStep(2);
+                              }}
+                              className="font-semibold text-[var(--primary)] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>View Milestone Details</span>
+                              <span>→</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Outgoing Agent Message Bubble (Bright Green with crisp dark text)
+                    if (isMe) {
+                      return (
+                        <div key={msg.id} className="flex flex-col items-end">
+                          <div className="max-w-[85%] rounded-[20px] rounded-br-[4px] bg-[#29c452] text-[#052e16] px-4 py-3 shadow-xs">
+                            <p className="text-[13.5px] font-medium leading-relaxed break-words">
+                              {msg.message}
+                            </p>
+                            <span className="block text-[10.5px] text-[#052e16]/75 font-medium mt-1.5">
+                              {formattedTime}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Incoming Client / Moderator Message Bubble (Dark / Soft Neutral)
+                    return (
+                      <div key={msg.id} className="flex flex-col items-start">
+                        <div className="max-w-[85%] rounded-[20px] rounded-bl-[4px] bg-[#F4F6F4] dark:bg-[#121612] border border-[var(--border-color)]/40 text-[var(--text-heading)] px-4 py-3 shadow-xs">
+                          <p className="text-[13.5px] leading-relaxed break-words">
+                            {msg.message}
+                          </p>
+                          <span className="block text-[10.5px] text-[var(--text-muted)] mt-1.5">
+                            {formattedTime}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
 
-            <div className="flex items-center gap-2 pt-2">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                placeholder={
-                  isPropertyOversiteTask
-                    ? "Message Oversite regarding this property..."
-                    : "Type an update to client..."
-                }
-                className="flex-1 bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
-              />
-              <button
-                type="button"
-                disabled={!chatInput.trim() || isSendingChat}
-                onClick={handleSendMessage}
-                className="w-9 h-9 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors disabled:opacity-50"
-                aria-label="Send message"
-              >
-                <Send className="w-4 h-4" />
-              </button>
+            {/* Bottom Sticky Input Bar */}
+            <div className="p-3.5 border-t border-[var(--border-color)]/50 bg-[var(--bg-body)] shrink-0">
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                  placeholder="Type a message..."
+                  className="flex-1 bg-[#F4F6F4] dark:bg-[#121612] border border-[var(--border-color)]/60 rounded-full px-5 py-3 text-[13.5px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-colors"
+                />
+                <button
+                  type="button"
+                  disabled={!chatInput.trim() || isSendingChat}
+                  onClick={handleSendMessage}
+                  className={`w-11 h-11 rounded-full flex items-center justify-center cursor-pointer shrink-0 transition-all ${
+                    chatInput.trim()
+                      ? "bg-[#29c452] hover:bg-[#22a845] text-[#052e16] shadow-sm"
+                      : "bg-zinc-200 dark:bg-[#222823] text-[var(--text-muted)] disabled:opacity-60"
+                  }`}
+                  aria-label="Send message"
+                >
+                  <Send className="w-4.5 h-4.5 -ml-0.5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

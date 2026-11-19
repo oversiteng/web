@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ShieldCheck, ChevronRight } from "lucide-react";
+import { Search, ShieldCheck, ChevronRight, MessageSquare, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -24,6 +25,8 @@ interface ChatThread {
 
 export default function MessagesPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isAgent = user?.role === "AGENT";
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [isLoadingThreads, setIsLoadingThreads] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -67,11 +70,48 @@ export default function MessagesPage() {
     return name.slice(0, 2).toUpperCase();
   };
 
+  if (isAgent && !isLoadingThreads && threads.length === 0 && !searchQuery) {
+    return (
+      <div className="relative w-full min-h-[75vh] flex flex-col text-[var(--text-heading)] pb-12">
+        <div className="flex items-center justify-between py-3 mb-2">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Go back"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-colors cursor-pointer -ml-1"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-[16px] font-bold text-[var(--text-heading)]">
+            Agent Communications
+          </h1>
+          <div className="w-9" />
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-16">
+          <div className="w-18 h-18 rounded-full bg-[#102a18] text-[#22c55e] flex items-center justify-center mb-5 shadow-inner">
+            <MessageSquare className="w-8 h-8 stroke-[2]" />
+          </div>
+          <h2 className="text-[16px] font-bold text-[var(--text-heading)]">
+            Moderator &amp; Task Chat
+          </h2>
+          <p className="text-[13px] text-[var(--text-muted)] mt-2 max-w-[300px] leading-relaxed">
+            Direct end-to-end communication with OverSite operations moderators and assigned clients.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative w-full text-[var(--text-heading)] pb-12 transition-colors duration-150">
       <PageHeader
-        title="Messages"
-        subtitle="Admin-Moderated Field Agent Channels"
+        title={isAgent ? "Agent Communications" : "Messages"}
+        subtitle={
+          isAgent
+            ? "Moderator & Task Chat Channels"
+            : "Admin-Moderated Field Agent Channels"
+        }
       />
 
       {/* Hub-and-Spoke Moderation Info Banner */}

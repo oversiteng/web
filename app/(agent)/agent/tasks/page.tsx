@@ -10,8 +10,7 @@ import {
   Clock,
   ArrowRight,
   RotateCw,
-  Play,
-  CheckCircle2,
+  PlayCircle,
   Loader2,
   ClipboardList,
 } from "lucide-react";
@@ -25,6 +24,30 @@ export interface MyTaskItem {
   priceNgn: number | string | null;
   createdAt: string;
   agentId?: string | null;
+  slaDeadline?: string | null;
+}
+
+function getTimeLeftLabel(task: MyTaskItem): string {
+  if (task.slaDeadline) {
+    const diffMs = new Date(task.slaDeadline).getTime() - Date.now();
+    if (diffMs <= 0) return "Due now";
+    const hrs = Math.max(1, Math.round(diffMs / (1000 * 60 * 60)));
+    return hrs >= 24 ? `${Math.round(hrs / 24)}d left` : `${hrs}h left`;
+  }
+  const isHappeningNow = ["AGENT_EN_ROUTE", "AGENT_ON_SITE", "IN_PROGRESS"].includes(task.status);
+  return isHappeningNow ? "2h left" : "4h left";
+}
+
+function getAreaLabel(task: MyTaskItem): string {
+  if (task.locationAddress) {
+    const parts = task.locationAddress
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length >= 2) return parts[parts.length - 2];
+    if (parts.length === 1) return parts[0];
+  }
+  return getModuleName(task.moduleType);
 }
 
 export default function AgentTasksPage() {
@@ -87,30 +110,32 @@ export default function AgentTasksPage() {
     <div className="space-y-4 max-w-full pb-12">
       {/* ── 1. Unified Agent Top Navigation Bar ── */}
       <AgentTopNav
+        showBack={true}
+        backHref="/agent/dashboard"
         title="My Tasks"
-        subtitle="Active field missions, drafts & verification reports"
+        hideRightControls={true}
         rightSlot={
           <button
             type="button"
             onClick={fetchTasks}
-            className="w-9 h-9 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-all cursor-pointer shadow-xs"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-all cursor-pointer"
             title="Refresh tasks"
             aria-label="Refresh tasks"
           >
-            <RotateCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-[var(--primary)]" : ""}`} />
+            <RotateCw className={`w-5 h-5 ${isRefreshing ? "animate-spin text-[var(--primary)]" : ""}`} />
           </button>
         }
       />
 
       {/* ── 2. Filter Pills Row ── */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
         <button
           type="button"
           onClick={() => setFilter("ACTIVE")}
-          className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+          className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             filter === "ACTIVE"
               ? "bg-[var(--primary)] text-white shadow-xs"
-              : "bg-[var(--bg-card)] text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] border border-[var(--border-color)] shadow-xs"
+              : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-heading)] border border-[var(--border-color)]/60"
           }`}
         >
           Active ({activeTasks.length})
@@ -118,10 +143,10 @@ export default function AgentTasksPage() {
         <button
           type="button"
           onClick={() => setFilter("UNDER_REVIEW")}
-          className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+          className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             filter === "UNDER_REVIEW"
               ? "bg-[var(--primary)] text-white shadow-xs"
-              : "bg-[var(--bg-card)] text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] border border-[var(--border-color)] shadow-xs"
+              : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-heading)] border border-[var(--border-color)]/60"
           }`}
         >
           Under Review ({reviewTasks.length})
@@ -129,10 +154,10 @@ export default function AgentTasksPage() {
         <button
           type="button"
           onClick={() => setFilter("COMPLETED")}
-          className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+          className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             filter === "COMPLETED"
               ? "bg-[var(--primary)] text-white shadow-xs"
-              : "bg-[var(--bg-card)] text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] border border-[var(--border-color)] shadow-xs"
+              : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-heading)] border border-[var(--border-color)]/60"
           }`}
         >
           Completed ({completedTasks.length})
@@ -170,51 +195,102 @@ export default function AgentTasksPage() {
           )}
         </div>
       ) : (
-        <div className="space-y-3">
-          {displayTasks.map((task) => (
-            <Link
-              key={task.id}
-              href={`/agent/tasks/${task.id}`}
-              className="block bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-[24px] p-5 space-y-3 transition-all hover:border-[var(--primary-border)] shadow-[0_0_10px_rgba(0,0,0,0.03)] cursor-pointer group"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-[var(--text-muted)] font-medium">
-                  {getModuleName(task.moduleType)}
-                </span>
-                <span
-                  className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                    task.status === "COMPLETED"
-                      ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                      : task.status === "REPORT_SUBMITTED" || task.status === "UNDER_REVIEW"
-                      ? "bg-purple-500/10 text-purple-500 border border-purple-500/20"
-                      : "bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary-border)]"
-                  }`}
-                >
-                  {task.status}
-                </span>
-              </div>
+        <div className="space-y-4">
+          {displayTasks.map((task) => {
+            const isHappeningNow = ["AGENT_EN_ROUTE", "AGENT_ON_SITE", "IN_PROGRESS"].includes(
+              task.status
+            );
+            const isCompleted = task.status === "COMPLETED";
+            const isUnderReview = ["REPORT_SUBMITTED", "UNDER_REVIEW"].includes(task.status);
+            const payoutNgn = task.priceNgn
+              ? Math.round(Number(task.priceNgn) * 0.7)
+              : 10000;
+            const timeLeft = getTimeLeftLabel(task);
+            const ctaText = isHappeningNow
+              ? "Continue task"
+              : isUnderReview
+                ? "View submission"
+                : isCompleted
+                  ? "View summary"
+                  : "Start arrival";
 
-              <div>
-                <h3 className="text-base font-semibold text-[var(--text-heading)] leading-snug group-hover:text-[var(--primary)] transition-colors">
-                  {task.title}
-                </h3>
-                <p className="text-xs text-[var(--text-muted)] flex items-center gap-1 mt-1">
-                  <MapPin className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
-                  <span className="truncate">{task.locationAddress || "Coverage LGA coordinates recorded"}</span>
-                </p>
-              </div>
+            return (
+              <Link
+                key={task.id}
+                href={`/agent/tasks/${task.id}`}
+                className={`block rounded-[22px] p-5 space-y-4 transition-all cursor-pointer group ${
+                  isHappeningNow
+                    ? "bg-[var(--bg-card)] border border-[var(--primary)]/70 shadow-[0_0_16px_rgba(34,197,94,0.08)]"
+                    : "bg-[var(--bg-card)]/80 border border-[var(--border-color)]/50 hover:border-[var(--primary)]/40"
+                }`}
+              >
+                {/* Top Row: Status / Area + Time Left Pill */}
+                <div className="flex items-center justify-between gap-3">
+                  {isHappeningNow ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#dcfce7] text-[#15803d] text-[11px] font-extrabold tracking-wide uppercase">
+                      <PlayCircle className="w-3.5 h-3.5 fill-[#22c55e] text-white" />
+                      HAPPENING NOW
+                    </span>
+                  ) : isUnderReview ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-500/15 text-purple-500 text-[11px] font-bold uppercase tracking-wide">
+                      UNDER REVIEW
+                    </span>
+                  ) : isCompleted ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/15 text-emerald-500 text-[11px] font-bold uppercase tracking-wide">
+                      COMPLETED
+                    </span>
+                  ) : (
+                    <span className="text-[12.5px] font-medium text-[var(--text-muted)] truncate">
+                      {getAreaLabel(task)}
+                    </span>
+                  )}
 
-              <div className="flex items-center justify-between pt-3 border-t border-[var(--border-color)]">
-                <div className="text-sm font-bold text-[var(--primary)]">
-                  {task.priceNgn ? formatCurrency(task.priceNgn) : "₦10,000"}
+                  {!isCompleted && !isUnderReview && (
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-semibold shrink-0 ${
+                        isHappeningNow
+                          ? "bg-[#fef3c7] text-[#b45309]"
+                          : "bg-zinc-100 dark:bg-zinc-200 text-zinc-700"
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{timeLeft}</span>
+                    </span>
+                  )}
                 </div>
-                <span className="text-xs font-semibold text-[var(--primary)] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                  <span>View Details</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </span>
-              </div>
-            </Link>
-          ))}
+
+                {/* Middle Row: Title + Address */}
+                <div className="space-y-1.5">
+                  <h3 className="text-[16px] font-bold text-[var(--text-heading)] leading-snug group-hover:text-[var(--primary)] transition-colors">
+                    {task.title}
+                  </h3>
+                  <p className="text-[12.5px] text-[var(--text-muted)] flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+                    <span className="truncate">
+                      {task.locationAddress || "Coverage LGA coordinates recorded"}
+                    </span>
+                  </p>
+                </div>
+
+                {/* Bottom Row: Estimated Payout + Green Pill CTA */}
+                <div className="flex items-end justify-between gap-3 pt-2">
+                  <div>
+                    <span className="block text-[11px] text-[var(--text-muted)] font-medium">
+                      Estimated Payout
+                    </span>
+                    <span className="block text-[17px] font-extrabold text-[var(--primary)] tracking-tight mt-0.5">
+                      {formatCurrency(payoutNgn)}
+                    </span>
+                  </div>
+
+                  <span className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[var(--primary)] group-hover:bg-[var(--primary-hover)] text-white text-xs font-bold shadow-xs transition-all group-hover:translate-x-0.5 shrink-0">
+                    <span>{ctaText}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
