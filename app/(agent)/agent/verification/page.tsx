@@ -99,11 +99,16 @@ function formatShortDate(isoDate?: string | null): string {
 
 export default function AgentVerificationPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const selfieInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   const [items, setItems] = useState<VerificationItem[]>(INITIAL_VERIFICATION_ITEMS);
   const [activeItem, setActiveItem] = useState<VerificationItem | null>(null);
+
+  // Live WebRTC Camera states (never opens file explorer)
+  const [cameraMode, setCameraMode] = useState<"closed" | "selfie-inline" | "doc-modal">("closed");
+  const [cameraFacingMode, setCameraFacingMode] = useState<"user" | "environment">("user");
+  const [isStartingCamera, setIsStartingCamera] = useState(false);
 
   // Form field states for the 6 specific screens
   const [ninInput, setNinInput] = useState("");
@@ -211,7 +216,140 @@ export default function AgentVerificationPage() {
   const totalCount = items.length;
   const progressPct = Math.round((submittedOrVerifiedCount / totalCount) * 100);
 
+  const stopCamera = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setCameraMode("closed");
+    setIsStartingCamera(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+      }
+    };
+  }, []);
+
+  // Attach active MediaStream to <video> whenever cameraMode or videoRef mounts
+  useEffect(() => {
+    if (cameraMode !== "closed" && videoRef.current && mediaStreamRef.current) {
+      videoRef.current.srcObject = mediaStreamRef.current;
+      videoRef.current.play().catch(() => null);
+    }
+  }, [cameraMode, isStartingCamera]);
+
+  const startLiveCamera = async (
+    mode: "selfie-inline" | "doc-modal",
+    facing: "user" | "environment"
+  ) => {
+    setFormError(null);
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setFormError(
+        "Live camera access is not available in this browser or requires a secure HTTPS connection."
+      );
+      return;
+    }
+
+    setCameraMode(mode);
+    setCameraFacingMode(facing);
+    setIsStartingCamera(true);
+
+    try {
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: facing },
+            width: { ideal: 1280 },
+            height: { ideal: 960 },
+          },
+          audio: false,
+        });
+      } catch {
+        // Fallback for single-camera laptops/desktops that reject facingMode constraints
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
+
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play().catch(() => null);
+      }
+    } catch (err: any) {
+      setCameraMode("closed");
+      if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
+        setFormError("Camera permission was denied. Please allow camera access in your browser settings and try again.");
+      } else if (err?.name === "NotFoundError" || err?.name === "DevicesNotFoundError") {
+        setFormError("No camera device was detected on this device.");
+      } else {
+        setFormError("Unable to start the camera. Please ensure no other app is using it and try again.");
+      }
+    } finally {
+      setIsStartingCamera(false);
+    }
+  };
+
+  const captureFromCamera = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      setFormError("Camera is still initializing. Please wait a moment and try capturing again.");
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Mirror horizontally for front-facing selfie so snapshot matches viewfinder
+    if (cameraFacingMode === "user") {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    const fileLabel =
+      activeItem?.id === "passport-photo"
+        ? `passport-photo-${Date.now()}.jpg`
+        : `${activeItem?.id || "document"}-capture-${Date.now()}.jpg`;
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          setFormError("Failed to capture photo. Please try again.");
+          return;
+        }
+        const capturedFile = new File([blob], fileLabel, { type: "image/jpeg" });
+        setSelectedFile(capturedFile);
+        setSelectedFileName(fileLabel);
+        setSelectedPreviewUrl(dataUrl);
+        setFormError(null);
+        stopCamera();
+      },
+      "image/jpeg",
+      0.9
+    );
+  };
+
   const openFlowScreen = (item: VerificationItem) => {
+    stopCamera();
     setActiveItem(item);
     setSelectedFile(null);
     setSelectedFileName(null);
@@ -502,7 +640,7 @@ export default function AgentVerificationPage() {
             <div className="flex items-center gap-3 pt-6">
               <button
                 type="button"
-                onClick={() => cameraInputRef.current?.click()}
+                onClick={() => startLiveCamera("doc-modal", "environment")}
                 className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
               >
                 <Camera className="w-4 h-4 text-[var(--text-heading)]" />
@@ -669,7 +807,7 @@ export default function AgentVerificationPage() {
             <div className="flex items-center gap-3 pt-6">
               <button
                 type="button"
-                onClick={() => cameraInputRef.current?.click()}
+                onClick={() => startLiveCamera("doc-modal", "environment")}
                 className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
               >
                 <Camera className="w-4 h-4 text-[var(--text-heading)]" />
@@ -695,7 +833,10 @@ export default function AgentVerificationPage() {
           <div className="flex items-center gap-3 pt-2">
             <button
               type="button"
-              onClick={() => setActiveItem(null)}
+              onClick={() => {
+                stopCamera();
+                setActiveItem(null);
+              }}
               className="p-1 text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
@@ -704,9 +845,25 @@ export default function AgentVerificationPage() {
           </div>
 
           <form onSubmit={handleSubmitFlow} className="space-y-6">
-            {/* Dashed Oval Silhouette Guide */}
+            {/* Dashed Oval Silhouette Guide (Live Camera Viewfinder or Captured Photo) */}
             <div className="w-[190px] h-[260px] sm:w-[220px] sm:h-[300px] border-2 border-dashed border-gray-400 rounded-[50%] mx-auto my-4 flex items-center justify-center relative overflow-hidden bg-[var(--bg-card)]/50 shadow-inner">
-              {selectedPreviewUrl ? (
+              {cameraMode === "selfie-inline" ? (
+                <>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover scale-x-[-1]"
+                  />
+                  {isStartingCamera && (
+                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white gap-2">
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                      <span className="text-[11px] font-medium">Starting camera...</span>
+                    </div>
+                  )}
+                </>
+              ) : selectedPreviewUrl ? (
                 <img
                   src={selectedPreviewUrl}
                   alt="Captured Passport"
@@ -750,13 +907,33 @@ export default function AgentVerificationPage() {
 
             {formError && <p className="text-xs text-red-500 font-medium">{formError}</p>}
 
-            {/* Bottom Action: Camera Only (No Upload Document Button) */}
+            {/* Bottom Action: Live Camera Only (No File Upload / Explorer) */}
             <div className="pt-4">
-              {selectedPreviewUrl ? (
+              {cameraMode === "selfie-inline" ? (
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => selfieInputRef.current?.click()}
+                    onClick={stopCamera}
+                    className="px-5 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-1.5 hover:bg-[var(--bg-secondary)] cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                    <span>Cancel</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isStartingCamera}
+                    onClick={captureFromCamera}
+                    className="flex-1 py-3.5 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>Capture photo</span>
+                  </button>
+                </div>
+              ) : selectedPreviewUrl ? (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => startLiveCamera("selfie-inline", "user")}
                     className="px-5 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-1.5 hover:bg-[var(--bg-secondary)] cursor-pointer"
                   >
                     <RotateCcw className="w-4 h-4" />
@@ -773,7 +950,7 @@ export default function AgentVerificationPage() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => selfieInputRef.current?.click()}
+                  onClick={() => startLiveCamera("selfie-inline", "user")}
                   className="w-full py-3.5 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2"
                 >
                   <Camera className="w-4 h-4" />
@@ -902,7 +1079,7 @@ export default function AgentVerificationPage() {
             <div className="flex items-center gap-3 pt-4">
               <button
                 type="button"
-                onClick={() => cameraInputRef.current?.click()}
+                onClick={() => startLiveCamera("doc-modal", "environment")}
                 className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
               >
                 <Camera className="w-4 h-4 text-[var(--text-heading)]" />
@@ -1031,7 +1208,7 @@ export default function AgentVerificationPage() {
             <div className="flex items-center gap-3 pt-4">
               <button
                 type="button"
-                onClick={() => cameraInputRef.current?.click()}
+                onClick={() => startLiveCamera("doc-modal", "environment")}
                 className="px-6 py-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] flex items-center gap-2 hover:bg-[var(--bg-secondary)] cursor-pointer shadow-2xs"
               >
                 <Camera className="w-4 h-4 text-[var(--text-heading)]" />
@@ -1165,7 +1342,7 @@ export default function AgentVerificationPage() {
 
   return (
     <div className="space-y-6 max-w-full pb-12">
-      {/* Hidden File / Camera Inputs — ALWAYS mounted so .click() is guaranteed to work in any view */}
+      {/* Hidden Document File Picker — ONLY for "Upload document" buttons (never used for Camera / Take photo) */}
       <input
         ref={fileInputRef}
         type="file"
@@ -1174,24 +1351,85 @@ export default function AgentVerificationPage() {
         className="hidden"
         aria-hidden="true"
       />
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFileChange}
-        className="hidden"
-        aria-hidden="true"
-      />
-      <input
-        ref={selfieInputRef}
-        type="file"
-        accept="image/*"
-        capture="user"
-        onChange={handleFileChange}
-        className="hidden"
-        aria-hidden="true"
-      />
+
+      {/* Live Document Camera Viewfinder Modal (WebRTC getUserMedia — never opens File Explorer) */}
+      {cameraMode === "doc-modal" && (
+        <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[var(--bg-card)] border border-[var(--border-color)] rounded-[28px] overflow-hidden shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--border-color)]">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-[var(--primary)]" />
+                <span className="text-sm font-bold text-[var(--text-heading)]">
+                  Capture {activeItem?.title || "Document"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    startLiveCamera(
+                      "doc-modal",
+                      cameraFacingMode === "environment" ? "user" : "environment"
+                    )
+                  }
+                  className="px-2.5 py-1.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-heading)] text-[11px] font-semibold flex items-center gap-1 hover:bg-[var(--border-color)] cursor-pointer"
+                  title="Switch camera"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Flip</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={stopCamera}
+                  className="p-1.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-heading)] cursor-pointer"
+                  aria-label="Close camera"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="relative bg-black aspect-[4/3] w-full overflow-hidden flex items-center justify-center">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`w-full h-full object-cover ${
+                  cameraFacingMode === "user" ? "scale-x-[-1]" : ""
+                }`}
+              />
+              {/* Document corner guide overlay */}
+              <div className="pointer-events-none absolute inset-5 border-2 border-dashed border-white/60 rounded-2xl" />
+              {isStartingCamera && (
+                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-2">
+                  <Loader2 className="w-7 h-7 animate-spin text-[var(--primary)]" />
+                  <span className="text-xs font-medium">Starting camera...</span>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 flex items-center justify-between gap-3 bg-[var(--bg-card)]">
+              <button
+                type="button"
+                onClick={stopCamera}
+                className="px-5 py-3 rounded-full bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-heading)] hover:bg-[var(--border-color)] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isStartingCamera}
+                onClick={captureFromCamera}
+                className="flex-1 py-3 rounded-full bg-[#48bb78] hover:bg-[#38a169] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                <Camera className="w-4 h-4" />
+                <span>Capture Document</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification */}
       {toastMessage && (
