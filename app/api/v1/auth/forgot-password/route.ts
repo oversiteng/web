@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDbReady } from "@/lib/db/client";
 import { users } from "@/db/schema";
-import { eq, ilike } from "drizzle-orm";
+import { ilike } from "drizzle-orm";
 import { generateOtpCode, storeOtp } from "@/lib/auth/otp";
+import { sendEmailAsync } from "@/lib/services/mailService";
 import { ApiResponse } from "@/lib/types/api";
 
 export async function POST(
   req: NextRequest
-): Promise<NextResponse<ApiResponse<{ email: string; expiresIn: number; previewCode?: string }>>> {
+): Promise<
+  NextResponse<
+    ApiResponse<{ email: string; expiresIn: number; previewCode?: string }>
+  >
+> {
   try {
     const body = await req.json();
     const email = body?.email ? String(body.email).trim().toLowerCase() : "";
@@ -27,7 +32,7 @@ export async function POST(
 
     const db = await getDbReady();
     const foundUsers = await db
-      .select({ id: users.id, email: users.email })
+      .select({ id: users.id, email: users.email, name: users.name })
       .from(users)
       .where(ilike(users.email, email))
       .limit(1);
@@ -45,10 +50,20 @@ export async function POST(
       );
     }
 
+    const targetUser = foundUsers[0];
     const otpCode = generateOtpCode(6);
     await storeOtp(email, otpCode, 600); // 10 minutes
 
-    console.log(`[AUTH] Password reset OTP for ${email}: ${otpCode}`);
+    await sendEmailAsync({
+      to: targetUser.email,
+      subject: "Reset Your Oversite Password",
+      template: "PASSWORD_RESET",
+      payload: {
+        code: otpCode,
+        name: targetUser.name || "User",
+        expiresIn: "10 minutes",
+      },
+    });
 
     return NextResponse.json<
       ApiResponse<{ email: string; expiresIn: number; previewCode?: string }>

@@ -226,7 +226,7 @@ export default function PropertyDetailPage() {
 
   return (
     <div className="max-w-xl mx-auto pb-24 px-1 sm:px-2 text-[var(--text-body)] space-y-6 animate-in fade-in duration-150">
-      {/* ── Top Header: Back Arrow + "Property Overview" + "Clear" Status + Oversite Chat Button ── */}
+      {/* ── Top Header: Back Arrow + "Property Overview" +  Oversite Chat Button ── */}
       <div className="flex items-center justify-between py-3">
         <button
           type="button"
@@ -242,11 +242,6 @@ export default function PropertyDetailPage() {
         </h1>
 
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5 text-[13px] font-bold text-[#22b14c]">
-            <span className="w-2 h-2 rounded-full bg-[#22b14c]" />
-            <span>Clear</span>
-          </div>
-
           {oversiteTask && (
             <Link
               href={`/dashboard/tasks/${oversiteTask.id}/chat`}

@@ -90,9 +90,9 @@ export function verifyToken<T = JwtPayload>(token: string): T | null {
   }
 }
 
-export function signRefreshToken(userId: string): string {
+export function signRefreshToken(userId: string, role: UserRole = "USER"): string {
   return signToken(
-    { sub: userId, email: "", role: "USER" },
+    { sub: userId, email: "", role },
     60 * 60 * 24 * 30 // 30 days
   );
 }

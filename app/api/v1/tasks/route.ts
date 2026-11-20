@@ -4,7 +4,7 @@ import { ApiResponse, PaginatedResponse } from "@/lib/types/api";
 import { Task, TaskModule, TaskStatus } from "@/lib/types/task";
 import { getDbReady } from "@/lib/db/client";
 import { tasks, properties, users, payments } from "@/db/schema";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
   calculateTaskPricing,
@@ -50,7 +50,15 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
     }
 
     if (status && status !== "open") {
-      conditions.push(eq(tasks.status, status as TaskStatus));
+      const statuses = status
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean) as TaskStatus[];
+      if (statuses.length === 1) {
+        conditions.push(eq(tasks.status, statuses[0]));
+      } else if (statuses.length > 1) {
+        conditions.push(inArray(tasks.status, statuses));
+      }
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

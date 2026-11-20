@@ -67,7 +67,7 @@ export const POST = withAuth<{ id: string }>(
             success: false,
             error: {
               code: "FORBIDDEN",
-              message: "Only the accredited operative assigned to this task or Mission Control can submit field reports.",
+              message: "Only the accredited operative assigned to this task or Task Control can submit field reports.",
             },
           },
           { status: 403 }
@@ -131,7 +131,7 @@ export const POST = withAuth<{ id: string }>(
         .set({ status: "REPORT_SUBMITTED", updatedAt: new Date() })
         .where(eq(tasks.id, taskId));
 
-      // Notify User and Mission Control
+      // Notify User and Task Control
       await db.insert(notifications).values({
         userId: task.userId,
         type: "TASK_UPDATE",
@@ -162,7 +162,7 @@ export const POST = withAuth<{ id: string }>(
         {
           success: true,
           data: responsePayload,
-          message: "Field report submitted to Mission Control for official compilation.",
+          message: "Field report submitted to Task Control for official compilation.",
         },
         { status: 201 }
       );

@@ -135,8 +135,8 @@ export const PATCH = withAuth<{ id: string }>(
         await db.insert(notifications).values({
           userId: task.agentId,
           type: "PAYMENT",
-          title: "Mission Payout Confirmed",
-          body: `Oversite Command has set the mission completion pay for "${task.title}" to ₦${Number(finalAgentPayoutNgn).toLocaleString()}.`,
+          title: "Task Payout Confirmed",
+          body: `Oversite Command has set the task completion pay for "${task.title}" to ₦${Number(finalAgentPayoutNgn).toLocaleString()}.`,
           taskId: task.id,
         });
       }

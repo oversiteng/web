@@ -132,6 +132,11 @@ function extractKycArtifacts(
     "mimeType",
     "bucket",
     "etag",
+    "bankVerification",
+    "creditBalance",
+    "creditsSpent",
+    "subscriptionPlan",
+    "userTier",
   ]);
   const DOC_INTERNAL_KEYS = new Set([
     "type",
@@ -278,8 +283,8 @@ export default function AdminUsersKycPage() {
 
   // Full-Page Detail View state (modeled after Profile & KYC / Permissions mockup)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState<"PROFILE_KYC" | "PERMISSIONS">(
-    "PROFILE_KYC"
+  const [detailTab, setDetailTab] = useState<"OVERVIEW" | "PROFILE_KYC" | "PERMISSIONS">(
+    "OVERVIEW"
   );
   const [userDetail, setUserDetail] = useState<any>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
@@ -291,6 +296,10 @@ export default function AdminUsersKycPage() {
   const [savingKyc, setSavingKyc] = useState(false);
   const [savingItemKey, setSavingItemKey] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+
+  // Bank verification state
+  const [bankNoteInput, setBankNoteInput] = useState<string>("");
+  const [savingBank, setSavingBank] = useState(false);
 
   // Permissions form state
   const [permActiveInput, setPermActiveInput] = useState<"ACTIVE" | "DORMANT">(
@@ -481,6 +490,58 @@ export default function AdminUsersKycPage() {
     }
   };
 
+  const handleBankVerification = async (
+    status: "VERIFIED" | "WARNING" | "REJECTED"
+  ) => {
+    if (!userDetail) return;
+    setSavingBank(true);
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("oversite_token")
+          : null;
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/v1/admin/users/${userDetail.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({
+          bankVerificationStatus: status,
+          bankVerificationNote: bankNoteInput.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        throw new Error(json.error?.message || "Failed to update bank verification");
+      }
+
+      const detailRes = await fetch(`/api/v1/admin/users/${userDetail.id}`, {
+        credentials: "include",
+        headers,
+      });
+      const detailJson = await detailRes.json();
+      if (detailJson.success && detailJson.data) {
+        setUserDetail(detailJson.data);
+      }
+      setBankNoteInput("");
+      showToast(
+        status === "VERIFIED"
+          ? "Bank details verified"
+          : status === "WARNING"
+          ? "Bank name mismatch warning sent to agent"
+          : "Bank details rejected and agent notified"
+      );
+    } catch (err: any) {
+      showToast(err.message || "Failed to update bank verification");
+    } finally {
+      setSavingBank(false);
+    }
+  };
+
   const handleSavePermissions = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userDetail) return;
@@ -621,7 +682,7 @@ export default function AdminUsersKycPage() {
         : "bg-amber-500/20 text-amber-700 dark:text-amber-300";
 
     return (
-      <div className="max-w-3xl mx-auto space-y-5">
+      <div className="max-w-4xl mx-auto space-y-5">
         {toastMessage && (
           <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none">
             <div className="bg-[var(--bg-card)] border border-[var(--primary)] text-[var(--text-heading)] px-4 py-2 rounded-md shadow-lg text-xs font-semibold">
@@ -630,7 +691,7 @@ export default function AdminUsersKycPage() {
           </div>
         )}
 
-        {/* Top Bar: < Back + Profile & KYC / Permissions Tabs */}
+        {/* Top Bar: < Back + Overview & Stats / Profile & KYC / Permissions Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <button
             type="button"
@@ -645,6 +706,17 @@ export default function AdminUsersKycPage() {
           </button>
 
           <div className="flex items-center gap-6 border-b border-[var(--border-color)] sm:border-none">
+            <button
+              type="button"
+              onClick={() => setDetailTab("OVERVIEW")}
+              className={`pb-2 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
+                detailTab === "OVERVIEW"
+                  ? "border-[var(--primary)] text-[var(--primary)]"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+              }`}
+            >
+              Overview &amp; Stats
+            </button>
             <button
               type="button"
               onClick={() => setDetailTab("PROFILE_KYC")}
@@ -672,6 +744,343 @@ export default function AdminUsersKycPage() {
 
         {isLoadingDetail || !userDetail ? (
           <DynamicLoadingState variant="documents" count={3} />
+        ) : detailTab === "OVERVIEW" ? (
+          <div className="space-y-6">
+            {/* Compact Header Summary Card */}
+            <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                {userDetail.avatarUrl ? (
+                  <img
+                    src={resolveMediaPreviewUrl(userDetail.avatarUrl)}
+                    alt={fullName}
+                    className="w-14 h-14 rounded-full object-cover border border-[var(--border-color)] pointer-events-none"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-[var(--primary)]/15 text-[var(--primary)] font-bold text-lg flex items-center justify-center border border-[var(--primary)]/20">
+                    {initials}
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-base font-bold text-[var(--text-heading)]">
+                    {fullName}
+                  </h2>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {userDetail.email} · {userDetail.phone || "No phone"}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                    <span className="px-2 py-0.5 rounded text-[10.5px] font-semibold bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-heading)]">
+                      {userDetail.role === "AGENT"
+                        ? userDetail.agentProfile?.tier || "GENERAL"
+                        : userDetail.userStats?.userType || "Individual Client"}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[10.5px] font-semibold ${kycBadgeClass}`}>
+                      KYC {userDetail.kycStatus}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10.5px] font-semibold ${
+                        userDetail.isActive
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                          : "bg-red-500/15 text-red-500"
+                      }`}
+                    >
+                      {userDetail.isActive ? "Active" : "Dormant"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-left sm:text-right text-xs">
+                <p className="text-[var(--text-muted)]">Subscription Tier</p>
+                <div className="flex items-center sm:justify-end gap-1.5 mt-0.5">
+                  <span className="font-semibold text-[var(--text-heading)]">
+                    {userDetail.subscription?.plan || "Standard"}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                    Coming Soon
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {userDetail.role === "AGENT" ? (
+              <>
+                {/* Agent KPI Stats Grid */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                  <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-4">
+                    <p className="text-[11px] text-[var(--text-muted)]">Operative Rating</p>
+                    <p className="text-xl font-bold text-[var(--text-heading)] mt-1">
+                      {Number(userDetail.agentStats?.rating || 0).toFixed(1)}{" "}
+                      <span className="text-xs font-medium text-amber-500">/ 5.0 ★</span>
+                    </p>
+                    <p className="text-[10.5px] text-[var(--text-muted)] mt-1">
+                      {userDetail.agentStats?.completionRate || 0}% completion rate
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-4">
+                    <p className="text-[11px] text-[var(--text-muted)]">Tasks Completed</p>
+                    <p className="text-xl font-bold text-[var(--text-heading)] mt-1">
+                      {userDetail.agentStats?.completedTasks || 0}{" "}
+                      <span className="text-xs font-medium text-[var(--text-muted)]">
+                        / {userDetail.agentStats?.totalTasks || 0}
+                      </span>
+                    </p>
+                    <p className="text-[10.5px] text-[var(--text-muted)] mt-1">
+                      {userDetail.agentStats?.activeTasks || 0} active ·{" "}
+                      {userDetail.agentStats?.disputedTasks || 0} disputed
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-4">
+                    <p className="text-[11px] text-[var(--text-muted)]">Wallet Balance</p>
+                    <p className="text-xl font-bold text-[var(--primary)] mt-1">
+                      {formatCurrency(userDetail.agentStats?.walletBalanceNgn || 0)}
+                    </p>
+                    <p className="text-[10.5px] text-[var(--text-muted)] mt-1">
+                      Earned: {formatCurrency(userDetail.agentStats?.totalEarnedNgn || 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-4">
+                    <p className="text-[11px] text-[var(--text-muted)]">Total Paid Out</p>
+                    <p className="text-xl font-bold text-[var(--text-heading)] mt-1">
+                      {formatCurrency(userDetail.agentStats?.totalPaidOutNgn || 0)}
+                    </p>
+                    <p className="text-[10.5px] text-[var(--text-muted)] mt-1">
+                      Pending: {formatCurrency(userDetail.agentStats?.pendingPayoutsNgn || 0)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Agent Payout History */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-[var(--text-heading)]">
+                    Payout History ({userDetail.payouts?.length || 0})
+                  </h3>
+                  <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] overflow-hidden">
+                    {!userDetail.payouts || userDetail.payouts.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-[var(--text-muted)]">
+                        No payout withdrawals recorded yet.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-[var(--bg-secondary)] border-b border-[var(--border-color)] text-[11px] text-[var(--text-muted)]">
+                            <tr>
+                              <th className="px-4 py-2.5 font-semibold">Date</th>
+                              <th className="px-4 py-2.5 font-semibold">Account</th>
+                              <th className="px-4 py-2.5 font-semibold">Reference</th>
+                              <th className="px-4 py-2.5 font-semibold">Amount</th>
+                              <th className="px-4 py-2.5 font-semibold">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--border-color)]">
+                            {userDetail.payouts.map((p: any) => (
+                              <tr key={p.id}>
+                                <td className="px-4 py-2.5 text-[var(--text-muted)]">
+                                  {formatShortDate(p.createdAt)}
+                                </td>
+                                <td className="px-4 py-2.5 font-mono text-[var(--text-heading)]">
+                                  {p.bankCode} · {p.accountNumber}
+                                </td>
+                                <td className="px-4 py-2.5 font-mono text-[var(--text-muted)]">
+                                  {p.gatewayRef || "—"}
+                                </td>
+                                <td className="px-4 py-2.5 font-semibold text-[var(--text-heading)]">
+                                  {formatCurrency(p.amountNgn)}
+                                </td>
+                                <td className="px-4 py-2.5">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10.5px] font-semibold ${
+                                      p.status === "COMPLETED"
+                                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                                        : p.status === "FAILED"
+                                        ? "bg-red-500/15 text-red-500"
+                                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                    }`}
+                                  >
+                                    {p.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* End User KPI Stats Grid */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                  <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-4">
+                    <p className="text-[11px] text-[var(--text-muted)]">Tasks Requested</p>
+                    <p className="text-xl font-bold text-[var(--text-heading)] mt-1">
+                      {userDetail.userStats?.tasksRequested || 0}
+                    </p>
+                    <p className="text-[10.5px] text-[var(--text-muted)] mt-1">
+                      {userDetail.userStats?.tasksActive || 0} active ·{" "}
+                      {userDetail.userStats?.tasksCancelled || 0} cancelled
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-4">
+                    <p className="text-[11px] text-[var(--text-muted)]">Successful Tasks</p>
+                    <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                      {userDetail.userStats?.tasksSuccessful || 0}
+                    </p>
+                    <p className="text-[10.5px] text-[var(--text-muted)] mt-1">
+                      {userDetail.userStats?.successRate || 0}% success rate
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-4">
+                    <p className="text-[11px] text-[var(--text-muted)]">Credit Balance</p>
+                    <p className="text-xl font-bold text-[var(--primary)] mt-1">
+                      {userDetail.userStats?.creditBalance || 0}{" "}
+                      <span className="text-xs font-medium text-[var(--text-muted)]">credits</span>
+                    </p>
+                    <p className="text-[10.5px] text-[var(--text-muted)] mt-1">
+                      Credits spent: {userDetail.userStats?.creditsSpent || 0}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-4">
+                    <p className="text-[11px] text-[var(--text-muted)]">Spent on Credits</p>
+                    <p className="text-xl font-bold text-[var(--text-heading)] mt-1">
+                      {formatCurrency(userDetail.userStats?.amountSpentOnCreditsNgn || 0)}
+                    </p>
+                    <p className="text-[10.5px] text-[var(--text-muted)] mt-1">
+                      {userDetail.paymentHistory?.length || 0} payment records
+                    </p>
+                  </div>
+                </div>
+
+                {/* End User Credit & Payment History */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-[var(--text-heading)]">
+                    Credit Purchases &amp; Payment History ({userDetail.paymentHistory?.length || 0})
+                  </h3>
+                  <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] overflow-hidden">
+                    {!userDetail.paymentHistory || userDetail.paymentHistory.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-[var(--text-muted)]">
+                        No credit purchases or payment transactions yet.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-[var(--bg-secondary)] border-b border-[var(--border-color)] text-[11px] text-[var(--text-muted)]">
+                            <tr>
+                              <th className="px-4 py-2.5 font-semibold">Date</th>
+                              <th className="px-4 py-2.5 font-semibold">Gateway</th>
+                              <th className="px-4 py-2.5 font-semibold">Reference</th>
+                              <th className="px-4 py-2.5 font-semibold">Amount</th>
+                              <th className="px-4 py-2.5 font-semibold">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--border-color)]">
+                            {userDetail.paymentHistory.map((p: any) => (
+                              <tr key={p.id}>
+                                <td className="px-4 py-2.5 text-[var(--text-muted)]">
+                                  {formatShortDate(p.createdAt)}
+                                </td>
+                                <td className="px-4 py-2.5 font-semibold text-[var(--text-heading)]">
+                                  {p.gateway}
+                                </td>
+                                <td className="px-4 py-2.5 font-mono text-[var(--text-muted)]">
+                                  {p.gatewayRef || "—"}
+                                </td>
+                                <td className="px-4 py-2.5 font-semibold text-[var(--text-heading)]">
+                                  {formatCurrency(p.amountNgn)}
+                                </td>
+                                <td className="px-4 py-2.5">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10.5px] font-semibold ${
+                                      p.status === "CAPTURED" || p.status === "RELEASED"
+                                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                                        : p.status === "FAILED" || p.status === "REFUNDED"
+                                        ? "bg-red-500/15 text-red-500"
+                                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                    }`}
+                                  >
+                                    {p.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Shared Task History Table (Agent Tasks / User Requests) */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-[var(--text-heading)]">
+                {userDetail.role === "AGENT" ? "Task History" : "Task Request History"} (
+                {userDetail.taskHistory?.length || 0})
+              </h3>
+              <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] overflow-hidden">
+                {!userDetail.taskHistory || userDetail.taskHistory.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-[var(--text-muted)]">
+                    No tasks recorded yet.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[var(--bg-secondary)] border-b border-[var(--border-color)] text-[11px] text-[var(--text-muted)]">
+                        <tr>
+                          <th className="px-4 py-2.5 font-semibold">Task</th>
+                          <th className="px-4 py-2.5 font-semibold">Module</th>
+                          <th className="px-4 py-2.5 font-semibold">
+                            {userDetail.role === "AGENT" ? "Agent Pay" : "Amount"}
+                          </th>
+                          <th className="px-4 py-2.5 font-semibold">Status</th>
+                          <th className="px-4 py-2.5 font-semibold">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border-color)]">
+                        {userDetail.taskHistory.map((t: any) => (
+                          <tr key={t.id}>
+                            <td className="px-4 py-2.5">
+                              <p className="font-semibold text-[var(--text-heading)]">
+                                {t.title}
+                              </p>
+                              {t.locationAddress && (
+                                <p className="text-[10.5px] text-[var(--text-muted)] truncate max-w-[220px]">
+                                  {t.locationAddress}
+                                </p>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-[var(--text-muted)]">
+                              {String(t.moduleType || "").replace(/_/g, " ")}
+                            </td>
+                            <td className="px-4 py-2.5 font-semibold text-[var(--text-heading)]">
+                              {formatCurrency(t.amountNgn || 0)}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10.5px] font-semibold ${
+                                  t.status === "COMPLETED"
+                                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                                    : t.status === "CANCELLED" || t.status === "DISPUTED"
+                                    ? "bg-red-500/15 text-red-500"
+                                    : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                }`}
+                              >
+                                {String(t.status || "").replace(/_/g, " ")}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-[var(--text-muted)]">
+                              {formatShortDate(t.createdAt)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         ) : detailTab === "PROFILE_KYC" ? (
           <div className="space-y-6">
             {/* Personal Information Card */}
@@ -775,6 +1184,142 @@ export default function AdminUsersKycPage() {
                 </div>
               </div>
             </div>
+
+            {/* Bank Details & Name-Match Verification Card (Agents Only) */}
+            {userDetail.role === "AGENT" && (() => {
+              const bankAcctName = userDetail.agentProfile?.bankAccountName || "";
+              const bankAcctNum = userDetail.agentProfile?.bankAccountNumber || "";
+              const bankCode = userDetail.agentProfile?.bankCode || "";
+              const hasBank = Boolean(bankAcctNum || bankAcctName);
+              const bv = userDetail.bankVerification || {
+                status: hasBank ? "PENDING" : "NOT_SUBMITTED",
+                note: null,
+                reviewedAt: null,
+              };
+              const nameMismatch =
+                hasBank &&
+                bankAcctName.trim().toLowerCase() !== fullName.trim().toLowerCase();
+
+              const bvBadge =
+                bv.status === "VERIFIED"
+                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  : bv.status === "REJECTED"
+                  ? "bg-red-500/15 text-red-500"
+                  : bv.status === "WARNING"
+                  ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+                  : bv.status === "PENDING"
+                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                  : "bg-[var(--bg-secondary)] text-[var(--text-muted)]";
+
+              return (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-sm font-semibold text-[var(--text-heading)]">
+                      Bank Details &amp; Name-Match Verification
+                    </h2>
+                    <span className={`px-2.5 py-0.5 rounded text-[11px] font-semibold ${bvBadge}`}>
+                      {bv.status === "VERIFIED"
+                        ? "Bank Verified"
+                        : bv.status === "REJECTED"
+                        ? "Bank Rejected"
+                        : bv.status === "WARNING"
+                        ? "Warning Sent"
+                        : bv.status === "PENDING"
+                        ? "Pending Review"
+                        : "Not Submitted"}
+                    </span>
+                  </div>
+                  <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-5 space-y-4">
+                    {!hasBank ? (
+                      <p className="text-xs text-[var(--text-muted)]">
+                        Agent has not submitted payout bank account details yet.
+                      </p>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                          <div>
+                            <p className="text-[var(--text-muted)] mb-1">Bank Account Name</p>
+                            <p className="font-semibold text-[var(--text-heading)]">
+                              {bankAcctName || "—"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[var(--text-muted)] mb-1">Account Number</p>
+                            <p className="font-semibold font-mono text-[var(--text-heading)]">
+                              {bankAcctNum || "—"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[var(--text-muted)] mb-1">Bank Code</p>
+                            <p className="font-semibold font-mono text-[var(--text-heading)]">
+                              {bankCode || "—"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {nameMismatch && (
+                          <div className="rounded-md bg-amber-500/10 border border-amber-500/30 px-3.5 py-2.5 text-xs text-amber-700 dark:text-amber-300">
+                            <span className="font-semibold">Name Mismatch Detected:</span>{" "}
+                            Bank account name (<span className="font-semibold">{bankAcctName}</span>)
+                            does not exactly match the profile/KYC name (
+                            <span className="font-semibold">{fullName}</span>). Verify against
+                            submitted KYC documents before approving payouts.
+                          </div>
+                        )}
+
+                        {bv.note && (
+                          <div className="rounded-md bg-[var(--bg-secondary)] border border-[var(--border-color)] px-3.5 py-2 text-xs text-[var(--text-muted)]">
+                            <span className="font-semibold text-[var(--text-heading)]">
+                              Last Admin Note:
+                            </span>{" "}
+                            {bv.note}
+                          </div>
+                        )}
+
+                        <div className="space-y-2.5 pt-2 border-t border-[var(--border-color)]">
+                          <label className="text-xs font-medium text-[var(--text-heading)] block">
+                            Bank Verification Note / Warning to Agent
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={bankNoteInput}
+                            onChange={(e) => setBankNoteInput(e.target.value)}
+                            placeholder="e.g. Your bank account name does not match your NIN / Passport name. Please update your bank details..."
+                            className="w-full p-2.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                          />
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              disabled={savingBank}
+                              onClick={() => handleBankVerification("VERIFIED")}
+                              className="px-3.5 h-8 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                            >
+                              Approve Bank Details
+                            </button>
+                            <button
+                              type="button"
+                              disabled={savingBank}
+                              onClick={() => handleBankVerification("WARNING")}
+                              className="px-3.5 h-8 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                            >
+                              Send Warning to Agent
+                            </button>
+                            <button
+                              type="button"
+                              disabled={savingBank}
+                              onClick={() => handleBankVerification("REJECTED")}
+                              className="px-3.5 h-8 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                            >
+                              Reject Bank Details
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* KYC Information Card */}
             <div className="space-y-2.5">

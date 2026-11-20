@@ -178,7 +178,7 @@ export default function AdminSettingsPage() {
                   />
                 </div>
                 <p className="text-[10px] text-[var(--text-muted)] mt-1">
-                  Applied to priority express missions.
+                  Applied to priority express tasks.
                 </p>
               </div>
             </div>

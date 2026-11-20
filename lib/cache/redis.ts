@@ -11,6 +11,7 @@ export function getRedisClient(): Redis | null {
 
   if (!globalThis.__redisClient) {
     globalThis.__redisClient = new Redis(redisUrl, {
+      family: 4,
       maxRetriesPerRequest: null,
       enableOfflineQueue: true,
       retryStrategy(times) {

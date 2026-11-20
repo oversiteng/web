@@ -29,7 +29,7 @@ export interface PendingChatMessage {
   createdAt: string;
 }
 
-// GET /api/v1/admin/chats/pending — Mission Control Queue for Intercepted Messages
+// GET /api/v1/admin/chats/pending — Task Control Queue for Intercepted Messages
 export const GET = withAuth(
   async (req: NextRequest) => {
     try {
@@ -86,7 +86,7 @@ export const GET = withAuth(
       const data: PendingChatMessage[] = pendingRows.map((row) => ({
         id: row.id,
         taskId: row.taskId,
-        taskTitle: row.taskTitle || "Oversite Mission Task",
+        taskTitle: row.taskTitle || "Oversite Task Task",
         moduleType: row.moduleType || "QUICK_ERRANDS",
         senderId: row.senderId,
         senderName: row.senderName || "Unknown Sender",
@@ -112,7 +112,7 @@ export const GET = withAuth(
           total,
           totalPages: Math.ceil(total / limit) || 1,
         },
-        message: "Pending messages retrieved for Mission Control moderation.",
+        message: "Pending messages retrieved for Task Control moderation.",
       });
     } catch (error) {
       return NextResponse.json(

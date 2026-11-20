@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken, JwtPayload } from "./jwt";
 import { UserRole } from "@/lib/types/user";
+import { validateSession } from "./sessionManager";
+import { getDbReady } from "@/lib/db/client";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { extractAdminPolicy } from "./adminPermissions";
 
 export interface AuthenticatedContext<TParams = Record<string, string>> {
   user: JwtPayload;
@@ -45,9 +50,10 @@ export function withAuth<TParams = Record<string, string>>(
     req: NextRequest,
     context: { params?: Promise<TParams> | TParams }
   ): Promise<Response> => {
-    const user = getAuthUser(req);
+    const token = extractBearerToken(req);
+    const user = token ? verifyToken<JwtPayload>(token) : null;
 
-    if (!user) {
+    if (!token || !user) {
       return NextResponse.json(
         {
           success: false,
@@ -57,6 +63,47 @@ export function withAuth<TParams = Record<string, string>>(
           },
         },
         { status: 401 }
+      );
+    }
+
+    // Verify session has not been revoked
+    const isSessionValid = await validateSession(token);
+    if (!isSessionValid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "Session has been revoked or expired. Please sign in again.",
+          },
+        },
+        { status: 401 }
+      );
+    }
+
+    // Verify account is still active and enforce AdminPolicy on /api/v1/admin/*
+    const db = await getDbReady();
+    const [dbUser] = await db
+      .select({
+        id: users.id,
+        role: users.role,
+        isActive: users.isActive,
+        accreditationDocuments: users.accreditationDocuments,
+      })
+      .from(users)
+      .where(eq(users.id, user.sub))
+      .limit(1);
+
+    if (!dbUser || dbUser.isActive === false) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "Account is deactivated or no longer exists.",
+          },
+        },
+        { status: 403 }
       );
     }
 
@@ -73,6 +120,57 @@ export function withAuth<TParams = Record<string, string>>(
               code: "FORBIDDEN",
               message: "Insufficient permissions for this resource",
             },
+          },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Enforce AdminPolicy on /api/v1/admin/* endpoints (except onboarding password setup)
+    const pathname = req.nextUrl?.pathname || "";
+    if (
+      pathname.startsWith("/api/v1/admin/") &&
+      pathname !== "/api/v1/admin/auth/setup-password" &&
+      dbUser.role !== "SUPER_ADMIN"
+    ) {
+      const policy = extractAdminPolicy(dbUser);
+      if (policy.onboardingStatus !== "APPROVED" || policy.mustChangePassword) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message: "Admin onboarding approval and password setup are required.",
+            },
+          },
+          { status: 403 }
+        );
+      }
+
+      const method = req.method.toUpperCase();
+      if (method === "GET" && !policy.canRead) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: { code: "FORBIDDEN", message: "Admin read permission denied." },
+          },
+          { status: 403 }
+        );
+      }
+      if ((method === "POST" || method === "PUT" || method === "PATCH") && !policy.canWrite) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: { code: "FORBIDDEN", message: "Admin write permission denied." },
+          },
+          { status: 403 }
+        );
+      }
+      if (method === "DELETE" && !policy.canDelete) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: { code: "FORBIDDEN", message: "Admin delete permission denied." },
           },
           { status: 403 }
         );

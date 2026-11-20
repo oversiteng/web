@@ -20,6 +20,7 @@ import {
   BarChart3,
   Settings,
   ShieldCheck,
+  MessageSquare,
 } from "lucide-react";
 
 const AGENT_NAV = [
@@ -34,6 +35,7 @@ const AGENT_SIDEBAR_NAV = [
   { label: "Home", href: "/agent/dashboard", icon: Home },
   { label: "Queue", href: "/agent/queue", icon: ListFilter },
   { label: "Tasks", href: "/agent/tasks", icon: ClipboardCheck },
+  { label: "Messages", href: "/agent/messages", icon: MessageSquare },
   { label: "Earnings", href: "/agent/wallet", icon: Wallet },
   { label: "Performance", href: "/agent/stats", icon: BarChart3 },
   { label: "Verification", href: "/agent/verification", icon: ShieldCheck },

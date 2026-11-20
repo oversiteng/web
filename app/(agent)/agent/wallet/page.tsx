@@ -661,7 +661,7 @@ export default function AgentWalletPage() {
               <EmptyState
                 preset="payouts"
                 title="No payouts yet"
-                description="Your completed mission disbursements and withdrawal transactions will appear here."
+                description="Your completed task disbursements and withdrawal transactions will appear here."
               />
             ) : (
               <div className="space-y-2.5">

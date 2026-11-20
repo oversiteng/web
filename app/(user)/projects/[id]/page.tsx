@@ -33,7 +33,7 @@ export default async function ProjectMilestonesPage(props: {
       target: "Due Oct 20, 2026",
       status: "PENDING",
       pct: 0,
-      notes: "Contractor material supply quotation under escrow review.",
+      notes: "Contractor material supply quotation under service review.",
     },
   ];
 
@@ -69,7 +69,7 @@ export default async function ProjectMilestonesPage(props: {
 
       {/* Milestone Progress Gantt / Stepper */}
       <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-6">
-        <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">Milestone Breakdown & Escrow Stages</h2>
+        <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">Milestone Breakdown & Service Stages</h2>
 
         <div className="space-y-4">
           {milestones.map((m, idx) => (

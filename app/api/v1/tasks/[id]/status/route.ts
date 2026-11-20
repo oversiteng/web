@@ -7,12 +7,16 @@ import { tasks, notifications } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 const ALLOWED_STATUSES: TaskStatus[] = [
+  "DRAFT",
+  "PENDING",
+  "MATCHED",
   "AGENT_EN_ROUTE",
   "AGENT_ON_SITE",
   "IN_PROGRESS",
   "REPORT_SUBMITTED",
   "UNDER_REVIEW",
   "COMPLETED",
+  "DISPUTED",
   "CANCELLED",
 ];
 
@@ -60,7 +64,7 @@ export const PATCH = withAuth<{ id: string }>(
         return NextResponse.json(
           {
             success: false,
-            error: { code: "FORBIDDEN", message: "Only the assigned operative or Mission Control can update task progress." },
+            error: { code: "FORBIDDEN", message: "Only the assigned operative or Task Control can update task progress." },
           },
           { status: 403 }
         );

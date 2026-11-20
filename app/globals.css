@@ -307,3 +307,14 @@
 .animate-soft-pulse {
   animation: softPulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+
+/* Crisp enterprise border radii for the Admin Console (overrides Tailwind v4 --radius-* tokens) */
+.admin-console-root {
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.75rem;
+}

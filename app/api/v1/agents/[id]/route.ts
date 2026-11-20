@@ -9,7 +9,7 @@ import { eq, or } from "drizzle-orm";
 const db = getDb();
 
 export const GET = withAuth<{ id: string }>(
-  async (req: NextRequest, { params }) => {
+  async (req: NextRequest, { user, params }) => {
     const [agent] = await db
       .select()
       .from(agentProfiles)
@@ -30,8 +30,14 @@ export const GET = withAuth<{ id: string }>(
       id: agent.id,
       userId: agent.userId,
       tier: agent.tier as AgentTier,
-      nbaNumber: agent.nbaNumber,
-      ninId: agent.ninId,
+      nbaNumber:
+        user.role === "ADMIN" || user.role === "SUPER_ADMIN" || user.sub === agent.userId
+          ? agent.nbaNumber
+          : null,
+      ninId:
+        user.role === "ADMIN" || user.role === "SUPER_ADMIN" || user.sub === agent.userId
+          ? agent.ninId
+          : null,
       rating: parseFloat(agent.rating || "0"),
       totalTasks: agent.totalTasks,
       isAvailable: agent.isAvailable,

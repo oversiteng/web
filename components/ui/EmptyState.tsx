@@ -211,7 +211,7 @@ export function EmptyState({
       description: "Completed task earnings and bank disbursements will be recorded here automatically.",
       icon: <CreditCard className="w-8 h-8 text-[var(--primary)] stroke-[1.8]" />,
       action: {
-        label: "View Available Missions",
+        label: "View Available Tasks",
         href: "/agent/queue",
         icon: ArrowRight,
       },

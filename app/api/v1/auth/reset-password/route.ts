@@ -42,7 +42,7 @@ export async function POST(
     }
 
     // Verify OTP code (supports standard bypass '000000' in test environments)
-    if (code !== "000000") {
+    if (true) {
       const otpCheck = await verifyOtp(email, code);
       if (!otpCheck.valid) {
         return NextResponse.json(

@@ -16,12 +16,6 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
         { status: 400 }
       );
     }
-    if (code === "000000") {
-      return NextResponse.json({
-        success: true,
-        data: { verified: true },
-      });
-    }
 
     const result = await verifyOtp(identifier, code);
     if (!result.valid) {

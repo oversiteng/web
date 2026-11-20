@@ -6,6 +6,7 @@ import { eq, or, ilike, inArray } from "drizzle-orm";
 import { getDbReady } from "@/lib/db/client";
 import { users, agentProfiles } from "@/db/schema";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
+import { createSession } from "@/lib/auth/sessionManager";
 
 export interface RegisterResponseData {
   user: Partial<User> & {
@@ -157,9 +158,10 @@ export async function POST(
 
     // If agent, create corresponding agent profile
     if (newUser.role === "AGENT") {
+      const normalizedTier = body.tier === "LEGAL" ? "LEGAL_COUNSEL" : body.tier === "TECHNICAL" ? "TECHNICAL_SUPERVISOR" : body.tier;
       const tier: AgentTier =
-        body.tier && ["GENERAL", "TECHNICAL_SUPERVISOR", "INVESTIGATOR", "LEGAL_COUNSEL", "ENFORCEMENT_LIAISON"].includes(body.tier)
-          ? (body.tier as AgentTier)
+        normalizedTier && ["GENERAL", "TECHNICAL_SUPERVISOR", "INVESTIGATOR", "LEGAL_COUNSEL", "ENFORCEMENT_LIAISON"].includes(normalizedTier)
+          ? (normalizedTier as AgentTier)
           : "GENERAL";
 
       await db.insert(agentProfiles).values({
@@ -179,7 +181,16 @@ export async function POST(
       name: newUser.name || undefined,
     });
 
-    const refreshToken = signRefreshToken(newUser.id);
+    const refreshToken = signRefreshToken(newUser.id, newUser.role);
+
+    // Record active session so withAuth() session validation succeeds immediately
+    await createSession({
+      userId: newUser.id,
+      req,
+      token,
+      userEmail: newUser.email,
+      userName: newUser.name || "User",
+    });
 
     const response = NextResponse.json<ApiResponse<RegisterResponseData>>(
       {

@@ -324,7 +324,7 @@ export default function TaskMissionChatPage({
       ? task?.agent?.badge ||
         `OS-${String(task.agentId).slice(0, 4).toUpperCase()}`
       : null;
-  const taskTitle = task?.title || "Mission Task";
+  const taskTitle = task?.title || "Task Task";
 
   const getInitials = (name: string) => {
     const parts = name.trim().split(" ");
@@ -440,7 +440,7 @@ export default function TaskMissionChatPage({
             <p className="text-[14px] font-semibold text-[var(--text-heading)]">
               {isPropertyOversite
                 ? "Chatting with Oversite Property Intelligence"
-                : `${agentName} has accepted this mission`}
+                : `${agentName} has accepted this task`}
             </p>
             <p className="text-[12.5px] text-[var(--text-muted)] max-w-xs mx-auto leading-relaxed">
               {isPropertyOversite

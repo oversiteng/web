@@ -253,7 +253,7 @@ export default function TaskDetailPage({
             t.propertyDetails?.address ||
             t.locationAddress ||
             t.title ||
-            "Field Mission",
+            "Field Task",
           subtitle: agentName
             ? `${t.title || "Task"} · ${STATUS_LABELS[t.status] || "In progress"} by ${agentName}`
             : `${t.title || "Task"} · ${STATUS_LABELS[t.status] || "Submitted"} · Awaiting agent allocation`,
@@ -476,9 +476,9 @@ export default function TaskDetailPage({
               task.agent ? (
                 <Link
                   href={`/dashboard/tasks/${task.id}/chat`}
-                  title="Open Mission Messages"
+                  title="Open Task Messages"
                   className="relative w-10 h-10 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs flex items-center justify-center text-[var(--text-heading)] hover:text-[var(--primary)] hover:border-[var(--primary)] transition-colors cursor-pointer"
-                  aria-label="Open Mission Messages"
+                  aria-label="Open Task Messages"
                 >
                   <MessageSquare className="w-4.5 h-4.5" />
                   <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[var(--primary)]" />
@@ -633,22 +633,6 @@ export default function TaskDetailPage({
               className="space-y-5 animate-in fade-in duration-200 pb-10"
               id="milestones"
             >
-              {task.status === "PENDING" && (
-                <div className="rounded-[22px] bg-[var(--primary-light)] border border-[var(--primary-border)] p-4 flex items-start gap-3 shadow-xs">
-                  <CheckCircle2 className="w-5 h-5 text-[var(--primary)] shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="text-[14px] font-bold text-[var(--primary)]">
-                      Order Submitted & Payment Confirmed
-                    </h4>
-                    <p className="text-[12.5px] text-[var(--text-heading)] mt-0.5 leading-relaxed">
-                      Your escrow payment of {task.totalCharged} has been
-                      verified. Your task is active and an accredited field
-                      manager is being dispatched.
-                    </p>
-                  </div>
-                </div>
-              )}
-
               {/* ── 1. Unified Timeline Milestones Card (Exact Match to Screenshot 2) ── */}
               <div>
                 <h3 className="text-[16px] font-bold text-[var(--text-heading)] mb-3">

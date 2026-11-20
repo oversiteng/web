@@ -2,9 +2,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
 import { getDbReady } from "@/lib/db/client";
-import { users, agentProfiles, agentWallets, notifications } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import {
+  users,
+  agentProfiles,
+  agentWallets,
+  payoutTransactions,
+  tasks,
+  payments,
+  notifications,
+} from "@/db/schema";
+import { desc, eq } from "drizzle-orm";
 import { formatOperativeCode } from "@/lib/services/pricing";
+
+const ACTIVE_TASK_STATUSES = new Set([
+  "PENDING",
+  "MATCHED",
+  "AGENT_EN_ROUTE",
+  "AGENT_ON_SITE",
+  "IN_PROGRESS",
+  "REPORT_SUBMITTED",
+  "UNDER_REVIEW",
+]);
+
+const PAID_PAYMENT_STATUSES = new Set([
+  "AUTHORIZED",
+  "CAPTURED",
+  "ESCROWED",
+  "RELEASED",
+]);
 
 export const GET = withAuth<{ id: string }>(
   async (req: NextRequest, { params }) => {
@@ -68,18 +93,41 @@ export const GET = withAuth<{ id: string }>(
       };
 
       if (userProfile.role === "AGENT") {
-        const [agentRecords, walletRecords] = await Promise.all([
-          db
-            .select()
-            .from(agentProfiles)
-            .where(eq(agentProfiles.userId, targetUserId))
-            .limit(1),
-          db
-            .select()
-            .from(agentWallets)
-            .where(eq(agentWallets.agentId, targetUserId))
-            .limit(1),
-        ]);
+        const [agentRecords, walletRecords, payoutRecords, agentTaskRecords] =
+          await Promise.all([
+            db
+              .select()
+              .from(agentProfiles)
+              .where(eq(agentProfiles.userId, targetUserId))
+              .limit(1),
+            db
+              .select()
+              .from(agentWallets)
+              .where(eq(agentWallets.agentId, targetUserId))
+              .limit(1),
+            db
+              .select()
+              .from(payoutTransactions)
+              .where(eq(payoutTransactions.agentId, targetUserId))
+              .orderBy(desc(payoutTransactions.createdAt))
+              .limit(25),
+            db
+              .select({
+                id: tasks.id,
+                title: tasks.title,
+                moduleType: tasks.moduleType,
+                status: tasks.status,
+                priceNgn: tasks.priceNgn,
+                pricingBreakdown: tasks.pricingBreakdown,
+                locationAddress: tasks.locationAddress,
+                createdAt: tasks.createdAt,
+                completedAt: tasks.completedAt,
+              })
+              .from(tasks)
+              .where(eq(tasks.agentId, targetUserId))
+              .orderBy(desc(tasks.createdAt))
+              .limit(25),
+          ]);
 
         if (agentRecords.length > 0) {
           userProfile.agentProfile = {
@@ -88,12 +136,170 @@ export const GET = withAuth<{ id: string }>(
             updatedAt: agentRecords[0].updatedAt.toISOString(),
           };
         }
-        if (walletRecords.length > 0) {
-          userProfile.wallet = {
-            balanceNgn: parseFloat(walletRecords[0].balanceNgn || "0"),
-            totalEarnedNgn: parseFloat(walletRecords[0].totalEarnedNgn || "0"),
+
+        const walletBalanceNgn =
+          walletRecords.length > 0 ? parseFloat(walletRecords[0].balanceNgn || "0") : 0;
+        const totalEarnedNgn =
+          walletRecords.length > 0 ? parseFloat(walletRecords[0].totalEarnedNgn || "0") : 0;
+
+        userProfile.wallet = {
+          balanceNgn: walletBalanceNgn,
+          totalEarnedNgn,
+        };
+
+        const payouts = payoutRecords.map((p) => ({
+          id: p.id,
+          amountNgn: parseFloat(p.amountNgn || "0"),
+          bankCode: p.bankCode,
+          accountNumber: p.accountNumber,
+          gatewayRef: p.gatewayRef,
+          status: p.status,
+          createdAt: p.createdAt.toISOString(),
+          processedAt: p.processedAt ? p.processedAt.toISOString() : null,
+        }));
+
+        const totalPaidOutNgn = payouts
+          .filter((p) => p.status === "COMPLETED")
+          .reduce((sum, p) => sum + p.amountNgn, 0);
+        const pendingPayoutsNgn = payouts
+          .filter((p) => p.status === "PENDING" || p.status === "PROCESSING")
+          .reduce((sum, p) => sum + p.amountNgn, 0);
+
+        const taskHistory = agentTaskRecords.map((t) => {
+          const breakdown = (t.pricingBreakdown as Record<string, any>) || {};
+          const agentPayoutNgn =
+            typeof breakdown.agentPayoutNgn === "number"
+              ? breakdown.agentPayoutNgn
+              : parseFloat(t.priceNgn || "0");
+          return {
+            id: t.id,
+            title: t.title,
+            moduleType: t.moduleType,
+            status: t.status,
+            amountNgn: agentPayoutNgn,
+            locationAddress: t.locationAddress,
+            createdAt: t.createdAt.toISOString(),
+            completedAt: t.completedAt ? t.completedAt.toISOString() : null,
           };
-        }
+        });
+
+        const completedTasks = taskHistory.filter((t) => t.status === "COMPLETED").length;
+        const activeTasks = taskHistory.filter((t) => ACTIVE_TASK_STATUSES.has(t.status)).length;
+        const disputedTasks = taskHistory.filter((t) => t.status === "DISPUTED").length;
+        const totalTasks = Math.max(
+          taskHistory.length,
+          agentRecords[0]?.totalTasks || 0
+        );
+        const completionRate =
+          totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+        userProfile.bankVerification = rawDocs.bankVerification || {
+          status: agentRecords[0]?.bankAccountNumber ? "PENDING" : "NOT_SUBMITTED",
+          note: null,
+          reviewedAt: null,
+        };
+        userProfile.payouts = payouts;
+        userProfile.taskHistory = taskHistory;
+        userProfile.agentStats = {
+          totalTasks,
+          completedTasks,
+          activeTasks,
+          disputedTasks,
+          completionRate,
+          rating: parseFloat(agentRecords[0]?.rating || "0"),
+          walletBalanceNgn,
+          totalEarnedNgn,
+          totalPaidOutNgn,
+          pendingPayoutsNgn,
+        };
+        userProfile.subscription = {
+          plan: "Standard Operative",
+          status: "COMING_SOON",
+          tier: agentRecords[0]?.tier || "GENERAL",
+        };
+      } else if (userProfile.role === "USER") {
+        const [userTaskRecords, paymentRecords] = await Promise.all([
+          db
+            .select({
+              id: tasks.id,
+              title: tasks.title,
+              moduleType: tasks.moduleType,
+              status: tasks.status,
+              priceNgn: tasks.priceNgn,
+              locationAddress: tasks.locationAddress,
+              createdAt: tasks.createdAt,
+              completedAt: tasks.completedAt,
+            })
+            .from(tasks)
+            .where(eq(tasks.userId, targetUserId))
+            .orderBy(desc(tasks.createdAt))
+            .limit(25),
+          db
+            .select()
+            .from(payments)
+            .where(eq(payments.userId, targetUserId))
+            .orderBy(desc(payments.createdAt))
+            .limit(25),
+        ]);
+
+        const taskHistory = userTaskRecords.map((t) => ({
+          id: t.id,
+          title: t.title,
+          moduleType: t.moduleType,
+          status: t.status,
+          amountNgn: parseFloat(t.priceNgn || "0"),
+          locationAddress: t.locationAddress,
+          createdAt: t.createdAt.toISOString(),
+          completedAt: t.completedAt ? t.completedAt.toISOString() : null,
+        }));
+
+        const paymentHistory = paymentRecords.map((p) => ({
+          id: p.id,
+          taskId: p.taskId,
+          amountNgn: parseFloat(p.amountNgn || "0"),
+          gateway: p.gateway,
+          gatewayRef: p.gatewayRef,
+          status: p.status,
+          createdAt: p.createdAt.toISOString(),
+        }));
+
+        const tasksRequested = taskHistory.length;
+        const tasksSuccessful = taskHistory.filter((t) => t.status === "COMPLETED").length;
+        const tasksActive = taskHistory.filter((t) => ACTIVE_TASK_STATUSES.has(t.status)).length;
+        const tasksCancelled = taskHistory.filter(
+          (t) => t.status === "CANCELLED" || t.status === "DISPUTED"
+        ).length;
+
+        const amountSpentOnCreditsNgn = paymentHistory
+          .filter((p) => PAID_PAYMENT_STATUSES.has(p.status))
+          .reduce((sum, p) => sum + p.amountNgn, 0);
+
+        const creditBalance =
+          typeof rawDocs.creditBalance === "number" ? rawDocs.creditBalance : 0;
+        const creditsSpent =
+          typeof rawDocs.creditsSpent === "number"
+            ? rawDocs.creditsSpent
+            : Math.round(amountSpentOnCreditsNgn / 1000);
+
+        userProfile.taskHistory = taskHistory;
+        userProfile.paymentHistory = paymentHistory;
+        userProfile.userStats = {
+          tasksRequested,
+          tasksSuccessful,
+          tasksActive,
+          tasksCancelled,
+          successRate:
+            tasksRequested > 0 ? Math.round((tasksSuccessful / tasksRequested) * 100) : 0,
+          creditBalance,
+          creditsSpent,
+          amountSpentOnCreditsNgn,
+          userType: rawDocs.userTier || "Individual Client",
+        };
+        userProfile.subscription = {
+          plan: rawDocs.subscriptionPlan || "Standard Client",
+          status: "COMING_SOON",
+          tier: rawDocs.userTier || "Standard",
+        };
       }
 
       return NextResponse.json<ApiResponse<any>>({
@@ -112,7 +318,7 @@ export const GET = withAuth<{ id: string }>(
   { roles: ["ADMIN", "SUPER_ADMIN"] }
 );
 
-// PATCH /api/v1/admin/users/:id — Update KYC Status, Document Statuses, Agent Tier, or NIN/NBA verification
+// PATCH /api/v1/admin/users/:id — Update KYC Status, Document Statuses, Bank Verification, Agent Tier, or NIN/NBA verification
 export const PATCH = withAuth<{ id: string }>(
   async (req: NextRequest, { params }) => {
     try {
@@ -123,6 +329,8 @@ export const PATCH = withAuth<{ id: string }>(
         ninVerificationStatus,
         nbaVerificationStatus,
         addressVerificationStatus,
+        bankVerificationStatus,
+        bankVerificationNote,
         agentTier,
         documentKey,
         documentStatus,
@@ -209,6 +417,55 @@ export const PATCH = withAuth<{ id: string }>(
         }
       }
 
+      // Bank Account Name Verification & Warning Notification
+      if (
+        bankVerificationStatus &&
+        ["VERIFIED", "REJECTED", "WARNING", "PENDING"].includes(bankVerificationStatus)
+      ) {
+        const docs =
+          (userUpdates.accreditationDocuments as Record<string, any>) ||
+          (targetUser.accreditationDocuments &&
+          typeof targetUser.accreditationDocuments === "object"
+            ? { ...(targetUser.accreditationDocuments as Record<string, any>) }
+            : {});
+
+        docs.bankVerification = {
+          status: bankVerificationStatus,
+          note: bankVerificationNote || null,
+          reviewedAt: now.toISOString(),
+        };
+        userUpdates.accreditationDocuments = docs;
+
+        if (bankVerificationStatus === "VERIFIED") {
+          await db.insert(notifications).values({
+            userId: targetUserId,
+            type: "SYSTEM",
+            title: "Bank Account Details Verified",
+            body: "Your payout bank account name has been verified to match your KYC documents. Withdrawals are enabled.",
+          });
+        } else if (bankVerificationStatus === "REJECTED") {
+          await db.insert(notifications).values({
+            userId: targetUserId,
+            type: "ALERT",
+            title: "Bank Account Verification Rejected",
+            body:
+              bankVerificationNote ||
+              "Your submitted bank account name does not match the name on your KYC verification documents. Please update your payout bank details immediately.",
+            metadata: { category: "BANK_VERIFICATION_WARNING", severity: "HIGH" },
+          });
+        } else if (bankVerificationStatus === "WARNING") {
+          await db.insert(notifications).values({
+            userId: targetUserId,
+            type: "ALERT",
+            title: "Action Required: Bank Account Name Mismatch Warning",
+            body:
+              bankVerificationNote ||
+              "Central Operations flagged a discrepancy between your bank account name and your verified identity documents. Please review and update your bank details to avoid payout holds.",
+            metadata: { category: "BANK_VERIFICATION_WARNING", severity: "WARNING" },
+          });
+        }
+      }
+
       const [updatedUser] = await db
         .update(users)
         .set(userUpdates)
@@ -272,6 +529,7 @@ export const PATCH = withAuth<{ id: string }>(
           ninVerificationStatus: updatedUser.ninVerificationStatus,
           nbaVerificationStatus: updatedUser.nbaVerificationStatus,
           addressVerificationStatus: updatedUser.addressVerificationStatus,
+          bankVerification: (updatedUser.accreditationDocuments as any)?.bankVerification || null,
           agentTier: agentTier || undefined,
         },
         message: "User profile and accreditation updated successfully.",

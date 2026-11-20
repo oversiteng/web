@@ -24,16 +24,16 @@ const QUICK_TEMPLATES = [
     notificationType: "ALERT",
     title: "Action Required: Complete Your Oversite KYC Accreditation",
     message:
-      "Please upload your remaining accreditation documents and NIN verification in the Field Operative portal to unlock live mission dispatches in your coverage area.",
+      "Please upload your remaining accreditation documents and NIN verification in the Field Operative portal to unlock live task dispatches in your coverage area.",
   },
   {
-    label: "Urgent Missions Available in Queue",
+    label: "Urgent Tasks Available in Queue",
     targetGroup: "AGENT",
     kycStatus: "VERIFIED",
     notificationType: "TASK_UPDATE",
-    title: "New High-Priority Field Missions Available",
+    title: "New High-Priority Field Tasks Available",
     message:
-      "New Property Oversite and Due Diligence missions have been posted to the live dispatch queue. Toggle your status Online to review and accept tasks.",
+      "New Property Oversite and Due Diligence tasks have been posted to the live dispatch queue. Toggle your status Online to review and accept tasks.",
   },
   {
     label: "Platform Security & Policy Update (All Users)",

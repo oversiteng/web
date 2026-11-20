@@ -120,7 +120,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       {
         success: true,
         data: createdTask,
-        message: "Property oversight mission booked successfully.",
+        message: "Property oversight task booked successfully.",
       },
       { status: 201 }
     );

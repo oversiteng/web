@@ -60,7 +60,7 @@ function wrapBrandedLayout({
                   <p style="font-size: 11px; color: #94a3b8; margin: 0;">
                     ${escapeHtml(
                       footerText ||
-                        `© ${new Date().getFullYear()} Oversite Technologies Nigeria Limited.`
+                        `© ${new Date().getFullYear()} Oversite.ng.`
                     )}
                   </p>
                 </td>
@@ -84,19 +84,29 @@ export function renderEmailTemplate(
 
   switch (template) {
     case "2FA_CODE":
-    case "OTP_VERIFICATION": {
+    case "OTP_VERIFICATION":
+    case "PASSWORD_RESET": {
+      const isReset = template === "PASSWORD_RESET";
       const code = String(payload.code || "000000");
       const name = String(payload.name || "User");
       const expiresIn = String(payload.expiresIn || "10 minutes");
 
       const html = wrapBrandedLayout({
-        badgeText: "Security",
-        title: "Your Oversite Security Code",
-        footerText: `© ${new Date().getFullYear()} Oversite Technologies Nigeria Limited. Protected by multi-factor security.`,
+        badgeText: isReset ? "Password Reset" : "Security",
+        title: isReset
+          ? "Reset Your Oversite Password"
+          : "Your Oversite Security Code",
+        footerText: `© ${new Date().getFullYear()} Oversite.ng. Protected by multi-factor security.`,
         bodyHtml: `
-          <h1 style="font-size: 20px; font-weight: 700; color: ${textColor}; margin: 0 0 12px;">Two-Factor Authentication</h1>
+          <h1 style="font-size: 20px; font-weight: 700; color: ${textColor}; margin: 0 0 12px;">${
+            isReset ? "Password Reset Verification" : "Two-Factor Authentication"
+          }</h1>
           <p style="font-size: 14px; line-height: 1.6; color: ${mutedColor}; margin: 0 0 24px;">
-            Hello ${escapeHtml(name)}, use the one-time verification code below to authorize your login request.
+            Hello ${escapeHtml(name)}, ${
+              isReset
+                ? "use the one-time verification code below to reset your Oversite password."
+                : "use the one-time verification code below to authorize your login request."
+            }
           </p>
           <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 24px;">
             <span style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0f172a; font-family: monospace;">${escapeHtml(code)}</span>

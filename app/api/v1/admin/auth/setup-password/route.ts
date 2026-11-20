@@ -53,7 +53,19 @@ export const POST = withAuth(
         );
       }
 
-      if (currentPassword && dbUser.passwordHash) {
+      if (dbUser.passwordHash) {
+        if (!currentPassword) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: "VALIDATION_ERROR",
+                message: "Current temporary password is required.",
+              },
+            },
+            { status: 400 }
+          );
+        }
         const matchesCurrent = await bcrypt.compare(
           currentPassword,
           dbUser.passwordHash

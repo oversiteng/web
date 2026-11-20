@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { withAuth } from "@/lib/auth/middleware";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ function getS3Client(): S3Client {
   });
 }
 
-export async function GET(req: NextRequest) {
+export const GET = withAuth(async (req: NextRequest) => {
   try {
     const { searchParams } = new URL(req.url);
     let key = searchParams.get("key") || searchParams.get("url") || "";
@@ -28,14 +29,17 @@ export async function GET(req: NextRequest) {
       key = key.split(".amazonaws.com/")[1];
     }
 
+    if (!key || key.includes("..")) {
+      return NextResponse.json(
+        { error: "Missing or invalid key parameter" },
+        { status: 400 }
+      );
+    }
+
     const bucket =
       searchParams.get("bucket") ||
       process.env.AWS_S3_MEDIA_BUCKET ||
       "oversite-storage-bucket";
-
-    if (!key) {
-      return NextResponse.json({ error: "Missing key or url parameter" }, { status: 400 });
-    }
 
     const s3 = getS3Client();
     const command = new GetObjectCommand({ Bucket: bucket, Key: key });
@@ -53,11 +57,13 @@ export async function GET(req: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
-        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "private, no-store, max-age=0",
       },
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "Failed to fetch media" }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || "Failed to fetch media" },
+      { status: 500 }
+    );
   }
-}
+});

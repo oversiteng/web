@@ -8,7 +8,8 @@ import { eq, and, sql } from "drizzle-orm";
 
 const db = getDb();
 
-export const GET = withAuth(async (req: NextRequest) => {
+export const GET = withAuth(async (req: NextRequest, { user }) => {
+  const isAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
   const searchParams = req.nextUrl.searchParams;
   const tier = searchParams.get("tier") as AgentTier | null;
   const availableOnly = searchParams.get("available") === "true";
@@ -60,8 +61,8 @@ export const GET = withAuth(async (req: NextRequest) => {
     id: a.id,
     userId: a.userId,
     tier: a.tier as AgentTier,
-    nbaNumber: a.nbaNumber,
-    ninId: a.ninId,
+    nbaNumber: isAdmin ? a.nbaNumber : null,
+    ninId: isAdmin ? a.ninId : null,
     rating: parseFloat(a.rating || "0"),
     totalTasks: a.totalTasks,
     isAvailable: a.isAvailable,

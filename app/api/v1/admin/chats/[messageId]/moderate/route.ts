@@ -154,6 +154,8 @@ export const POST = withAuth<{ messageId: string }>(
             .where(eq(taskReports.taskId, target.taskId))
             .limit(1);
 
+          let reportId = existingReports[0]?.id;
+
           if (existingReports.length > 0) {
             await db
               .update(taskReports)
@@ -163,27 +165,45 @@ export const POST = withAuth<{ messageId: string }>(
                   parsedCard?.stageDetails ||
                   existingReports[0].summary ||
                   "Official verification report compiled and approved by Oversite Admin.",
-                pdfS3Key: `/dashboard/tasks/${target.taskId}/report`,
+                pdfS3Key: `/api/v1/reports/${existingReports[0].id}/pdf?inline=1`,
                 compiledBy: user.sub,
                 compiledAt: now,
                 updatedAt: now,
               })
               .where(eq(taskReports.id, existingReports[0].id));
           } else {
-            await db.insert(taskReports).values({
-              taskId: target.taskId,
-              agentId: target.senderId,
-              summary:
-                parsedCard?.stageDetails ||
-                finalDisplayMessage ||
-                "Official verification report compiled and approved by Oversite Admin.",
-              findings: parsedCard?.stageDetails || finalDisplayMessage || null,
-              status: "APPROVED",
-              completionPct: 100,
-              pdfS3Key: `/dashboard/tasks/${target.taskId}/report`,
-              compiledBy: user.sub,
-              compiledAt: now,
-            });
+            const [insertedReport] = await db
+              .insert(taskReports)
+              .values({
+                taskId: target.taskId,
+                agentId: target.senderId,
+                summary:
+                  parsedCard?.stageDetails ||
+                  finalDisplayMessage ||
+                  "Official verification report compiled and approved by Oversite Admin.",
+                findings: parsedCard?.stageDetails || finalDisplayMessage || null,
+                status: "APPROVED",
+                completionPct: 100,
+                compiledBy: user.sub,
+                compiledAt: now,
+              })
+              .returning({ id: taskReports.id });
+
+            reportId = insertedReport?.id;
+            if (reportId) {
+              await db
+                .update(taskReports)
+                .set({ pdfS3Key: `/api/v1/reports/${reportId}/pdf?inline=1` })
+                .where(eq(taskReports.id, reportId));
+            }
+          }
+
+          if (parsedCard && reportId) {
+            parsedCard.pdfGenerated = true;
+            parsedCard.pdfUrl = `/api/v1/reports/${reportId}/pdf?inline=1`;
+            const serializedWithPdf = JSON.stringify(parsedCard);
+            finalModeratedMessage = serializedWithPdf;
+            finalDisplayMessage = serializedWithPdf;
           }
 
           if (parsedCard?.cardType === "FINAL_SUBMISSION") {
@@ -252,6 +272,17 @@ export const POST = withAuth<{ messageId: string }>(
       };
 
       // Broadcast moderation event in realtime via Redis pub/sub + SSE stream
+      // When approved or refined, also publish as a live "message" event so recipients receive it immediately!
+      if (action === "APPROVE" || action === "REFINE") {
+        realtimeBridge
+          .publish({
+            channel: `task:chat:${updatedMessage.taskId}`,
+            event: "message",
+            payload: result,
+          })
+          .catch((err) => console.error("[Chat Moderate Stream] Publish message error:", err));
+      }
+
       realtimeBridge
         .publish({
           channel: `task:chat:${updatedMessage.taskId}`,
@@ -271,6 +302,53 @@ export const POST = withAuth<{ messageId: string }>(
             : action === "REFINE"
               ? "Modified by Admin and dispatched to recipient."
               : "Rejected with warning sent to sender.",
+      });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { code: "INTERNAL_ERROR", message: (error as Error).message },
+        },
+        { status: 500 }
+      );
+    }
+  },
+  { roles: ["ADMIN", "SUPER_ADMIN"] }
+);
+
+// DELETE /api/v1/admin/chats/:messageId/moderate — Remove/retract a chat message
+export const DELETE = withAuth<{ messageId: string }>(
+  async (_req: NextRequest, { params }) => {
+    try {
+      const { messageId } = await params;
+      const db = await getDbReady();
+
+      const [deleted] = await db
+        .delete(taskChats)
+        .where(eq(taskChats.id, messageId))
+        .returning({ id: taskChats.id, taskId: taskChats.taskId });
+
+      if (!deleted) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: { code: "NOT_FOUND", message: "Chat message not found." },
+          },
+          { status: 404 }
+        );
+      }
+
+      realtimeBridge
+        .publish({
+          channel: `task:chat:${deleted.taskId}`,
+          event: "message_deleted",
+          payload: { id: deleted.id, taskId: deleted.taskId },
+        })
+        .catch(() => null);
+
+      return NextResponse.json({
+        success: true,
+        message: "Message removed from task thread.",
       });
     } catch (error) {
       return NextResponse.json(

@@ -13,6 +13,7 @@ import {
   PlayCircle,
   Loader2,
   ClipboardList,
+  MessageSquare,
 } from "lucide-react";
 
 export interface MyTaskItem {
@@ -22,6 +23,7 @@ export interface MyTaskItem {
   locationAddress: string | null;
   status: string;
   priceNgn: number | string | null;
+  agentPayoutNgn?: number | string | null;
   createdAt: string;
   agentId?: string | null;
   slaDeadline?: string | null;
@@ -115,15 +117,14 @@ export default function AgentTasksPage() {
         title="My Tasks"
         hideRightControls={true}
         rightSlot={
-          <button
-            type="button"
-            onClick={fetchTasks}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-all cursor-pointer"
-            title="Refresh tasks"
-            aria-label="Refresh tasks"
+          <Link
+            href="/agent/messages"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-all"
+            title="Messages"
+            aria-label="Messages"
           >
-            <RotateCw className={`w-5 h-5 ${isRefreshing ? "animate-spin text-[var(--primary)]" : ""}`} />
-          </button>
+            <MessageSquare className="w-5 h-5" />
+          </Link>
         }
       />
 
@@ -168,7 +169,7 @@ export default function AgentTasksPage() {
       {loading ? (
         <div className="flex flex-col items-center justify-center min-h-[300px] gap-2">
           <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
-          <p className="text-xs text-[var(--text-muted)]">Loading your field missions...</p>
+          <p className="text-xs text-[var(--text-muted)]">Loading your field tasks...</p>
         </div>
       ) : displayTasks.length === 0 ? (
         <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-md p-10 text-center space-y-3 shadow-[0_0_10px_rgba(0,0,0,0.03)]">
@@ -178,10 +179,10 @@ export default function AgentTasksPage() {
           <h3 className="text-[var(--text-heading)] font-bold text-sm">No tasks in this category</h3>
           <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
             {filter === "ACTIVE"
-              ? "You have no active field missions. Browse the Queue to claim incoming inspection jobs."
+              ? "You have no active field tasks. Browse the Queue to claim incoming inspection jobs."
               : filter === "UNDER_REVIEW"
               ? "No inspection reports currently undergoing QA review."
-              : "Your completed mission logs will be archived here."}
+              : "Your completed task logs will be archived here."}
           </p>
           {filter === "ACTIVE" && (
             <div className="pt-2">
@@ -202,9 +203,12 @@ export default function AgentTasksPage() {
             );
             const isCompleted = task.status === "COMPLETED";
             const isUnderReview = ["REPORT_SUBMITTED", "UNDER_REVIEW"].includes(task.status);
-            const payoutNgn = task.priceNgn
-              ? Math.round(Number(task.priceNgn) * 0.7)
-              : 10000;
+            const payoutNgn =
+              task.agentPayoutNgn !== undefined && task.agentPayoutNgn !== null
+                ? Number(task.agentPayoutNgn)
+                : task.priceNgn
+                  ? Number(task.priceNgn)
+                  : 0;
             const timeLeft = getTimeLeftLabel(task);
             const ctaText = isHappeningNow
               ? "Continue task"

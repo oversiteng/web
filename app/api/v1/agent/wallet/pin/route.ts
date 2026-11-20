@@ -47,8 +47,20 @@ export const POST = withAuth(
       const currentUser = existingUsers[0];
       const docs = (currentUser.accreditationDocuments as Record<string, any>) || {};
 
-      // If a PIN already exists and currentPin was provided, verify it
-      if (docs.withdrawalPinHash && currentPin) {
+      // If a PIN already exists, require and verify currentPin
+      if (docs.withdrawalPinHash) {
+        if (!currentPin || typeof currentPin !== "string") {
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: "CURRENT_PIN_REQUIRED",
+                message: "Current withdrawal PIN is required to set a new PIN.",
+              },
+            },
+            { status: 400 }
+          );
+        }
         const currentHash = hashPin(String(currentPin).trim(), user.sub);
         if (currentHash !== docs.withdrawalPinHash) {
           return NextResponse.json(

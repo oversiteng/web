@@ -6,7 +6,7 @@ import { tasks, notifications } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 // POST /api/v1/tasks/:id/quote/counter
-// User submits a counter-offer on a quoted task for Mission Control review
+// User submits a counter-offer on a quoted task for Task Control review
 export const POST = withAuth<{ id: string }>(
   async (req: NextRequest, { user, params }) => {
     try {
@@ -82,7 +82,7 @@ export const POST = withAuth<{ id: string }>(
           quoteStatus: updatedTask.quoteStatus || "COUNTER_OFFER",
           counterPriceNgn: Number(counterPriceNgn),
           counterNote: counterNote?.trim(),
-          message: "Counter-offer submitted to Oversite Mission Control for review.",
+          message: "Counter-offer submitted to Oversite Task Control for review.",
         },
       });
     } catch (error) {

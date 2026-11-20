@@ -204,7 +204,6 @@ export async function createSession(params: {
           browser: deviceInfo.browser,
           os: deviceInfo.os,
           lastActiveAt: new Date(),
-          updatedAt: new Date(),
         })
         .where(eq(userSessions.id, existingDeviceSession.id));
 
@@ -306,6 +305,35 @@ export async function validateSession(token: string): Promise<boolean> {
   // Re-populate Redis cache
   if (redis) {
     await redis.set(`session:${tokenHash}`, "valid", "EX", 60 * 60 * 24 * 7);
+  }
+
+  return true;
+}
+
+/**
+ * Revokes a single session by raw JWT token (used by logout).
+ */
+export async function revokeSessionByToken(token: string): Promise<boolean> {
+  if (!token) return false;
+  const tokenHash = hashSessionToken(token);
+  const db = await getDbReady();
+  const redis = getRedisClient();
+
+  try {
+    await db
+      .update(userSessions)
+      .set({ isRevoked: true })
+      .where(eq(userSessions.sessionTokenHash, tokenHash));
+  } catch (err) {
+    console.error("[SessionManager] Error revoking session in DB:", err);
+  }
+
+  if (redis) {
+    try {
+      await redis.del(`session:${tokenHash}`);
+    } catch (err) {
+      console.error("[SessionManager] Error deleting session in Redis:", err);
+    }
   }
 
   return true;

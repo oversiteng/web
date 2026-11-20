@@ -45,3 +45,5 @@ scratch/
 scripts/
 .neon
 oversite-s3-app-user_accessKeys.csv
+
+.agents/

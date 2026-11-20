@@ -26,129 +26,13 @@ export interface RawTaskJoin {
 }
 
 export function getDefaultPropertyIntelTimeline(): PropertyIntelTimeline {
-  const nowIso = new Date().toISOString();
   return {
-    clearanceStatus: "Clear",
-    siteSummaries: [
-      {
-        id: "ss-default-1",
-        agentName: "Tunde C.",
-        photoCountLabel: "12 photos geo-tagged",
-        summary:
-          "Physical site inspection completed. The perimeter fence remains intact. No unauthorized structures or temporary shelters observed. Soil condition is stable.",
-        occupancy: "Vacant",
-        fence: "Intact",
-        setback: "3.5m OK",
-        timeAgo: "2h ago",
-        createdAt: nowIso,
-      },
-    ],
-    wordOnStreet: [
-      {
-        id: "wos-default-1",
-        headline: "Community & Neighbor Inquiries",
-        badge: "Intel Verified",
-        summary:
-          "Caretaker and two adjacent property managers interviewed. No communal ownership claims, family disputes, or land grabber threats reported. Construction on adjoining Plot 13 conforms strictly to setback boundary.",
-        confidenceScore: "98%",
-        sourcesChecked: 3,
-        createdAt: nowIso,
-      },
-    ],
-    expertReviews: [
-      {
-        id: "er-default-1",
-        headline: "Unified Recommendation",
-        rating: "9.6 / 10",
-        summary:
-          "Site survey beacon coordinates match the approved state cadastral layout. Routine monthly oversite is recommended to maintain verified possession.",
-        reviewer: "Engr. Babatunde A. (COREN, Lead Civil Reviewer)",
-        createdAt: nowIso,
-      },
-    ],
-    policyUpdates: [
-      {
-        id: "pol-1",
-        dateLabel: "Feb 5, 2024 09:15AM",
-        text: "Lagos State Ministry of Physical Planning circular on setback regularisation and drainage buffer compliance along the coastal corridor. Mandatory 6m arterial setback confirmed.",
-        createdAt: "2024-02-05T09:15:00.000Z",
-      },
-      {
-        id: "pol-2",
-        dateLabel: "Feb 5, 2024 09:15AM",
-        text: "Lagos State Physical Planning Permit Authority (LASPPPA) revised statutory layout for Lekki Phase 1 cadastral zone. No excision or title revocation notices active.",
-        createdAt: "2024-02-05T09:14:00.000Z",
-      },
-      {
-        id: "pol-3",
-        dateLabel: "Feb 5, 2024 09:15AM",
-        text: "Digital land registry certificate scanning initiative instituted by Lands Bureau, Alausa. Routine biometric scanning verified for Governor's Consent records.",
-        createdAt: "2024-02-05T09:13:00.000Z",
-      },
-      {
-        id: "pol-4",
-        dateLabel: "Feb 5, 2024 09:15AM",
-        text: "LASBCA structural integrity audit protocol updated. All perimeter fencing exceeding 2.4 meters must maintain documented foundation approval and beacon certifications.",
-        createdAt: "2024-02-05T09:12:00.000Z",
-      },
-      {
-        id: "pol-5",
-        dateLabel: "Feb 5, 2024 09:15AM",
-        text: "Surveyor General digital beacon coordinate matching validated. Ground survey beacon coordinates match the approved state cadastral layout.",
-        createdAt: "2024-02-05T09:11:00.000Z",
-      },
-      {
-        id: "pol-6",
-        dateLabel: "Feb 5, 2024 09:15AM",
-        text: "Urban development gazette notice for Lekki Peninsula corridor confirms zoning designation remains Low-Density Mixed Residential.",
-        createdAt: "2024-02-05T09:10:00.000Z",
-      },
-    ],
-    landmarks: [
-      {
-        id: "lm-1",
-        name: "Lagos State Secretariat",
-        distance: "1.2 km (4 mins)",
-        feature:
-          "Modernist government administrative complex & central ministry district",
-        addedLabel: "Added Apr 21, 2024",
-        createdAt: "2024-04-21T10:00:00.000Z",
-      },
-      {
-        id: "lm-2",
-        name: "Lekki Conservation Centre",
-        distance: "2.8 km (8 mins)",
-        feature: "78-hectare natural coastal reserve with canopy walkway",
-        addedLabel: "Added Apr 21, 2024",
-        createdAt: "2024-04-21T09:00:00.000Z",
-      },
-      {
-        id: "lm-3",
-        name: "Nike Art Gallery & Cultural Centre",
-        distance: "3.5 km (12 mins)",
-        feature: "West Africa's largest art museum with over 8,000 curated exhibits",
-        addedLabel: "Added Apr 21, 2024",
-        createdAt: "2024-04-21T08:00:00.000Z",
-      },
-      {
-        id: "lm-4",
-        name: "Admiralty Way Toll Plaza",
-        distance: "900 m (2 mins)",
-        feature:
-          "Primary arterial expressway connector between Victoria Island and Lekki",
-        addedLabel: "Added Apr 15, 2024",
-        createdAt: "2024-04-15T10:00:00.000Z",
-      },
-      {
-        id: "lm-5",
-        name: "Elegushi Royal Beach",
-        distance: "4.1 km (14 mins)",
-        feature:
-          "Atlantic waterfront cultural shoreline & protected recreation zone",
-        addedLabel: "Added Apr 02, 2024",
-        createdAt: "2024-04-02T10:00:00.000Z",
-      },
-    ],
+    clearanceStatus: "Pending",
+    siteSummaries: [],
+    wordOnStreet: [],
+    expertReviews: [],
+    policyUpdates: [],
+    landmarks: [],
   };
 }
 

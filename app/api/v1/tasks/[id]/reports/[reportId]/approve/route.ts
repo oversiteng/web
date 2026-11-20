@@ -144,7 +144,7 @@ export const POST = withAuth<{ id: string; reportId: string }>(
       await db.insert(notifications).values({
         userId: task.userId,
         type: "TASK_UPDATE",
-        title: "Mission Completed & Certified",
+        title: "Task Completed & Certified",
         body: `The deliverables for "${task.title}" have been certified and completed. Thank you for choosing Oversite.`,
         taskId: task.id,
       });

@@ -26,6 +26,27 @@ export const POST = withAuth(
       const db = await getDbReady();
       const [taskRow] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 
+      if (!taskRow) {
+        return NextResponse.json(
+          { success: false, error: { code: "NOT_FOUND", message: "Task not found." } },
+          { status: 404 }
+        );
+      }
+
+      const isAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
+      if (!isAdmin && taskRow.agentId !== user.sub) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message: "Only the assigned operative can submit reports for this task.",
+            },
+          },
+          { status: 403 }
+        );
+      }
+
       const watermarkCode =
         "OVS-RPT-" +
         crypto
@@ -68,7 +89,7 @@ export const POST = withAuth(
       if (taskRow) {
         const cardPayload = JSON.stringify({
           cardType: "FINAL_SUBMISSION",
-          milestoneTitle: `Final Inspection Report: ${taskRow.title || "Mission"}`,
+          milestoneTitle: `Final Inspection Report: ${taskRow.title || "Task"}`,
           stageDetails: summary,
           status: "Pending Admin Approval",
           mediaUrls,

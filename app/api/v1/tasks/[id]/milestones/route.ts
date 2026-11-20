@@ -31,7 +31,7 @@ export function extractMilestoneMeta(rawChecklist: unknown): {
 
 // GET /api/v1/tasks/:id/milestones — Retrieve task operational milestones with media thumbnails
 export const GET = withAuth<{ id: string }>(
-  async (req: NextRequest, { params }) => {
+  async (req: NextRequest, { user, params }) => {
     try {
       const { id: taskId } = await params;
       const db = await getDbReady();
@@ -50,6 +50,19 @@ export const GET = withAuth<{ id: string }>(
       }
 
       const task = existingTasks[0];
+      const isAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
+      if (!isAdmin && task.userId !== user.sub && task.agentId !== user.sub) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message: "You do not have permission to view milestones for this task.",
+            },
+          },
+          { status: 403 }
+        );
+      }
       const rows = await db
         .select()
         .from(taskMilestones)

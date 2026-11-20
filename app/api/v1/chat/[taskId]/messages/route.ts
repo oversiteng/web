@@ -88,8 +88,7 @@ export const GET = withAuth<{ taskId: string }>(
       } else {
         // Non-admin participants see:
         // a) Messages they sent themselves (including PENDING_REVIEW and REJECTED so they see status/warnings)
-        // b) Messages sent to them ONLY AFTER Admin has approved (APPROVED_AS_IS) or modified (REFINED_BY_ADMIN)
-        // c) Automated MILESTONE_UPDATE or SYSTEM events
+        // b) Approved/Refined messages in this task thread addressed to them OR broadcast to the thread
         messages = await db
           .select()
           .from(taskChats)
@@ -99,12 +98,14 @@ export const GET = withAuth<{ taskId: string }>(
               or(
                 eq(taskChats.senderId, user.sub),
                 and(
-                  eq(taskChats.receiverId, user.sub),
-                  inArray(taskChats.moderationStatus, ["APPROVED_AS_IS", "REFINED_BY_ADMIN"])
-                ),
-                and(
-                  inArray(taskChats.messageType, ["MILESTONE_UPDATE", "SYSTEM"]),
-                  inArray(taskChats.moderationStatus, ["APPROVED_AS_IS", "REFINED_BY_ADMIN"])
+                  inArray(taskChats.moderationStatus, ["APPROVED_AS_IS", "REFINED_BY_ADMIN"]),
+                  or(
+                    eq(taskChats.receiverId, user.sub),
+                    // Ensure approved messages between owner & agent always deliver even if agent was assigned later
+                    isAssignedAgent ? eq(taskChats.senderId, task.userId) : undefined,
+                    isOwner && task.agentId ? eq(taskChats.senderId, task.agentId) : undefined,
+                    inArray(taskChats.messageType, ["MILESTONE_UPDATE", "SYSTEM"])
+                  )
                 )
               )
             )
@@ -297,14 +298,26 @@ export const POST = withAuth<{ taskId: string }>(
           : "Routed to Oversite Admin for review",
       };
 
-      // Broadcast real-time message event via Redis pub/sub + SSE stream
-      realtimeBridge
-        .publish({
-          channel: `task:chat:${taskId}`,
-          event: "message",
-          payload: createdChat,
-        })
-        .catch((err) => console.error("[Chat Stream] Publish error:", err));
+      // Hub-and-Spoke Strict Moderation Rule:
+      // NEVER broadcast PENDING_REVIEW messages to the live recipient thread (`task:chat:${taskId}`).
+      // Only publish to `task:chat:${taskId}` when Admin sends directly (isAutoApproved).
+      if (isAutoApproved) {
+        realtimeBridge
+          .publish({
+            channel: `task:chat:${taskId}`,
+            event: "message",
+            payload: createdChat,
+          })
+          .catch((err) => console.error("[Chat Stream] Publish error:", err));
+      } else {
+        realtimeBridge
+          .publish({
+            channel: `admin:chat:moderation`,
+            event: "pending_message",
+            payload: createdChat,
+          })
+          .catch((err) => console.error("[Admin Moderation Stream] Publish error:", err));
+      }
 
       return NextResponse.json<ApiResponse<TaskChat & { deliveryStatus: string }>>(
         {

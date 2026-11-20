@@ -40,7 +40,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       );
     }
 
-    // 3. Upsert into agentProfiles table
+    // 2. Upsert into agentProfiles table
     const existingAgent = await db
       .select()
       .from(agentProfiles)
@@ -65,12 +65,21 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       });
     }
 
-    // 4. Update User role and NBA verification status
+    // 3. Queue NBA credentials for Admin / future AI OCR verification (NEVER auto-verify)
+    const [currentUser] = await db
+      .select({ kycStatus: users.kycStatus })
+      .from(users)
+      .where(eq(users.id, user.sub))
+      .limit(1);
+
+    const nextKycStatus =
+      currentUser?.kycStatus === "VERIFIED" ? "VERIFIED" : "SUBMITTED";
+
     const [updatedUser] = await db
       .update(users)
       .set({
-        kycStatus: "VERIFIED",
-        nbaVerificationStatus: "verified",
+        kycStatus: nextKycStatus,
+        nbaVerificationStatus: "submitted",
         role: "AGENT",
         updatedAt: new Date(),
       })
@@ -104,7 +113,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
         nbaVerificationStatus: updatedUser.nbaVerificationStatus,
         updatedAt: updatedUser.updatedAt.toISOString(),
       },
-      message: "NBA credentials verified. Promoted to Legal Counsel agent.",
+      message: "NBA credentials submitted and queued for verification review.",
     });
   } catch (error) {
     console.error("KYC NBA Verification Error:", error);

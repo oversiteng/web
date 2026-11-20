@@ -38,6 +38,19 @@ export const POST = withAuth<{ id: string }>(
       }
 
       const task = existingTasks[0];
+      const isAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
+      if (!isAdmin && task.agentId !== user.sub) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message: "Only the assigned operative can respond to this task.",
+            },
+          },
+          { status: 403 }
+        );
+      }
       const now = new Date();
 
       if (action === "ACCEPT") {
@@ -54,8 +67,8 @@ export const POST = withAuth<{ id: string }>(
         await db.insert(notifications).values({
           userId: task.userId,
           type: "TASK_UPDATE",
-          title: "Operative Accepted Mission",
-          body: `An operative has accepted your mission "${task.title}" and is mobilizing.`,
+          title: "Operative Accepted Task",
+          body: `An operative has accepted your task "${task.title}" and is mobilizing.`,
           taskId: task.id,
         });
 
@@ -66,7 +79,7 @@ export const POST = withAuth<{ id: string }>(
             action,
             newStatus: updatedTask.status,
           },
-          message: "Mission accepted.",
+          message: "Task accepted.",
         });
       } else {
         // REJECT action: unassign agent and return to dispatch queue
@@ -99,7 +112,7 @@ export const POST = withAuth<{ id: string }>(
             action,
             newStatus: updatedTask.status,
           },
-          message: "Mission declined. Returned to matching pool.",
+          message: "Task declined. Returned to matching pool.",
         });
       }
     } catch (error) {

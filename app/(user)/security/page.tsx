@@ -17,7 +17,6 @@ import {
   Smartphone,
   Tablet,
   LogOut,
-  Trash2,
   Globe,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -797,9 +796,9 @@ export default function SecurityPage() {
                 In compliance with the Nigeria Data Protection Act (NDPA) and NDPR regulations, OverSite collects and processes operative data strictly for:
               </p>
               <div className="p-3 rounded-2xl bg-[var(--bg-secondary)] space-y-2 text-[var(--text-heading)]">
-                <p>• <strong>Location &amp; Geofencing:</strong> Real-time GPS coordinates are verified only during active field inspection missions.</p>
+                <p>• <strong>Location &amp; Geofencing:</strong> Real-time GPS coordinates are verified only during active field inspection tasks.</p>
                 <p>• <strong>Identity &amp; KYC:</strong> National Identity Number (NIN) and government ID credentials to maintain platform trust.</p>
-                <p>• <strong>Payouts &amp; Banking:</strong> Encrypted disbursement details to process mission earnings securely.</p>
+                <p>• <strong>Payouts &amp; Banking:</strong> Encrypted disbursement details to process task earnings securely.</p>
               </div>
               <p>
                 Your personal and operational data is encrypted using industry standard protocols and is never sold to third-party advertisers.

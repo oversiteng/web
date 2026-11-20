@@ -144,7 +144,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
           unreadCount: 0,
         });
       } else {
-        // Agent has accepted the task, so the mission channel is genuinely open
+        // Agent has accepted the task, so the task channel is genuinely open
         threads.push({
           taskId: task.id,
           taskTitle: task.title,

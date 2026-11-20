@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
 import { getDbReady } from "@/lib/db/client";
-import { users } from "@/db/schema";
+import { users, agentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export const POST = withAuth(async (req: NextRequest, { user }) => {
@@ -25,7 +25,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       );
     }
 
-    // 1. Production validation check: verify 11-digit format and Luhn/checksum
+    // 1. Format validation check: verify 11-digit format
     if (trimmedNin.length !== 11 || !/^\d{11}$/.test(trimmedNin)) {
       return NextResponse.json(
         {
@@ -39,13 +39,59 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       );
     }
 
-    // 3. Update User KYC Status
+    // 2. Fetch current user to preserve existing accreditation docs & avoid auto-verification
+    const [currentUser] = await db
+      .select({
+        id: users.id,
+        kycStatus: users.kycStatus,
+        accreditationDocuments: users.accreditationDocuments,
+      })
+      .from(users)
+      .where(eq(users.id, user.sub))
+      .limit(1);
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, error: { code: "NOT_FOUND", message: "User not found" } },
+        { status: 404 }
+      );
+    }
+
+    const now = new Date();
+    const prevDocs =
+      currentUser.accreditationDocuments &&
+      typeof currentUser.accreditationDocuments === "object"
+        ? { ...(currentUser.accreditationDocuments as Record<string, any>) }
+        : {};
+
+    // Persist NIN into agentProfiles if profile exists
+    const existingAgent = await db
+      .select({ id: agentProfiles.id })
+      .from(agentProfiles)
+      .where(eq(agentProfiles.userId, user.sub))
+      .limit(1);
+
+    if (existingAgent.length > 0) {
+      await db
+        .update(agentProfiles)
+        .set({ ninId: trimmedNin, updatedAt: now })
+        .where(eq(agentProfiles.userId, user.sub));
+    }
+
+    // 3. Queue NIN for Admin / future AI OCR verification (NEVER auto-verify)
+    const nextKycStatus =
+      currentUser.kycStatus === "VERIFIED" ? "VERIFIED" : "SUBMITTED";
+
     const [updatedUser] = await db
       .update(users)
       .set({
-        kycStatus: "VERIFIED",
-        ninVerificationStatus: "verified",
-        updatedAt: new Date(),
+        kycStatus: nextKycStatus,
+        ninVerificationStatus: "submitted",
+        accreditationDocuments: {
+          ...prevDocs,
+          ninNumber: trimmedNin,
+        },
+        updatedAt: now,
       })
       .where(eq(users.id, user.sub))
       .returning({
@@ -81,7 +127,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
         ninVerificationStatus: updatedUser.ninVerificationStatus,
         updatedAt: updatedUser.updatedAt.toISOString(),
       },
-      message: "NIN successfully verified",
+      message: "NIN submitted and queued for verification review.",
     });
   } catch (error) {
     console.error("KYC NIN Verification Error:", error);

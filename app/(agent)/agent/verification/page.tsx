@@ -1463,7 +1463,7 @@ export default function AgentVerificationPage() {
 
           <p className="text-xs text-[var(--text-muted)] leading-relaxed pt-0.5">
             {verifiedCount === totalCount
-              ? "All six verification items are approved. You are cleared for mission offers."
+              ? "All six verification items are approved. You are cleared for task offers."
               : `${submittedOrVerifiedCount}/${totalCount} submitted · Complete and get all six items approved to receive task offers.`}
           </p>
         </div>

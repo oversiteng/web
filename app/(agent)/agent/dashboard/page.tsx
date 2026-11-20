@@ -338,14 +338,14 @@ export default function AgentDashboardPage() {
       });
       const json = await res.json();
       if (res.ok && json.success) {
-        showToast(`Mission accepted: "${title}". Advancing to en route.`);
+        showToast(`Task accepted: "${title}". Advancing to en route.`);
         setQueueTasks((prev) => prev.filter((t) => t.id !== taskId));
         const accepted = queueTasks.find((t) => t.id === taskId);
         if (accepted) {
           setAssignedTasks((prev) => [{ ...accepted, status: "AGENT_EN_ROUTE" }, ...prev]);
         }
       } else {
-        showToast(json?.error?.message || "Could not accept mission.");
+        showToast(json?.error?.message || "Could not accept task.");
       }
     } catch {
       showToast("Network error. Please try again.");
@@ -536,7 +536,7 @@ export default function AgentDashboardPage() {
             <span>Assigned Tasks</span>
           </div>
           <div className="text-xl font-bold text-[var(--text-heading)]">
-            {assignedTasks.length} {assignedTasks.length === 1 ? "Mission" : "Missions"}
+            {assignedTasks.length} {assignedTasks.length === 1 ? "Task" : "Tasks"}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-[var(--warning)] font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--warning)]" />
@@ -564,12 +564,12 @@ export default function AgentDashboardPage() {
         </button>
       </div>
 
-      {/* ── 6. Active Mission in Progress ── */}
+      {/* ── 6. Active Task in Progress ── */}
       {activeTask && (
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="text-[var(--text-heading)] font-bold text-base">Active Field Mission</h3>
+              <h3 className="text-[var(--text-heading)] font-bold text-base">Active Field Task</h3>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--primary-light)] border border-[var(--primary-border)] text-[var(--primary)] text-[11px] font-semibold">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-pulse" />
                 {activeTask.status}
@@ -579,7 +579,7 @@ export default function AgentDashboardPage() {
               href={`/agent/tasks/${activeTask.id}`}
               className="text-xs font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors"
             >
-              Open mission
+              Open task
             </Link>
           </div>
 
@@ -640,7 +640,7 @@ export default function AgentDashboardPage() {
           <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-[24px] p-6 text-center text-xs text-[var(--text-muted)] shadow-[0_0_10px_rgba(0,0,0,0.03)] space-y-1">
             <CheckCircle2 className="w-6 h-6 text-[var(--primary)] mx-auto mb-2 opacity-80" />
             <p className="font-semibold text-[var(--text-heading)]">No pending offers in your corridor</p>
-            <p>Keep your status Online. New missions appear in real time.</p>
+            <p>Keep your status Online. New tasks appear in real time.</p>
           </div>
         ) : (
           queueTasks.slice(0, 3).map((offer) => (
@@ -677,7 +677,7 @@ export default function AgentDashboardPage() {
                     }}
                     className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer"
                   >
-                    Accept Mission
+                    Accept Task
                   </button>
                 </div>
               </div>
@@ -692,7 +692,7 @@ export default function AgentDashboardPage() {
           On Desktop (>=640px): Centered modal dialog (sm:items-center, sm:rounded-3xl, sm:max-w-lg)
           ========================================================================= */}
 
-      {/* ── 1. Day's Scheduled Missions Drawer / Modal ── */}
+      {/* ── 1. Day's Scheduled Tasks Drawer / Modal ── */}
       {isDayScheduleDrawerOpen && (
         <div
           className="fixed inset-0 z-[80] bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
@@ -748,7 +748,7 @@ export default function AgentDashboardPage() {
                       }}
                       className="bg-[var(--primary)] text-white font-bold text-xs px-4 py-2 rounded-xl hover:bg-[var(--primary-hover)] transition-colors cursor-pointer"
                     >
-                      Browse Available Missions
+                      Browse Available Tasks
                     </button>
                   </div>
                 </div>
@@ -849,7 +849,7 @@ export default function AgentDashboardPage() {
               <div className="text-right">
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 justify-end">
                   <CheckCircle2 className="w-4 h-4" />
-                  Escrow Guaranteed
+                  Service Guaranteed
                 </span>
                 <span className="text-[11px] text-[var(--text-muted)]">Instant wallet release upon QA</span>
               </div>
@@ -892,7 +892,7 @@ export default function AgentDashboardPage() {
                 }}
                 className="flex-1 py-3 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-bold shadow-xs cursor-pointer"
               >
-                Accept Mission
+                Accept Task
               </button>
             </div>
           </div>
@@ -919,7 +919,7 @@ export default function AgentDashboardPage() {
                   <span>Available Radar Offers ({queueTasks.length})</span>
                 </h3>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Missions in your active coverage zone ready for claim
+                  Tasks in your active coverage zone ready for claim
                 </p>
               </div>
               <button

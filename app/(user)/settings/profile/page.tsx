@@ -720,21 +720,48 @@ export default function PersonalDetailsPage() {
             </div>
           </div>
 
-          {/* Occupation / Profession */}
-          <div>
-            <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
-              Occupation / Profession
-            </label>
-            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
-              <input
-                type="text"
-                value={occupation}
-                onChange={(e) => setOccupation(e.target.value)}
-                placeholder="e.g. Field Investigator"
-                className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
-              />
+          {/* Agent Role / Specialization (Locked for Agents) OR Occupation / Profession (Editable for End Users) */}
+          {authUser?.role === "AGENT" ? (
+            <div>
+              <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
+                Agent Role / Specialization
+              </label>
+              <div className="flex items-center justify-between gap-3 bg-[var(--bg-card)]/80 border border-[var(--border-color)] rounded-2xl px-4 py-3.5 opacity-85 cursor-not-allowed shadow-2xs">
+                <input
+                  type="text"
+                  value={
+                    (authUser as any)?.agentProfile?.tier
+                      ? String((authUser as any).agentProfile.tier)
+                          .replace(/_/g, " ")
+                          .replace(/\b\w/g, (c) => c.toUpperCase())
+                      : occupation || "General Operative"
+                  }
+                  readOnly
+                  disabled
+                  className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] outline-none cursor-not-allowed"
+                />
+                <Lock className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
+              </div>
+              <p className="text-[11px] text-[var(--text-muted)] mt-1.5">
+                Fixed from registration. Only Central Operations can update your agent role after KYC review.
+              </p>
             </div>
-          </div>
+          ) : (
+            <div>
+              <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
+                Occupation / Profession
+              </label>
+              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
+                <input
+                  type="text"
+                  value={occupation}
+                  onChange={(e) => setOccupation(e.target.value)}
+                  placeholder="e.g. Architect, Business Owner"
+                  className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Section 2: Location & Residence */}

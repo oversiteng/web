@@ -105,22 +105,7 @@ export default function MessagesPage() {
 
   return (
     <div className="relative w-full text-[var(--text-heading)] pb-12 transition-colors duration-150">
-      <PageHeader
-        title={isAgent ? "Agent Communications" : "Messages"}
-        subtitle={
-          isAgent
-            ? "Moderator & Task Chat Channels"
-            : "Admin-Moderated Field Agent Channels"
-        }
-      />
-
-      {/* Hub-and-Spoke Moderation Info Banner */}
-      <div className="mb-4 p-3 rounded-2xl bg-[var(--primary-light)]/60 border border-[var(--primary-border)] flex items-start gap-2.5 text-[12px] text-[var(--text-heading)]">
-        <ShieldCheck className="w-4 h-4 text-[var(--primary)] shrink-0 mt-0.5" />
-        <span>
-          Mission channels open once an accredited field agent accepts your task. All messages are routed through Oversite Admin for quality and safety review.
-        </span>
-      </div>
+      <PageHeader title="Messages" />
 
       {/* Search Input */}
       <div className="relative mb-4">

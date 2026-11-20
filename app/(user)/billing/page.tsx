@@ -242,7 +242,7 @@ export default function BillingPage() {
           <DynamicLoadingState variant="documents" count={2} />
         ) : history.length === 0 ? (
           <div className="p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] text-center text-xs text-[var(--text-muted)]">
-            No transaction records found. Bookings and escrow disbursements will appear here.
+            No transaction records found. Bookings and service disbursements will appear here.
           </div>
         ) : (
           <div className="space-y-2">

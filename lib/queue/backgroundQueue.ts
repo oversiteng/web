@@ -10,7 +10,7 @@ export interface EmailJobData {
 
 export interface TaskAutoReleaseJobData {
   taskId: string;
-  escrowAmountNgn: number;
+  serviceAmountNgn: number;
   agentId: string;
 }
 

@@ -3,10 +3,12 @@ import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
 import { Task, TaskModule, TaskStatus } from "@/lib/types/task";
 import { getDbReady } from "@/lib/db/client";
-import { tasks, users, taskMilestones, taskReports, properties, payments } from "@/db/schema";
+import { tasks, users, taskMilestones, taskReports, properties, payments, taskChats, notifications, legalConsultations, dueDiligenceDossiers } from "@/db/schema";
 import { eq, asc, desc } from "drizzle-orm";
 import { extractMilestoneMeta } from "@/app/api/v1/tasks/[id]/milestones/route";
 import { resolveTaskDualPricing, formatOperativeCode } from "@/lib/services/pricing";
+import { extractAdminPolicy } from "@/lib/auth/adminPermissions";
+import { resolveTaskExecutionBlueprint } from "@/lib/services/taskBlueprints";
 
 // Module default milestones configuration generator
 function getDefaultMilestones(moduleType: string, taskId: string, taskDesc?: string | null) {
@@ -154,6 +156,26 @@ export const GET = withAuth<{ id: string }>(
       const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(user.role);
       const isAgent = user.role === "AGENT";
 
+      // Enforce ownership/assignment authorization (agents may preview unassigned PENDING tasks)
+      const canViewTask =
+        isAdmin ||
+        t.userId === user.sub ||
+        t.agentId === user.sub ||
+        (isAgent && !t.agentId && t.status === "PENDING");
+
+      if (!canViewTask) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message: "You do not have permission to view this task.",
+            },
+          },
+          { status: 403 }
+        );
+      }
+
       // 0. Reconcile payment status if task is still in DRAFT or UNDER_REVIEW
       if (t.status === "DRAFT" || t.status === "UNDER_REVIEW") {
         const taskPayments = await db
@@ -275,16 +297,26 @@ export const GET = withAuth<{ id: string }>(
         };
       }
 
-      // 2. Fetch Milestones
+      // 2. Resolve Task Execution Blueprint & Fetch Milestones (only seed if usesMilestones)
+      const executionBlueprint = resolveTaskExecutionBlueprint({
+        moduleType: t.moduleType,
+        description: t.description,
+        formData: (t.formData as Record<string, any>) ?? null,
+      });
+
       let milestones = await db
         .select()
         .from(taskMilestones)
         .where(eq(taskMilestones.taskId, id))
         .orderBy(asc(taskMilestones.orderIndex));
 
-      // If no milestones exist, seed standard institutional milestones
-      if (milestones.length === 0) {
-        const defaultList = getDefaultMilestones(t.moduleType, t.id, t.description);
+      // Only seed default milestones for multi-phase modules (all starting at PENDING 0%)
+      if (milestones.length === 0 && executionBlueprint.usesMilestones) {
+        const defaultList = getDefaultMilestones(t.moduleType, t.id, t.description).map((m) => ({
+          ...m,
+          status: "PENDING" as const,
+          completionPct: 0,
+        }));
         try {
           const inserted = await db.insert(taskMilestones).values(defaultList).returning();
           milestones = inserted;
@@ -386,6 +418,7 @@ export const GET = withAuth<{ id: string }>(
         clientEmail,
         clientPhone,
         milestones: enrichedMilestones,
+        executionBlueprint,
         report: dbReport || null,
         propertyDetails: propertyInfo,
       };
@@ -405,23 +438,59 @@ export const GET = withAuth<{ id: string }>(
 );
 
 export const PATCH = withAuth<{ id: string }>(
-  async (req: NextRequest, { params }) => {
+  async (req: NextRequest, { user, params }) => {
     try {
       const { id } = await params;
       const body = await req.json();
       const db = await getDbReady();
 
-      await db
-        .update(tasks)
-        .set({
-          ...body,
-          updatedAt: new Date(),
-        })
-        .where(eq(tasks.id, id));
+      const { executionBlueprint, ...rest } = body;
+      const updates: Record<string, any> = {
+        ...rest,
+        updatedAt: new Date(),
+      };
+
+      if (executionBlueprint && typeof executionBlueprint === "object") {
+        if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+          return NextResponse.json(
+            { success: false, error: { code: "FORBIDDEN", message: "Admin access required" } },
+            { status: 403 }
+          );
+        }
+        const [existing] = await db
+          .select({ formData: tasks.formData })
+          .from(tasks)
+          .where(eq(tasks.id, id))
+          .limit(1);
+
+        const existingFormData =
+          existing?.formData && typeof existing.formData === "object"
+            ? { ...(existing.formData as Record<string, any>) }
+            : {};
+
+        existingFormData.executionBlueprint = {
+          ...executionBlueprint,
+          adminStructuredAt: new Date().toISOString(),
+        };
+        if (Array.isArray(executionBlueprint.expectedAgentInputs)) {
+          existingFormData.expectedAgentInputs = executionBlueprint.expectedAgentInputs;
+        }
+        if (Array.isArray(executionBlueprint.deliverablesChecklist)) {
+          existingFormData.deliverablesChecklist = executionBlueprint.deliverablesChecklist;
+        }
+
+        updates.formData = existingFormData;
+        if (executionBlueprint.operationalBrief) {
+          updates.description = executionBlueprint.operationalBrief;
+        }
+      }
+
+      await db.update(tasks).set(updates).where(eq(tasks.id, id));
 
       return NextResponse.json<ApiResponse<{ updated: boolean }>>({
         success: true,
         data: { updated: true },
+        message: "Task structure updated successfully.",
       });
     } catch (error) {
       return NextResponse.json(
@@ -430,4 +499,143 @@ export const PATCH = withAuth<{ id: string }>(
       );
     }
   }
+);
+
+export const DELETE = withAuth<{ id: string }>(
+  async (_req: NextRequest, { user, params }) => {
+    try {
+      const { id } = await params;
+      const db = await getDbReady();
+
+      if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: { code: "FORBIDDEN", message: "Only administrators can delete tasks." },
+          },
+          { status: 403 }
+        );
+      }
+
+      if (user.role === "ADMIN") {
+        const [dbAdmin] = await db
+          .select({ role: users.role, isActive: users.isActive, accreditationDocuments: users.accreditationDocuments })
+          .from(users)
+          .where(eq(users.id, user.sub))
+          .limit(1);
+
+        const policy = dbAdmin ? extractAdminPolicy(dbAdmin) : null;
+        if (!policy?.canDelete) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: "FORBIDDEN",
+                message: "Your admin profile does not have Delete permission.",
+              },
+            },
+            { status: 403 }
+          );
+        }
+      }
+
+      const existing = await db
+        .select({
+          id: tasks.id,
+          userId: tasks.userId,
+          title: tasks.title,
+          priceNgn: tasks.priceNgn,
+          pricingMode: tasks.pricingMode,
+          quoteStatus: tasks.quoteStatus,
+          formData: tasks.formData,
+        })
+        .from(tasks)
+        .where(eq(tasks.id, id))
+        .limit(1);
+
+      if (existing.length === 0) {
+        return NextResponse.json(
+          { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
+          { status: 404 }
+        );
+      }
+
+      const targetTask = existing[0];
+      const fd = (targetTask.formData as Record<string, any>) || {};
+      const isSubIncluded =
+        targetTask.pricingMode === "SUBSCRIPTION_INCLUDED" ||
+        targetTask.quoteStatus === "INCLUDED_IN_SUBSCRIPTION" ||
+        Boolean(fd.isSubscriptionIncluded);
+
+      const creditsToRefund = isSubIncluded
+        ? 0
+        : typeof fd.creditsSpent === "number"
+        ? fd.creditsSpent
+        : Math.round(Number(targetTask.priceNgn || 0) / 1000);
+
+      // Refund credits to end user if any credits were spent on this task
+      if (creditsToRefund > 0 && targetTask.userId) {
+        const [owner] = await db
+          .select({ id: users.id, accreditationDocuments: users.accreditationDocuments })
+          .from(users)
+          .where(eq(users.id, targetTask.userId))
+          .limit(1);
+
+        if (owner) {
+          const docs =
+            owner.accreditationDocuments && typeof owner.accreditationDocuments === "object"
+              ? { ...(owner.accreditationDocuments as Record<string, any>) }
+              : {};
+          docs.creditBalance = Number(docs.creditBalance || 0) + creditsToRefund;
+          await db
+            .update(users)
+            .set({ accreditationDocuments: docs, updatedAt: new Date() })
+            .where(eq(users.id, owner.id));
+        }
+      }
+
+      // Clean up dependent records before deleting task
+      await db.delete(taskMilestones).where(eq(taskMilestones.taskId, id));
+      await db.delete(taskChats).where(eq(taskChats.taskId, id));
+      await db.delete(taskReports).where(eq(taskReports.taskId, id));
+      await db.delete(notifications).where(eq(notifications.taskId, id));
+      await db.delete(payments).where(eq(payments.taskId, id));
+      await db.delete(legalConsultations).where(eq(legalConsultations.taskId, id));
+      await db.delete(dueDiligenceDossiers).where(eq(dueDiligenceDossiers.taskId, id));
+
+      await db.delete(tasks).where(eq(tasks.id, id));
+
+      // Notify the end user about task removal & any refunded credits
+      if (targetTask.userId) {
+        await db.insert(notifications).values({
+          userId: targetTask.userId,
+          type: "ALERT",
+          title:
+            creditsToRefund > 0
+              ? `Task Cancelled & ${creditsToRefund} Credits Refunded`
+              : `Task Removed by Central Operations`,
+          body:
+            creditsToRefund > 0
+              ? `Your task "${targetTask.title}" was cancelled by Central Operations. ${creditsToRefund} Oversite credits have been refunded to your credit balance.`
+              : `Your task "${targetTask.title}" was removed by Central Operations.`,
+        });
+      }
+
+      return NextResponse.json<ApiResponse<{ deleted: boolean; id: string; creditsRefunded: number }>>({
+        success: true,
+        data: { deleted: true, id, creditsRefunded: creditsToRefund },
+        message:
+          creditsToRefund > 0
+            ? `Task "${targetTask.title}" deleted. ${creditsToRefund} credits refunded & client notified.`
+            : `Task "${targetTask.title}" deleted & client notified.`,
+      });
+    } catch (error) {
+      console.error("DELETE /api/v1/tasks/:id error:", error);
+      return NextResponse.json(
+        { success: false, error: { code: "INTERNAL_ERROR", message: (error as Error).message } },
+        { status: 500 }
+      );
+    }
+  },
+  { roles: ["ADMIN", "SUPER_ADMIN"] }
 );

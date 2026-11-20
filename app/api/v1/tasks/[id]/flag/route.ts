@@ -5,7 +5,7 @@ import { getDbReady } from "@/lib/db/client";
 import { tasks, notifications } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-// POST /api/v1/tasks/:id/flag — Client or Admin flags an active mission / reports discrepancy
+// POST /api/v1/tasks/:id/flag — Client or Admin flags an active task / reports discrepancy
 export const POST = withAuth<{ id: string }>(
   async (req: NextRequest, { user, params }) => {
     try {
@@ -19,7 +19,7 @@ export const POST = withAuth<{ id: string }>(
             success: false,
             error: {
               code: "VALIDATION_ERROR",
-              message: "A descriptive reason for flagging this mission is required.",
+              message: "A descriptive reason for flagging this task is required.",
             },
           },
           { status: 400 }
@@ -50,7 +50,7 @@ export const POST = withAuth<{ id: string }>(
             success: false,
             error: {
               code: "FORBIDDEN",
-              message: "Only the task requester or Mission Control can flag this task.",
+              message: "Only the task requester or Task Control can flag this task.",
             },
           },
           { status: 403 }
@@ -91,7 +91,7 @@ export const POST = withAuth<{ id: string }>(
       await db.insert(notifications).values({
         userId: task.userId,
         type: "ALERT",
-        title: "Mission Flagged for Arbitration",
+        title: "Task Flagged for Arbitration",
         body: `Task "${task.title}" has been placed in DISPUTED status. Our compliance team has paused funds and opened an investigation.`,
         taskId: task.id,
       });
@@ -101,8 +101,8 @@ export const POST = withAuth<{ id: string }>(
         await db.insert(notifications).values({
           userId: task.agentId,
           type: "ALERT",
-          title: "Mission Under Dispute Review",
-          body: `Task "${task.title}" has been flagged. Please check compliance dashboard or contact Mission Control.`,
+          title: "Task Under Dispute Review",
+          body: `Task "${task.title}" has been flagged. Please check compliance dashboard or contact Task Control.`,
           taskId: task.id,
         });
       }
@@ -122,7 +122,7 @@ export const POST = withAuth<{ id: string }>(
           flaggedAt: now.toISOString(),
           reason: reason.trim(),
         },
-        message: "Mission successfully flagged. Secured payment is paused pending administrative arbitration.",
+        message: "Task successfully flagged. Secured payment is paused pending administrative arbitration.",
       });
     } catch (error) {
       return NextResponse.json(

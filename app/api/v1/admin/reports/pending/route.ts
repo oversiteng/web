@@ -6,7 +6,7 @@ import { taskReports, tasks, users, reportMedia } from "@/db/schema";
 import { eq, desc, inArray } from "drizzle-orm";
 import { resolveTaskDualPricing, formatOperativeCode } from "@/lib/services/pricing";
 
-// GET /api/v1/admin/reports/pending — Mission Control Queue of Field Reports
+// GET /api/v1/admin/reports/pending — Task Control Queue of Field Reports
 export const GET = withAuth(
   async (req: NextRequest) => {
     try {

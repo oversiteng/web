@@ -211,10 +211,20 @@ export default function AgentMorePage() {
               Verification
             </h3>
             <p className="text-[12px] text-[var(--text-muted)] truncate">
-              Vitting , documents, coverage
+              Vetting, documents, coverage
             </p>
           </div>
-          <span className="text-[var(--primary)] bg-[var(--primary-light)] border border-[var(--primary-border)] text-xs font-semibold rounded-full px-3 py-0.5">
+          <span
+            className={`border text-xs font-semibold rounded-full px-3 py-0.5 ${
+              verifiedCount === null
+                ? "text-[var(--text-muted)] bg-[var(--bg-secondary)] border-[var(--border-color)]"
+                : verifiedCount >= 6
+                ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 border-emerald-500/30"
+                : verifiedCount >= 3
+                ? "text-amber-600 dark:text-amber-400 bg-amber-500/15 border-amber-500/30"
+                : "text-red-600 dark:text-red-400 bg-red-500/15 border-red-500/30"
+            }`}
+          >
             {verifiedCount !== null ? `${verifiedCount}/6 Verified` : "Accreditation"}
           </span>
           <ChevronRight className="w-5 h-5 sm:w-6.5 h-6.5 text-[var(--text-muted)] group-hover:text-[var(--text-heading)] transition-colors shrink-0" />
@@ -263,7 +273,7 @@ export default function AgentMorePage() {
           <ChevronRight className="w-5 h-5 sm:w-6.5 h-6.5 text-[var(--text-muted)] group-hover:text-[var(--text-heading)] transition-colors shrink-0" />
         </Link>
 
-        {/* Mission Control Support */}
+        {/* Task Control Support */}
         <Link
           href="/support"
           className="flex items-center gap-3.5 p-3.5 hover:bg-[var(--bg-secondary)] transition-colors group cursor-pointer"

@@ -36,6 +36,27 @@ services:
         - action: restart
           path: .env.local
 
+  # Background Queue Worker (Emails, Watermarked PDFs)
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: oversite_worker
+    command: npm run worker
+    env_file:
+      - .env.local
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://oversite_user:oversite_password@postgres:5432/oversitedb
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   # Local PostgreSQL Database Service
   postgres:
     image: postgres:16-alpine

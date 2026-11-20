@@ -51,7 +51,7 @@ export const POST = withAuth<{ id: string; reportId: string }>(
             success: false,
             error: {
               code: "FORBIDDEN",
-              message: "Only the task owner or Mission Control can dispute deliverables.",
+              message: "Only the task owner or Task Control can dispute deliverables.",
             },
           },
           { status: 403 }
@@ -95,11 +95,11 @@ export const POST = withAuth<{ id: string; reportId: string }>(
         .where(eq(tasks.id, taskId))
         .returning();
 
-      // Alert Mission Control
+      // Alert Task Control
       await db.insert(notifications).values({
         userId: task.userId,
         type: "ALERT",
-        title: "Dispute Escalated to Mission Control",
+        title: "Dispute Escalated to Task Control",
         body: `Client requested rectification on "${task.title}". Reason: ${reason.trim()}. Central Operations is investigating under the Satisfaction Guarantee.`,
         taskId: task.id,
       });
@@ -115,7 +115,7 @@ export const POST = withAuth<{ id: string; reportId: string }>(
           reason: reason.trim(),
           guaranteeCoverage: "Oversite Satisfaction Guarantee Active",
         },
-        message: "Deliverable rejected. Task escalated to Mission Control for investigation.",
+        message: "Deliverable rejected. Task escalated to Task Control for investigation.",
       });
     } catch (error) {
       return NextResponse.json(

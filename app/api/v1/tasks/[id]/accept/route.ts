@@ -5,7 +5,7 @@ import { getDbReady } from "@/lib/db/client";
 import { tasks, notifications } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-// POST /api/v1/tasks/:id/accept — Field operative accepts / claims a mission
+// POST /api/v1/tasks/:id/accept — Field operative accepts / claims a task
 export const POST = withAuth<{ id: string }>(
   async (req: NextRequest, { user, params }) => {
     try {
@@ -34,7 +34,7 @@ export const POST = withAuth<{ id: string }>(
             success: false,
             error: {
               code: "CONFLICT",
-              message: "This mission has already been claimed or assigned to another operative.",
+              message: "This task has already been claimed or assigned to another operative.",
             },
           },
           { status: 409 }
@@ -74,7 +74,7 @@ export const POST = withAuth<{ id: string }>(
         userId: task.userId,
         type: "TASK_UPDATE",
         title: "Operative Confirmed",
-        body: `An accredited field operative has accepted your mission "${task.title}" and is en route.`,
+        body: `An accredited field operative has accepted your task "${task.title}" and is en route.`,
         taskId: task.id,
       });
 
@@ -93,7 +93,7 @@ export const POST = withAuth<{ id: string }>(
           status: updatedTask.status,
           updatedAt: updatedTask.updatedAt.toISOString(),
         },
-        message: "Mission accepted. Status set to AGENT_EN_ROUTE.",
+        message: "Task accepted. Status set to AGENT_EN_ROUTE.",
       });
     } catch (error) {
       return NextResponse.json(

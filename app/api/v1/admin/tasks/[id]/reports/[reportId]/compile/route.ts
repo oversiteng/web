@@ -5,8 +5,11 @@ import { getDbReady } from "@/lib/db/client";
 import { tasks, taskReports, reportMedia, notifications } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
+import { generateWatermarkedReportPdf } from "@/lib/services/pdfGenerator";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { formatOperativeCode } from "@/lib/services/pricing";
 
-// POST /api/v1/admin/tasks/:id/reports/:reportId/compile — Mission Control Official Dossier Compilation
+// POST /api/v1/admin/tasks/:id/reports/:reportId/compile — Task Control Official Dossier Compilation
 export const POST = withAuth<{ id: string; reportId: string }>(
   async (req: NextRequest, { user, params }) => {
     try {
@@ -60,6 +63,46 @@ export const POST = withAuth<{ id: string; reportId: string }>(
       const pdfS3Key = `dossiers/${task.moduleType.toLowerCase()}/${taskId}/${reportId}-official.pdf`;
       const notes = officialNotes || "Compiled and verified by Oversite Central Operations QA.";
       const now = new Date();
+
+      // Generate real watermarked PDF buffer and persist to S3
+      try {
+        const pdfBuffer = await generateWatermarkedReportPdf({
+          reportId: report.id,
+          watermarkCode,
+          taskTitle: task.title || "Oversite Task",
+          moduleType: task.moduleType,
+          locationAddress: task.locationAddress || "Not specified",
+          operativeCode: formatOperativeCode(report.agentId),
+          status: "UNDER_REVIEW",
+          severity: report.severity || "NORMAL",
+          completionPct: report.completionPct ?? 100,
+          summary: report.summary,
+          findings: report.findings,
+          officialNotes: notes,
+          measurements: report.measurements,
+          checklist: report.checklist,
+          compiledAt: now.toISOString(),
+        });
+        if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+          const s3 = new S3Client({
+            region: process.env.AWS_REGION || "eu-west-2",
+            credentials: {
+              accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+              secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+            },
+          });
+          await s3.send(
+            new PutObjectCommand({
+              Bucket: process.env.AWS_S3_MEDIA_BUCKET || "oversite-storage-bucket",
+              Key: pdfS3Key,
+              Body: pdfBuffer,
+              ContentType: "application/pdf",
+            })
+          );
+        }
+      } catch (pdfErr) {
+        console.warn("[Compile Dossier] PDF S3 upload skipped/failed:", pdfErr);
+      }
 
       // Update Report to UNDER_REVIEW (released for client final review)
       const [compiledReport] = await db

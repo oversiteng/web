@@ -232,6 +232,31 @@ export const PATCH = withAuth<{ id: string }>(
         }
       }
 
+      // Preserve existing __meta JSON envelope inside properties.description
+      let mergedDescription = description;
+      if (description !== undefined) {
+        const [existingProp] = await db
+          .select({ description: properties.description })
+          .from(properties)
+          .where(eq(properties.id, id))
+          .limit(1);
+
+        if (existingProp?.description) {
+          try {
+            const parsed = JSON.parse(existingProp.description);
+            if (parsed && typeof parsed === "object" && parsed.__meta) {
+              mergedDescription = JSON.stringify({
+                ...parsed,
+                text: description,
+                description,
+              });
+            }
+          } catch {
+            // Plain text description; keep incoming description
+          }
+        }
+      }
+
       const [updatedProp] = await db
         .update(properties)
         .set({
@@ -241,7 +266,7 @@ export const PATCH = withAuth<{ id: string }>(
           longitude: finalLng,
           parcelNumber,
           propertyType,
-          description,
+          ...(mergedDescription !== undefined ? { description: mergedDescription } : {}),
           updatedAt: new Date(),
         })
         .where(
@@ -305,8 +330,11 @@ export const DELETE = withAuth<{ id: string }>(
       }
 
       const db = await getDbReady();
-      await db
-        .delete(properties)
+
+      // Verify ownership before unlinking tasks and deleting property
+      const [existingProp] = await db
+        .select({ id: properties.id })
+        .from(properties)
         .where(
           and(
             eq(properties.id, id),
@@ -314,7 +342,23 @@ export const DELETE = withAuth<{ id: string }>(
               ? undefined
               : eq(properties.userId, user.sub)
           )
+        )
+        .limit(1);
+
+      if (!existingProp) {
+        return NextResponse.json(
+          { success: false, error: { code: "NOT_FOUND", message: "Property not found" } },
+          { status: 404 }
         );
+      }
+
+      // Unlink associated tasks to prevent FK constraint failure
+      await db
+        .update(tasks)
+        .set({ propertyId: null, updatedAt: new Date() })
+        .where(eq(tasks.propertyId, id));
+
+      await db.delete(properties).where(eq(properties.id, id));
 
       return NextResponse.json<ApiResponse<{ deleted: boolean }>>({
         success: true,

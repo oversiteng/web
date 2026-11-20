@@ -66,7 +66,7 @@ export const POST = withAuth<{ id: string }>(
             success: false,
             error: {
               code: "FORBIDDEN",
-              message: "Only the assigned field operative or Mission Control can sync report data.",
+              message: "Only the assigned field operative or Task Control can sync report data.",
             },
           },
           { status: 403 }

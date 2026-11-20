@@ -6,7 +6,7 @@ import { getDbReady } from "@/lib/db/client";
 import { tasks, taskMilestones, notifications } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 
-// POST /api/v1/admin/tasks/:id/milestones — Mission Control Directives & Dynamic Milestone Setup
+// POST /api/v1/admin/tasks/:id/milestones — Task Control Directives & Dynamic Milestone Setup
 export const POST = withAuth<{ id: string }>(
   async (req: NextRequest, { user, params }) => {
     try {
@@ -74,7 +74,7 @@ export const POST = withAuth<{ id: string }>(
         await db.insert(notifications).values({
           userId: task.agentId,
           type: "TASK_UPDATE",
-          title: "Mission Directives Updated",
+          title: "Task Directives Updated",
           body: `Central Operations has updated the operational milestones and field directives for task "${task.title}".`,
           taskId: task.id,
         });
@@ -89,7 +89,7 @@ export const POST = withAuth<{ id: string }>(
       return NextResponse.json<ApiResponse<typeof allMilestones>>({
         success: true,
         data: allMilestones,
-        message: "Mission Control directives and milestones established successfully.",
+        message: "Task Control directives and milestones established successfully.",
       });
     } catch (error) {
       return NextResponse.json(

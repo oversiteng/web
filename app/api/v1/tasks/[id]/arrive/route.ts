@@ -89,7 +89,7 @@ export const POST = withAuth<{ id: string }>(
             success: false,
             error: {
               code: "FORBIDDEN",
-              message: "Only the assigned operative or Mission Control can check in at the site.",
+              message: "Only the assigned operative or Task Control can check in at the site.",
             },
           },
           { status: 403 }

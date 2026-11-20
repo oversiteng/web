@@ -20,7 +20,7 @@ export interface Payment {
   gateway: PaymentGateway;
   gatewayRef?: string | null;
   status: PaymentStatus;
-  escrowReleasedAt?: string | null;
+  serviceReleasedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }

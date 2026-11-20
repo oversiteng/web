@@ -13,6 +13,7 @@ const sesClient = new SESClient({
 const NO_REPLY_TEMPLATES = new Set([
   "2FA_CODE",
   "OTP_VERIFICATION",
+  "PASSWORD_RESET",
   "NEW_LOGIN_ALERT",
   "ADMIN_INVITE_CREDENTIALS",
   "ADMIN_CREDENTIALS_RESET",
@@ -21,9 +22,13 @@ const NO_REPLY_TEMPLATES = new Set([
 function resolveSenderAddress(jobData: EmailJobData): string {
   if (jobData.from) return jobData.from;
   const noReplyEmail =
-    process.env.SES_NOREPLY_EMAIL || "no-reply@oversite.ng";
+    process.env.SES_NOREPLY_EMAIL ||
+    process.env.AWS_SES_FROM_EMAIL ||
+    "no-reply@oversite.ng";
   const notificationsEmail =
-    process.env.SES_SENDER_EMAIL || "notifications@oversite.ng";
+    process.env.SES_SENDER_EMAIL ||
+    process.env.AWS_SES_FROM_EMAIL ||
+    "notifications@oversite.ng";
 
   return NO_REPLY_TEMPLATES.has(jobData.template)
     ? noReplyEmail

@@ -72,7 +72,7 @@ export const POST = withAuth<{ id: string }>(
         return NextResponse.json(
           {
             success: false,
-            error: { code: "FORBIDDEN", message: "Only the assigned operative or Mission Control can publish telemetry." },
+            error: { code: "FORBIDDEN", message: "Only the assigned operative or Task Control can publish telemetry." },
           },
           { status: 403 }
         );

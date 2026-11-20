@@ -315,7 +315,7 @@ export default function AgentQueuePage() {
             {/* Payout & Secured Payment Assurance */}
             <div className="bg-[var(--primary-light)]/40 border border-[var(--primary-border)] rounded-2xl p-4 flex items-center justify-between">
               <div>
-                <span className="text-xs text-[var(--text-muted)] block font-medium">Mission Payout</span>
+                <span className="text-xs text-[var(--text-muted)] block font-medium">Task Payout</span>
                 <span className="text-2xl font-black text-[var(--primary)]">
                   {selectedOffer.priceNgn ? formatCurrency(selectedOffer.priceNgn) : "₦10,000"}
                 </span>
@@ -329,7 +329,7 @@ export default function AgentQueuePage() {
               </div>
             </div>
 
-            {/* Mission Details Cards */}
+            {/* Task Details Cards */}
             <div className="space-y-2 text-xs">
               <div className="p-3 rounded-xl bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] flex items-center justify-between">
                 <span className="text-[var(--text-muted)]">Site Address:</span>
@@ -360,7 +360,7 @@ export default function AgentQueuePage() {
                 }}
                 className="flex-1 py-3 rounded-2xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
               >
-                Accept Mission
+                Accept Task
               </button>
             </div>
           </div>
@@ -374,9 +374,9 @@ export default function AgentQueuePage() {
             {/* Mobile Drag Handle */}
             <div className="w-12 h-1.5 bg-[var(--border-color)] rounded-full mx-auto mb-2 sm:hidden shrink-0" />
 
-            <h3 className="text-base font-bold text-[var(--text-heading)]">Claim Mission</h3>
+            <h3 className="text-base font-bold text-[var(--text-heading)]">Claim Task</h3>
             <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-              By claiming this mission, you commit to arriving on-site within SLA guidelines and submitting accredited photographic deliverables.
+              By claiming this task, you commit to arriving on-site within SLA guidelines and submitting accredited photographic deliverables.
             </p>
             <div className="flex gap-2 pt-2">
               <button
@@ -409,7 +409,7 @@ export default function AgentQueuePage() {
             <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
               <Check className="w-6 h-6 stroke-[3]" />
             </div>
-            <h3 className="text-base font-bold text-[var(--text-heading)]">Mission Accepted!</h3>
+            <h3 className="text-base font-bold text-[var(--text-heading)]">Task Accepted!</h3>
             <p className="text-xs text-[var(--text-muted)] leading-relaxed">
               &quot;{confirmedOffer.title}&quot; has been assigned to your active tasks. Status advanced to AGENT_EN_ROUTE.
             </p>
@@ -418,7 +418,7 @@ export default function AgentQueuePage() {
                 href={`/agent/tasks/${confirmedOffer.id}`}
                 className="w-full py-3 rounded-2xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-xs font-bold text-white transition-colors shadow-xs inline-block"
               >
-                Open Mission in Tasks
+                Open Task in Tasks
               </Link>
             </div>
           </div>

@@ -140,9 +140,11 @@ export default function AgentTaskExecutionPage({
   const [riskRating, setRiskRating] = useState<"LOW" | "MEDIUM" | "HIGH">("LOW");
   const [verificationVerdict, setVerificationVerdict] = useState<string>("Verified & Satisfactory");
   const [agentNotes, setAgentNotes] = useState("");
+  const [structuredInputValues, setStructuredInputValues] = useState<Record<string, string>>({});
+  const [checkedDeliverables, setCheckedDeliverables] = useState<Record<number, boolean>>({});
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
-  // Real-time Mission Chat Modal State
+  // Real-time Task Chat Modal State
   const [showMessageModal, setShowMessageModal] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
@@ -259,9 +261,12 @@ export default function AgentTaskExecutionPage({
   );
   const allEvidenceSlots = [...baseSlots, ...extraSlots];
 
-  const agentPayoutNgn = task?.priceNgn
-    ? Math.round(Number(task.priceNgn) * 0.8)
-    : 9600;
+  const agentPayoutNgn =
+    task?.agentPayoutNgn !== undefined && task?.agentPayoutNgn !== null
+      ? Number(task.agentPayoutNgn)
+      : task?.priceNgn
+        ? Number(task.priceNgn)
+        : 0;
 
   const isPropertyOversiteTask =
     task?.moduleType === "PROPERTY_OVERSITE" ||
@@ -557,27 +562,39 @@ export default function AgentTaskExecutionPage({
             task?.title || "assignment"
           } at ${task?.locationAddress || "target site"} with ${mediaPayload.length} geo-tagged evidence captures.`;
 
-      if (token) {
-        await fetch("/api/v1/reports/submit", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+      const res = await fetch(`/api/v1/tasks/${taskId}/reports`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          summary: structuredSummary,
+          findings: agentNotes.trim() || structuredSummary,
+          severity: riskRating,
+          checklist: (task?.executionBlueprint?.deliverablesChecklist || []).map(
+            (item: string, idx: number) => ({
+              label: item,
+              checked: Boolean(checkedDeliverables[idx]),
+            })
+          ),
+          completionPct: 100,
+          media: mediaPayload,
+          metadata: {
+            structuredInputs: structuredInputValues,
+            deliverablesCompleted: checkedDeliverables,
+            verdict: verificationVerdict,
           },
-          body: JSON.stringify({
-            taskId,
-            summary: structuredSummary,
-            findings: agentNotes.trim() || structuredSummary,
-            severity: riskRating,
-            checklist: milestones.map((m) => ({
-              title: m.title,
-              status: m.status,
-            })),
-            completionPct: 100,
-            media: mediaPayload,
-          }),
-        }).catch(() => null);
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        showToast(
+          json?.error?.message || "Failed to submit report. Please try again."
+        );
+        return;
       }
 
       setCurrentStep(4);
@@ -602,7 +619,7 @@ export default function AgentTaskExecutionPage({
       <AgentTopNav
         showBack={true}
         backHref="/agent/tasks"
-        title={task?.title || "Field Mission"}
+        title={task?.title || "Field Task"}
         subtitle={task?.locationAddress || "Geofenced Site Inspection"}
       />
 
@@ -638,7 +655,7 @@ export default function AgentTaskExecutionPage({
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-lg font-bold text-[var(--text-heading)] leading-tight">
-              {task?.title || "Field Mission"}
+              {task?.title || "Field Task"}
             </h3>
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[var(--primary-light)] text-[var(--primary)]">
               {moduleBadgeLabel}
@@ -707,7 +724,7 @@ export default function AgentTaskExecutionPage({
               </span>
             </div>
             <div>
-              <span className="text-xs text-[var(--text-muted)] font-semibold block mb-1">Mission Brief & Instructions</span>
+              <span className="text-xs text-[var(--text-muted)] font-semibold block mb-1">Task Brief & Instructions</span>
               <p className="text-xs text-[var(--text-body)] leading-relaxed font-medium whitespace-pre-line">
                 {task?.instructions ||
                   task?.description ||
@@ -718,14 +735,13 @@ export default function AgentTaskExecutionPage({
 
           {/* Bottom Action Bar */}
           <div className="flex items-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setShowMessageModal(true)}
+            <Link
+              href={`/agent/messages/${taskId}`}
               className="bg-[var(--bg-card)] hover:bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-heading)] font-semibold text-xs px-5 py-3.5 rounded-2xl flex items-center gap-2 cursor-pointer transition-colors shadow-xs"
             >
               <MessageSquare className="w-4 h-4 text-[var(--primary)]" />
               <span>Message</span>
-            </button>
+            </Link>
             <button
               type="button"
               onClick={handleGetLocation}
@@ -744,13 +760,13 @@ export default function AgentTaskExecutionPage({
       {/* STEP 2: MODULAR EVIDENCE & MILESTONE PROGRESSION */}
       {currentStep === 2 && (
         <div className="space-y-4">
-          {/* 2A: Task Milestones Progression & Feedback Card (Report vs Submission) */}
-          {milestones.length > 0 && (
+          {/* 2A: Task Milestones Progression & Feedback Card (only when blueprint uses milestones) */}
+          {task?.executionBlueprint?.usesMilestones === true && milestones.length > 0 && (
             <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-[24px] p-5 space-y-3 shadow-[0_0_10px_rgba(0,0,0,0.03)]">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-[var(--text-heading)] flex items-center gap-2">
                   <ListChecks className="w-4 h-4 text-[var(--primary)]" />
-                  <span>Mission Milestones (Report or Submit Progress)</span>
+                  <span>Task Milestones (Report or Submit Progress)</span>
                 </h4>
                 <span className="text-xs font-bold text-[var(--primary)]">
                   {milestones.filter((m) => m.status === "COMPLETED").length}/{milestones.length} Approved
@@ -1053,7 +1069,7 @@ export default function AgentTaskExecutionPage({
               Finalize Inspection Dossier
             </h4>
 
-            {/* Live Mission Summary Box */}
+            {/* Live Task Summary Box */}
             <div className="bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] rounded-2xl p-4 space-y-2 text-xs">
               <div className="flex justify-between text-[var(--text-muted)]">
                 <span>Location Verified</span>
@@ -1127,6 +1143,103 @@ export default function AgentTaskExecutionPage({
               </select>
             </div>
 
+            {/* Dynamic Blueprint Deliverables Checklist & Required Agent Inputs */}
+            {Array.isArray(task?.executionBlueprint?.deliverablesChecklist) &&
+              task.executionBlueprint.deliverablesChecklist.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <label className="block text-xs font-semibold text-[var(--text-heading)]">
+                    Required Deliverables Checklist
+                  </label>
+                  <div className="space-y-1.5">
+                    {task.executionBlueprint.deliverablesChecklist.map(
+                      (item: string, idx: number) => (
+                        <label
+                          key={idx}
+                          className="flex items-start gap-2.5 p-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={Boolean(checkedDeliverables[idx])}
+                            onChange={(e) =>
+                              setCheckedDeliverables((prev) => ({
+                                ...prev,
+                                [idx]: e.target.checked,
+                              }))
+                            }
+                            className="mt-0.5 w-4 h-4 accent-[var(--primary)] rounded cursor-pointer"
+                          />
+                          <span>{item}</span>
+                        </label>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+            {Array.isArray(task?.executionBlueprint?.expectedAgentInputs) &&
+              task.executionBlueprint.expectedAgentInputs.length > 0 && (
+                <div className="space-y-3 pt-1">
+                  <label className="block text-xs font-semibold text-[var(--primary)]">
+                    Structured Field Inputs
+                  </label>
+                  {task.executionBlueprint.expectedAgentInputs
+                    .filter((inp: any) => inp.type !== "media")
+                    .map((inp: any) => (
+                      <div key={inp.field}>
+                        <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1.5">
+                          {inp.label}
+                          {inp.required && <span className="text-red-500 ml-0.5">*</span>}
+                        </label>
+                        {inp.type === "textarea" ? (
+                          <textarea
+                            rows={3}
+                            value={structuredInputValues[inp.field] || ""}
+                            onChange={(e) =>
+                              setStructuredInputValues((prev) => ({
+                                ...prev,
+                                [inp.field]: e.target.value,
+                              }))
+                            }
+                            placeholder={inp.placeholder || `Enter ${inp.label.toLowerCase()}...`}
+                            className="w-full bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] rounded-xl p-3 text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                          />
+                        ) : inp.type === "select" && Array.isArray(inp.options) ? (
+                          <select
+                            value={structuredInputValues[inp.field] || ""}
+                            onChange={(e) =>
+                              setStructuredInputValues((prev) => ({
+                                ...prev,
+                                [inp.field]: e.target.value,
+                              }))
+                            }
+                            className="w-full bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-xs font-medium text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                          >
+                            <option value="">Select {inp.label}...</option>
+                            {inp.options.map((opt: string) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type={inp.type === "number" ? "number" : "text"}
+                            value={structuredInputValues[inp.field] || ""}
+                            onChange={(e) =>
+                              setStructuredInputValues((prev) => ({
+                                ...prev,
+                                [inp.field]: e.target.value,
+                              }))
+                            }
+                            placeholder={inp.placeholder || `Enter ${inp.label.toLowerCase()}...`}
+                            className="w-full bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                          />
+                        )}
+                      </div>
+                    ))}
+                </div>
+              )}
+
             {/* Structured Field 3: Detailed Agent Findings */}
             <div>
               <label className="block text-xs font-semibold text-[var(--text-heading)] mb-1.5">
@@ -1181,7 +1294,7 @@ export default function AgentTaskExecutionPage({
             <p className="text-xs text-[var(--text-muted)] mt-2 leading-relaxed">
               Your field verification for{" "}
               <span className="font-semibold text-[var(--text-heading)]">
-                {task?.title || "Field Mission"}
+                {task?.title || "Field Task"}
               </span>{" "}
               has been submitted to <span className="font-semibold text-[var(--text-heading)]">{clientDisplayName}</span>.
             </p>
@@ -1217,7 +1330,7 @@ export default function AgentTaskExecutionPage({
         </div>
       )}
 
-      {/* Live Mission Chat Modal (Matches Agreed Chat Design & User Chat Bubbles) */}
+      {/* Live Task Chat Modal (Matches Agreed Chat Design & User Chat Bubbles) */}
       {showMessageModal && (
         <div
           className="fixed inset-0 z-[80] bg-black/70 dark:bg-black/85 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
