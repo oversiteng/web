@@ -179,8 +179,8 @@ export default function AgentWalletPage() {
               setHasWithdrawalPin(true);
             }
             if (walletJson.data.totalEarnedNgn !== undefined) {
-              setThisMonth(Number(walletJson.data.totalEarnedNgn ?? 0));
-              setThisWeek(Math.round(Number(walletJson.data.totalEarnedNgn ?? 0) * 0.35));
+              setThisMonth(Number(walletJson.data.thisMonthNgn ?? walletJson.data.totalEarnedNgn ?? 0));
+              setThisWeek(Number(walletJson.data.thisWeekNgn ?? 0));
             }
             if (Array.isArray(walletJson.data.recentPayouts)) {
               setRecentPayouts(walletJson.data.recentPayouts);

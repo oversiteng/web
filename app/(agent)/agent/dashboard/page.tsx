@@ -291,32 +291,7 @@ export default function AgentDashboardPage() {
         taskType: sample.type,
         taskTitle: sample.title,
         urgencyIndex: i, // 0: Red (Today), 1: Orange (Tmrw), 2: Yellow, 3: Lime, 4: Teal, 5: Green
-        tasksForDay:
-          i === 0
-            ? assignedTasks.length > 0
-              ? assignedTasks
-              : [
-                  {
-                    id: "urgent-today-due-diligence",
-                    title: sample.title,
-                    moduleType: sample.type,
-                    status: "IN_PROGRESS",
-                    locationAddress: "Victoria Island Registry, Lagos",
-                    priceNgn: 25000,
-                    createdAt: new Date().toISOString(),
-                  },
-                ]
-            : [
-                {
-                  id: `scheduled-${i}`,
-                  title: sample.title,
-                  moduleType: sample.type,
-                  status: "PENDING",
-                  locationAddress: "Lekki Phase 1, Lagos",
-                  priceNgn: 12500,
-                  createdAt: new Date().toISOString(),
-                },
-              ],
+        tasksForDay: i === 0 ? assignedTasks : [],
       });
     }
     return list;

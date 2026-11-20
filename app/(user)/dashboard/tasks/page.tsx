@@ -150,7 +150,7 @@ function TasksPageContent() {
     searchParams.get("trxref");
   const callbackTaskId = searchParams.get("taskId");
 
-  const [tasksList, setTasksList] = useState<TaskItem[]>(DEFAULT_TASKS);
+  const [tasksList, setTasksList] = useState<TaskItem[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(false);
   const [activeChip, setActiveChip] = useState<TaskCategory>("All");
   const [activeFilter, setActiveFilter] = useState<string | null>(filterParam || null);
@@ -206,7 +206,7 @@ function TasksPageContent() {
 
         setTasksList(() => {
           const existingIds = new Set(apiTasks.map((a) => a.id));
-          const uniqueDefaults = DEFAULT_TASKS.filter((d) => !existingIds.has(d.id));
+          const uniqueDefaults: TaskItem[] = [];
           return [...apiTasks, ...uniqueDefaults];
         });
       }
