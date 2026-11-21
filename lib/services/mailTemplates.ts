@@ -30,6 +30,8 @@ function wrapBrandedLayout({
   const brandGreen = "#10b981";
   const darkBg = "#0b1410";
   const cardBg = "#ffffff";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://dev.oversite.ng";
+  const logoUrl = `${appUrl}/assets/app-icons/oversite_logo_dark.png`;
 
   return `
     <!DOCTYPE html>
@@ -43,11 +45,21 @@ function wrapBrandedLayout({
       <table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 40px 10px;">
         <tr>
           <td align="center">
-            <table width="100%" max-width="560" style="max-width: 560px; background-color: ${cardBg}; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+            <table width="100%" max-width="560" style="max-width: 560px; background-color: ${cardBg}; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
               <tr>
-                <td style="padding: 32px 40px 24px; text-align: left; background-color: ${darkBg};">
-                  <span style="font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">Oversite<span style="color: ${brandGreen};">.ng</span></span>
-                  <span style="font-size: 11px; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; padding: 2px 8px; border-radius: 9999px; font-weight: 700; margin-left: 10px; text-transform: uppercase;">${escapeHtml(badgeText)}</span>
+                <td style="padding: 24px 36px; text-align: left; background-color: ${darkBg};">
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                    <tr>
+                      <td valign="middle" style="text-align: left;">
+                        <a href="${escapeHtml(appUrl)}" style="text-decoration: none; display: inline-flex; align-items: center;">
+                          <img src="${escapeHtml(logoUrl)}" alt="Oversite" height="32" style="height: 32px; width: auto; display: block; border: 0; color: #ffffff; font-size: 18px; font-weight: 800;" />
+                        </a>
+                      </td>
+                      <td valign="middle" style="text-align: right;">
+                        <span style="font-size: 11px; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; padding: 3px 10px; border-radius: 6px; font-weight: 700; text-transform: uppercase;">${escapeHtml(badgeText)}</span>
+                      </td>
+                    </tr>
+                  </table>
                 </td>
               </tr>
               <tr>

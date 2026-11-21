@@ -309,7 +309,8 @@
 }
 
 
-/* Crisp enterprise border radii for the Admin Console (overrides Tailwind v4 --radius-* tokens) */
+/* Crisp architectural border radii across the platform (overrides Tailwind v4 --radius-* tokens) */
+:root,
 .admin-console-root {
   --radius-xs: 0.125rem;
   --radius-sm: 0.25rem;
@@ -317,4 +318,5 @@
   --radius-lg: 0.5rem;
   --radius-xl: 0.625rem;
   --radius-2xl: 0.75rem;
+  --radius-3xl: 0.875rem;
 }

@@ -108,7 +108,7 @@ export default function AgentTaskChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] max-w-3xl mx-auto bg-[var(--bg-main)]">
+    <div className="flex flex-col h-[calc(100dvh-8.5rem)] sm:h-[calc(100dvh-4.5rem)] overflow-hidden max-w-3xl mx-auto bg-[var(--bg-main)]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] shrink-0">
         <div className="flex items-center gap-3 min-w-0">

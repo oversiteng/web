@@ -239,41 +239,100 @@ export function getDefaultBlueprintForModule(
     case "PROPERTY_OVERSITE":
     default:
       return {
-        usesMilestones: false,
+        usesMilestones: true,
         operationalBrief:
           fallbackDescription ||
-          "Inspect property perimeter, occupancy status, and neighborhood environment.",
+          "Execute baseline Property Oversight intelligence: 1) Physical Site Summary & Geofence Verification, 2) Word on the Street (Community & Neighbor Inquiries), and 3) Statutory Layout Directives & Vicinity Landmarks.",
         deliverablesChecklist: [
-          "Verify perimeter fence and gate integrity",
-          "Check occupancy and absence of unauthorized encroachment",
-          "Capture geo-tagged front, left, right, and street-view photos",
+          "1. Physical Site Summary: Verify perimeter fence, occupancy status, and setback compliance",
+          "2. Word on the Street: Interview at least 2–3 nearby caretakers/neighbors for communal disputes or encroachment",
+          "3. Statutory & Landmarks: Check physical planning compliance and document primary vicinity transit/commercial landmark",
+          "4. Geo-Tagged Evidence: Capture front elevation, perimeter/gate, street view, and vicinity landmark photos",
         ],
         expectedAgentInputs: [
           {
             field: "occupancy",
-            label: "Occupancy Status",
+            label: "1. Site Occupancy Status",
             type: "select",
             required: true,
             options: ["Vacant", "Occupied (Authorized)", "Unauthorized Activity", "Under Construction"],
           },
           {
             field: "fenceCondition",
-            label: "Perimeter Fence Condition",
+            label: "1. Perimeter Fence Condition",
             type: "select",
             required: true,
             options: ["Intact", "Minor Damage", "Breached", "Unfenced"],
           },
           {
+            field: "setbackCompliance",
+            label: "1. Setback & Boundary Compliance",
+            type: "text",
+            required: true,
+            placeholder: "e.g. 3.5m OK · Beacons intact",
+          },
+          {
             field: "siteSummary",
-            label: "Field Inspection Summary",
+            label: "1. Physical Site Inspection Summary",
             type: "textarea",
             required: true,
+            placeholder: "Describe physical perimeter, structures, soil/drainage, and occupancy...",
+          },
+          {
+            field: "wordOnStreetHeadline",
+            label: "2. Word on the Street Headline",
+            type: "text",
+            required: true,
+            placeholder: "e.g. Community & Neighbor Inquiries — No Disputes",
+          },
+          {
+            field: "sourcesChecked",
+            label: "2. Number of Local Sources Interviewed",
+            type: "number",
+            required: true,
+            placeholder: "e.g. 3",
+          },
+          {
+            field: "wordOnStreetSummary",
+            label: "2. Word on the Street Findings",
+            type: "textarea",
+            required: true,
+            placeholder: "Summarize interviews with adjacent property managers, caretakers, or community leaders...",
+          },
+          {
+            field: "policyDirectiveNote",
+            label: "3. State Policy / Statutory Layout Compliance Note",
+            type: "textarea",
+            required: false,
+            placeholder: "Note any state physical planning circulars, road setback notices, or zoning observations...",
+          },
+          {
+            field: "landmarkName",
+            label: "3. Primary Vicinity Landmark Name",
+            type: "text",
+            required: false,
+            placeholder: "e.g. Admiralty Toll Plaza / Major Transit Node",
+          },
+          {
+            field: "landmarkDistance",
+            label: "3. Landmark Distance & Drive Time",
+            type: "text",
+            required: false,
+            placeholder: "e.g. 1.2 km · 4 mins drive",
+          },
+          {
+            field: "landmarkFeature",
+            label: "3. Landmark Significance / Feature",
+            type: "text",
+            required: false,
+            placeholder: "e.g. Primary arterial road access & commercial corridor",
           },
         ],
         evidenceSlots: [
-          { key: "front", label: "Front Elevation", required: true },
-          { key: "perimeter", label: "Perimeter & Gate", required: true },
+          { key: "front", label: "Front Elevation & Beacon", required: true },
+          { key: "perimeter", label: "Perimeter Fence & Gate", required: true },
           { key: "street_view", label: "Access Road & Street View", required: true },
+          { key: "vicinity_landmark", label: "Vicinity Landmark Context", required: false },
         ],
       };
   }
@@ -295,29 +354,63 @@ export function resolveTaskExecutionBlueprint(task: {
   );
 
   const saved = fd.executionBlueprint as Partial<TaskExecutionBlueprint> | undefined;
+  const isPropertyOversite =
+    String(task.moduleType || "").toUpperCase() === "PROPERTY_OVERSITE" &&
+    !fd.quickActionType;
+
+  // Detect legacy 3-item Property Oversight checklist/inputs so existing tasks automatically upgrade to the full 1:1 Property Timeline blueprint
+  const rawChecklist = Array.isArray(saved?.deliverablesChecklist)
+    ? saved.deliverablesChecklist
+    : Array.isArray(fd.deliverablesChecklist)
+    ? fd.deliverablesChecklist
+    : null;
+  const isLegacy3ItemChecklist =
+    isPropertyOversite &&
+    rawChecklist &&
+    rawChecklist.length === 3 &&
+    String(rawChecklist[0] || "").includes("Verify perimeter fence and gate integrity");
+
+  const rawInputs = Array.isArray(saved?.expectedAgentInputs)
+    ? saved.expectedAgentInputs
+    : Array.isArray(fd.expectedAgentInputs)
+    ? fd.expectedAgentInputs
+    : null;
+  const isLegacy3ItemInputs =
+    isPropertyOversite &&
+    rawInputs &&
+    rawInputs.length === 3 &&
+    !rawInputs.some((inp: any) => inp?.field === "wordOnStreetSummary");
+
+  const rawSlots =
+    Array.isArray(saved?.evidenceSlots) && saved.evidenceSlots.length > 0
+      ? saved.evidenceSlots
+      : null;
+  const isLegacy3ItemSlots =
+    isPropertyOversite &&
+    rawSlots &&
+    rawSlots.length === 3 &&
+    !rawSlots.some((s: any) => s?.key === "vicinity_landmark");
 
   return {
     usesMilestones:
-      typeof saved?.usesMilestones === "boolean"
+      isPropertyOversite
+        ? true
+        : typeof saved?.usesMilestones === "boolean"
         ? saved.usesMilestones
         : defaults.usesMilestones,
     operationalBrief:
       saved?.operationalBrief || task.description || defaults.operationalBrief,
     deliverablesChecklist:
-      Array.isArray(saved?.deliverablesChecklist)
-        ? saved.deliverablesChecklist
-        : Array.isArray(fd.deliverablesChecklist)
-        ? fd.deliverablesChecklist
+      rawChecklist && !isLegacy3ItemChecklist
+        ? rawChecklist
         : defaults.deliverablesChecklist,
     expectedAgentInputs:
-      Array.isArray(saved?.expectedAgentInputs)
-        ? saved.expectedAgentInputs
-        : Array.isArray(fd.expectedAgentInputs)
-        ? fd.expectedAgentInputs
+      rawInputs && !isLegacy3ItemInputs
+        ? rawInputs
         : defaults.expectedAgentInputs,
     evidenceSlots:
-      Array.isArray(saved?.evidenceSlots) && saved.evidenceSlots.length > 0
-        ? saved.evidenceSlots
+      rawSlots && !isLegacy3ItemSlots
+        ? rawSlots
         : defaults.evidenceSlots,
     adminStructuredAt: saved?.adminStructuredAt || null,
   };

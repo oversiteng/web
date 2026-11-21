@@ -42,8 +42,37 @@ interface TaskItem {
   locationAddress: string | null;
   priceNgn: number | string | null;
   createdAt: string;
+  scheduledAt?: string | null;
+  clientPromisedDeliveryDate?: string | null;
   agentId?: string | null;
 }
+
+const AGENT_PROMO_SLIDES = [
+  {
+    badge: "PRIORITY DISPATCH",
+    title: "Complete 6/6 Accreditation to Unlock High-Value Dossiers",
+    desc: "Fully verified operatives receive first-priority matching on Title Registry & Legal Liaison assignments.",
+    cta: "Verify Now",
+    href: "/agent/verification",
+    image: "/assets/images/onboarding/onboard1.jpg",
+  },
+  {
+    badge: "FAST PAYOUTS",
+    title: "Instant Wallet Release Upon QA Verification",
+    desc: "Link your payout bank account and transaction PIN in Earnings for automated bank settlement.",
+    cta: "Manage Wallet",
+    href: "/agent/wallet",
+    image: "/assets/images/onboarding/onboard2.jpg",
+  },
+  {
+    badge: "RELIABILITY SCORE",
+    title: "Maintain 95%+ SLA Reliability for Executive Retainers",
+    desc: "Accept assigned tasks within your 2-hour window and upload geo-tagged evidence on time.",
+    cta: "Open Queue",
+    href: "/agent/queue",
+    image: "/assets/images/onboarding/onboard3.jpg",
+  },
+];
 
 const TASK_MODULE_CONFIG: Record<
   string,
@@ -166,6 +195,14 @@ export default function AgentDashboardPage() {
   const [assignedTasks, setAssignedTasks] = useState<TaskItem[]>([]);
   const [queueTasks, setQueueTasks] = useState<TaskItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [promoSlideIndex, setPromoSlideIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setPromoSlideIndex((prev) => (prev + 1) % AGENT_PROMO_SLIDES.length);
+    }, 5500);
+    return () => clearInterval(timer);
+  }, []);
 
   // Responsive Drawer (Mobile) & Modal (Desktop) States
   const [selectedOfferForDetail, setSelectedOfferForDetail] = useState<TaskItem | null>(null);
@@ -225,8 +262,11 @@ export default function AgentDashboardPage() {
           const tJson = await tasksRes.json();
           if (tJson.success && Array.isArray(tJson.data)) {
             const all = tJson.data as TaskItem[];
+            // Only accepted active tasks belong in assignedTasks / schedule calendar
             const myActive = all.filter(
-              (t) => t.agentId === user?.id && !["COMPLETED", "CANCELLED"].includes(t.status)
+              (t) =>
+                t.agentId === user?.id &&
+                !["PENDING", "MATCHED", "COMPLETED", "CANCELLED"].includes(t.status)
             );
             const openInQueue = all.filter(
               (t) => ["PENDING", "MATCHED"].includes(t.status) && (!t.agentId || t.agentId === user?.id)
@@ -244,54 +284,49 @@ export default function AgentDashboardPage() {
     loadDashboardData();
   }, [user]);
 
-  // Compute dynamic day schedule with task representations and urgency colors
+  // Compute dynamic day schedule strictly from real accepted tasks due on each day
   const daysSchedule = useMemo(() => {
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const list = [];
+    const list: Array<{
+      day: string;
+      date: string;
+      isoDate: string;
+      taskType: string | null;
+      taskTitle: string | null;
+      urgencyIndex: number;
+      tasksForDay: TaskItem[];
+    }> = [];
     const now = new Date();
-
-    const sampleModules: Array<{
-      type: string;
-      title: string;
-    }> = [
-      {
-        type: assignedTasks[0]?.moduleType || "DUE_DILIGENCE",
-        title: assignedTasks[0]?.title || "Due Diligence Dossier Inspection",
-      },
-      {
-        type: assignedTasks[1]?.moduleType || "PROPERTY_OVERSITE",
-        title: assignedTasks[1]?.title || "Perimeter Site Verification",
-      },
-      {
-        type: "DOCUMENT_PROCESSING",
-        title: "CAC Certified Filing Retrieval",
-      },
-      {
-        type: "QUICK_ERRANDS",
-        title: "Expedited Title Registry Retrieval",
-      },
-      {
-        type: "LEGAL_ADVISORY",
-        title: "Zoning & Legal Compliance Verification",
-      },
-      {
-        type: "PROJECT_WATCH",
-        title: "Milestone Construction Audit",
-      },
-    ];
 
     for (let i = 0; i < 6; i++) {
       const d = new Date(now);
       d.setDate(now.getDate() + i);
-      const sample = sampleModules[i] || sampleModules[5];
+      const targetYear = d.getFullYear();
+      const targetMonth = d.getMonth();
+      const targetDate = d.getDate();
+
+      const tasksForDay = assignedTasks.filter((t) => {
+        const rawDue = t.clientPromisedDeliveryDate || t.scheduledAt;
+        const dueDate = rawDue
+          ? new Date(rawDue)
+          : new Date(new Date(t.createdAt).getTime() + 24 * 60 * 60 * 1000);
+        return (
+          dueDate.getFullYear() === targetYear &&
+          dueDate.getMonth() === targetMonth &&
+          dueDate.getDate() === targetDate
+        );
+      });
+
+      const primaryTask = tasksForDay[0] || null;
 
       list.push({
         day: i === 0 ? "Today" : i === 1 ? "Tmrw" : dayNames[d.getDay()],
-        date: String(d.getDate()),
-        taskType: sample.type,
-        taskTitle: sample.title,
-        urgencyIndex: i, // 0: Red (Today), 1: Orange (Tmrw), 2: Yellow, 3: Lime, 4: Teal, 5: Green
-        tasksForDay: i === 0 ? assignedTasks : [],
+        date: String(targetDate),
+        isoDate: d.toISOString().slice(0, 10),
+        taskType: primaryTask ? primaryTask.moduleType : null,
+        taskTitle: primaryTask ? primaryTask.title : null,
+        urgencyIndex: i,
+        tasksForDay,
       });
     }
     return list;
@@ -330,7 +365,7 @@ export default function AgentDashboardPage() {
   const activeTask = assignedTasks[0];
 
   return (
-    <div className="space-y-5 max-w-full pb-10">
+    <div className="space-y-5 max-w-full pb-28 sm:pb-14">
       {/* Toast Feedback */}
       {toastMessage && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-[var(--bg-card)] text-[var(--text-heading)] border border-[var(--border-color)] font-semibold text-xs px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 backdrop-blur-md animate-in fade-in slide-in-from-top-4 duration-200">
@@ -403,12 +438,15 @@ export default function AgentDashboardPage() {
           </button>
         </div>
 
-        {/* Day Carousel: Red (Today) -> Orange (Tmrw) -> Yellow -> Lime -> Teal -> Green */}
+        {/* Day Carousel: Highlights only when real accepted tasks are scheduled for that date */}
         <div className="flex sm:grid sm:grid-cols-6 gap-2 sm:gap-2.5 overflow-x-auto sm:overflow-visible no-scrollbar snap-x snap-mandatory -mx-2 px-4 sm:mx-0 sm:px-0 py-1">
           {daysSchedule.map((item, idx) => {
             const isSelected = selectedDay === item.day;
+            const hasTasks = item.tasksForDay.length > 0;
             const theme = URGENCY_SPECTRUM[idx] || URGENCY_SPECTRUM[5];
-            const TaskIcon = TASK_MODULE_CONFIG[item.taskType]?.icon || PieChartIcon;
+            const TaskIcon = item.taskType
+              ? TASK_MODULE_CONFIG[item.taskType]?.icon || PieChartIcon
+              : null;
 
             return (
               <button
@@ -418,22 +456,40 @@ export default function AgentDashboardPage() {
                   setSelectedDay(item.day);
                   setIsDayScheduleDrawerOpen(true);
                 }}
-                className={`w-[78px] sm:w-auto shrink-0 sm:shrink snap-start py-3 px-2 sm:py-4 sm:px-2.5 rounded-2xl flex flex-col items-center justify-between min-h-[114px] sm:min-h-[124px] transition-all cursor-pointer relative bg-[var(--bg-card)] shadow-xs ${
-                  isSelected
-                    ? `border-2 shadow-md ${theme.border} ring-2 ring-[var(--text-heading)]/15`
-                    : "border border-[var(--border-color)]/70 hover:border-[var(--primary-border)]"
+                className={`w-[78px] sm:w-auto shrink-0 sm:shrink snap-start py-3 px-2 sm:py-4 sm:px-2.5 rounded-xl flex flex-col items-center justify-between min-h-[114px] sm:min-h-[124px] transition-all cursor-pointer relative bg-[var(--bg-card)] shadow-xs ${
+                  hasTasks
+                    ? isSelected
+                      ? `border-2 shadow-md ${theme.border} ring-2 ring-[var(--text-heading)]/15`
+                      : `border-2 ${theme.border}/70 hover:${theme.border}`
+                    : isSelected
+                    ? "border-2 border-[var(--primary)] shadow-sm"
+                    : "border border-[var(--border-color)]/70 hover:border-[var(--primary-border)] opacity-80"
                 }`}
               >
                 <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                   {item.day}
                 </span>
 
-                <div
-                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl border-2 ${theme.badgeBorder} ${theme.badgeBg} flex items-center justify-center transition-transform shadow-xs`}
-                  title={`${item.taskTitle} (${theme.name})`}
-                >
-                  <TaskIcon className={`w-5 h-5 sm:w-6 sm:h-6 ${theme.iconColor}`} />
-                </div>
+                {hasTasks && TaskIcon ? (
+                  <div
+                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl border-2 ${theme.badgeBorder} ${theme.badgeBg} flex items-center justify-center transition-transform shadow-xs relative`}
+                    title={`${item.taskTitle} (${item.tasksForDay.length} scheduled)`}
+                  >
+                    <TaskIcon className={`w-5 h-5 sm:w-6 sm:h-6 ${theme.iconColor}`} />
+                    {item.tasksForDay.length > 1 && (
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[var(--text-heading)] text-[var(--bg-card)] text-[9px] font-bold flex items-center justify-center">
+                        {item.tasksForDay.length}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-dashed border-[var(--border-color)] bg-[var(--bg-secondary)]/50 flex items-center justify-center"
+                    title="No scheduled tasks"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)]/40" />
+                  </div>
+                )}
 
                 {/* Big Date Number at bottom */}
                 <span className="text-base sm:text-lg font-semibold leading-none text-[var(--text-heading)]">
@@ -448,18 +504,29 @@ export default function AgentDashboardPage() {
         {(() => {
           const selectedIdx = daysSchedule.findIndex((d) => d.day === selectedDay);
           const activeTheme = URGENCY_SPECTRUM[selectedIdx >= 0 ? selectedIdx : 0];
+          const hasTasksOnSelected = activeScheduleItem.tasksForDay.length > 0;
 
           return (
             <div
               onClick={() => setIsDayScheduleDrawerOpen(true)}
-              className={`border-2 ${activeTheme.border} bg-[var(--bg-card)] rounded-2xl px-3.5 py-3 flex items-center justify-between text-xs transition-all cursor-pointer group shadow-xs`}
+              className={`border ${
+                hasTasksOnSelected ? `border-2 ${activeTheme.border}` : "border-[var(--border-color)]"
+              } bg-[var(--bg-card)] rounded-xl px-3.5 py-3 flex items-center justify-between text-xs transition-all cursor-pointer group shadow-xs`}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <AlertCircle className={`w-4 h-4 shrink-0 ${activeTheme.iconColor}`} />
+                <AlertCircle
+                  className={`w-4 h-4 shrink-0 ${
+                    hasTasksOnSelected ? activeTheme.iconColor : "text-[var(--text-muted)]"
+                  }`}
+                />
                 <span className="font-bold truncate text-[var(--text-heading)]">
-                  {activeScheduleItem.taskTitle
-                    ? `${activeScheduleItem.day}: ${activeScheduleItem.taskTitle} · Tap to inspect`
-                    : `No SLA deadlines for ${activeScheduleItem.day} · Tap to see details`}
+                  {hasTasksOnSelected && activeScheduleItem.taskTitle
+                    ? `${activeScheduleItem.day}: ${activeScheduleItem.taskTitle}${
+                        activeScheduleItem.tasksForDay.length > 1
+                          ? ` (+${activeScheduleItem.tasksForDay.length - 1} more)`
+                          : ""
+                      } · Tap to inspect`
+                    : `No SLA deadlines scheduled for ${activeScheduleItem.day}`}
                 </span>
               </div>
               <ChevronRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--text-heading)] group-hover:translate-x-0.5 transition-all shrink-0" />
@@ -467,6 +534,57 @@ export default function AgentDashboardPage() {
           );
         })()}
       </div>
+
+      {/* ── 3B. Operative Insights & Promo Carousel ── */}
+      {(() => {
+        const slide = AGENT_PROMO_SLIDES[promoSlideIndex] || AGENT_PROMO_SLIDES[0];
+        return (
+          <div className="relative rounded-xl overflow-hidden border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xs">
+            <div className="relative p-4 sm:p-5 flex items-center justify-between gap-4 bg-gradient-to-r from-[#062E22] via-[#0B3B2D] to-[#114B3A] text-white">
+              <div className="space-y-1.5 max-w-[72%]">
+                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-400/20 text-emerald-300 border border-emerald-400/30">
+                  {slide.badge}
+                </span>
+                <h4 className="text-sm sm:text-base font-bold leading-snug text-white">
+                  {slide.title}
+                </h4>
+                <p className="text-[11px] sm:text-xs text-white/80 leading-relaxed line-clamp-2">
+                  {slide.desc}
+                </p>
+                <div className="pt-1 flex items-center gap-3">
+                  <Link
+                    href={slide.href}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-bold transition-colors shadow-xs"
+                  >
+                    <span>{slide.cta}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <div className="flex items-center gap-1.5">
+                    {AGENT_PROMO_SLIDES.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setPromoSlideIndex(i)}
+                        aria-label={`Slide ${i + 1}`}
+                        className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                          i === promoSlideIndex ? "w-5 bg-emerald-400" : "w-1.5 bg-white/35"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-white/15 shrink-0 hidden xs:block">
+                <img
+                  src={slide.image}
+                  alt={slide.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── 4. Available to Withdraw (Wallet Card) ── */}
       <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-[24px] p-5 space-y-3 shadow-[0_0_10px_rgba(0,0,0,0.03)]">

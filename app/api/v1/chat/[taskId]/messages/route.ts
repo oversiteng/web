@@ -3,7 +3,7 @@ import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
 import { TaskChat } from "@/lib/types/task";
 import { getDbReady } from "@/lib/db/client";
-import { taskChats, tasks } from "@/db/schema";
+import { taskChats, tasks, properties, users } from "@/db/schema";
 import { eq, and, or, inArray, asc } from "drizzle-orm";
 import { realtimeBridge } from "@/lib/realtime/websocketHandlers";
 
@@ -242,10 +242,43 @@ export const POST = withAuth<{ taskId: string }>(
         );
       }
 
-      // Auto-resolve receiverId if not explicitly provided
-      if (!receiverId) {
+      // Auto-resolve receiverId to a valid UUID if not explicitly provided
+      const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!receiverId || !UUID_PATTERN.test(String(receiverId))) {
         if (isOwner) {
-          receiverId = task.agentId || "oversite-property-desk";
+          if (task.agentId && UUID_PATTERN.test(task.agentId)) {
+            receiverId = task.agentId;
+          } else {
+            let assignedManagerUuid: string | null = null;
+            if (task.propertyId) {
+              const [propRow] = await db
+                .select({ description: properties.description })
+                .from(properties)
+                .where(eq(properties.id, task.propertyId))
+                .limit(1);
+              if (propRow?.description && propRow.description.trim().startsWith("{")) {
+                try {
+                  const parsed = JSON.parse(propRow.description);
+                  if (
+                    parsed?.assignedAgentId &&
+                    UUID_PATTERN.test(String(parsed.assignedAgentId))
+                  ) {
+                    assignedManagerUuid = String(parsed.assignedAgentId);
+                  }
+                } catch {}
+              }
+            }
+            if (assignedManagerUuid) {
+              receiverId = assignedManagerUuid;
+            } else {
+              const adminRows = await db
+                .select({ id: users.id })
+                .from(users)
+                .where(inArray(users.role, ["ADMIN", "SUPER_ADMIN"]))
+                .limit(1);
+              receiverId = adminRows[0]?.id || task.userId;
+            }
+          }
         } else if (isAssignedAgent) {
           receiverId = task.userId;
         } else {

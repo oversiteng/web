@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getStoredToken } from "@/lib/storage/clientStorage";
 import { AgentTopNav } from "@/components/agent/AgentTopNav";
+import { ResponsiveSelect } from "@/components/ui/ResponsiveSelect";
+import { getAgentTypeOption, AgentTypeOption } from "@/lib/constants/agentTypes";
 import {
   compressClientImageFile,
   formatFileSize,
@@ -39,10 +41,12 @@ interface VerificationItem {
     | "GUARANTOR_FORM"
     | "CAC_CERTIFICATE"
     | "INVESTIGATION_CERTIFICATE"
+    | "BAR_PRACTICING_LICENSE"
     | "BACKGROUND_CHECK";
   title: string;
   subtitle: string;
   status: VerificationStatus;
+  rejectionReason?: string | null;
 }
 
 const INITIAL_VERIFICATION_ITEMS: VerificationItem[] = [
@@ -108,6 +112,12 @@ export default function AgentVerificationPage() {
 
   const [items, setItems] = useState<VerificationItem[]>(INITIAL_VERIFICATION_ITEMS);
   const [activeItem, setActiveItem] = useState<VerificationItem | null>(null);
+  const [savedDocsMap, setSavedDocsMap] = useState<Record<string, any>>({});
+  const [agentTypeOpt, setAgentTypeOpt] = useState<AgentTypeOption>(() =>
+    getAgentTypeOption("INVESTIGATOR")
+  );
+  const [kycReviewNote, setKycReviewNote] = useState<string | null>(null);
+  const [overallKycStatus, setOverallKycStatus] = useState<string>("PENDING");
 
   // Live WebRTC Camera states (never opens file explorer)
   const [cameraMode, setCameraMode] = useState<"closed" | "selfie-inline" | "doc-modal">("closed");
@@ -119,6 +129,7 @@ export default function AgentVerificationPage() {
   const [residentialAddress, setResidentialAddress] = useState("");
   const [guarantorName, setGuarantorName] = useState("");
   const [guarantorPhone, setGuarantorPhone] = useState("");
+  const [qualificationType, setQualificationType] = useState("PROFESSIONAL_LICENSE");
   const [issuingBody, setIssuingBody] = useState("");
   const [certNumber, setCertNumber] = useState("");
   const [certIssuedDate, setCertIssuedDate] = useState("");
@@ -147,6 +158,20 @@ export default function AgentVerificationPage() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const resolveStoredMediaUrl = (raw?: string | null): string | null => {
+    if (!raw) return null;
+    const s = raw.trim();
+    if (!s || /^kyc\/[^/]+\/completed\.pdf$/i.test(s)) return null;
+    if (s.startsWith("data:") || s.startsWith("/api/v1/media")) return s;
+    if (s.startsWith("http://") || s.startsWith("https://")) {
+      if (s.includes(".amazonaws.com/")) {
+        return `/api/v1/media?url=${encodeURIComponent(s)}`;
+      }
+      return s;
+    }
+    return `/api/v1/media?key=${encodeURIComponent(s)}`;
+  };
+
   const syncLiveKycStatus = async () => {
     try {
       const token = await getStoredToken();
@@ -159,28 +184,117 @@ export default function AgentVerificationPage() {
       if (!res.ok) return;
 
       const json = await res.json();
-      const steps = json?.data?.steps || {};
-      const docs: Record<string, any> = json?.data?.documents || {};
+      const data = json?.data || {};
+      const steps = data.steps || {};
+      const docs: Record<string, any> = data.documents || {};
+      const resolvedOpt = getAgentTypeOption(data.agentTier);
+
+      setAgentTypeOpt(resolvedOpt);
+      setSavedDocsMap(docs);
+      if (data.kycStatus) setOverallKycStatus(data.kycStatus);
+      setKycReviewNote(data.kycReviewNote || null);
+
+      // Hydrate form fields from signup / saved KYC records so NIN, NBA, address, etc. are never empty
+      const existingNin =
+        data.ninId ||
+        docs.ninNumber ||
+        docs.government_id?.metadata?.ninNumber ||
+        "";
+      if (existingNin) {
+        setNinInput((prev) => prev || String(existingNin));
+      }
+
+      const existingAddress =
+        data.residentialAddress ||
+        docs.proof_of_address?.metadata?.residentialAddress ||
+        docs.utility_bill?.metadata?.residentialAddress ||
+        "";
+      if (existingAddress) {
+        setResidentialAddress((prev) => prev || String(existingAddress));
+      }
+
+      const guarMeta = docs.guarantor_form?.metadata;
+      if (guarMeta?.guarantorName) {
+        setGuarantorName((prev) => prev || String(guarMeta.guarantorName));
+      }
+      if (guarMeta?.guarantorPhone) {
+        setGuarantorPhone(
+          (prev) => prev || String(guarMeta.guarantorPhone).replace(/^\+234/, "")
+        );
+      }
+
+      const profDoc =
+        docs[resolvedOpt.credential.docKey] ||
+        docs.bar_practicing_license ||
+        docs.investigation_certificate ||
+        docs.cac_certificate;
+      const profMeta = profDoc?.metadata;
+      const defaultQualVal =
+        resolvedOpt.credential.qualificationOptions[0]?.value || "PROFESSIONAL_LICENSE";
+      if (profMeta?.qualificationType) {
+        setQualificationType(String(profMeta.qualificationType));
+      } else {
+        setQualificationType(defaultQualVal);
+      }
+
+      const existingNbaOrCert =
+        data.nbaNumber ||
+        docs.nbaNumber ||
+        profMeta?.certificateNumber ||
+        "";
+      if (existingNbaOrCert) {
+        setCertNumber((prev) => prev || String(existingNbaOrCert));
+      }
+      if (profMeta?.issuingBody) {
+        setIssuingBody((prev) => prev || String(profMeta.issuingBody));
+      } else if (resolvedOpt.credential.isNba) {
+        setIssuingBody((prev) => prev || "Nigerian Bar Association (NBA)");
+      }
+      if (profMeta?.issuedDate) {
+        setCertIssuedDate((prev) => prev || String(profMeta.issuedDate));
+      }
+      if (profMeta?.expiryDate) {
+        setCertExpiryDate((prev) => prev || String(profMeta.expiryDate));
+      }
 
       setItems((prev) =>
-        prev.map((item) => {
+        prev.map((rawItem) => {
+          const item: VerificationItem =
+            rawItem.id === "investigation-cert"
+              ? {
+                  ...rawItem,
+                  title: resolvedOpt.credential.title,
+                  docType: resolvedOpt.credential.docType,
+                }
+              : rawItem;
+
           let docEntry: any = null;
           if (item.id === "nin-slip") {
             docEntry = docs.government_id;
             if (steps.step2IdentityNIN?.completed) {
               return { ...item, status: "verified", subtitle: "Verified via NIMC" };
             }
+            if (!docEntry && existingNin) {
+              return {
+                ...item,
+                status: "awaiting",
+                subtitle: `NIN ${existingNin} saved · Upload slip to complete`,
+              };
+            }
           } else if (item.id === "passport-photo") {
             docEntry = docs.passport_photo;
           } else if (item.id === "proof-of-address") {
             docEntry = docs.proof_of_address || docs.utility_bill;
-            if (steps.step4ProofOfAddress?.completed) {
+            if (steps.step4ProofOfAddress?.completed && data.addressVerificationStatus === "verified") {
               return { ...item, status: "verified", subtitle: "Verified" };
             }
           } else if (item.id === "guarantor-form") {
             docEntry = docs.guarantor_form;
           } else if (item.id === "investigation-cert") {
-            docEntry = docs.investigation_certificate || docs.cac_certificate;
+            docEntry = profDoc;
+            if (resolvedOpt.credential.isNba && data.nbaVerificationStatus === "verified") {
+              return { ...item, status: "verified", subtitle: "NBA Enrollment Verified" };
+            }
           } else if (item.id === "background-check") {
             docEntry = docs.background_check;
             if (steps.step5ComplianceConsent?.completed) {
@@ -197,18 +311,29 @@ export default function AgentVerificationPage() {
             const dateLabel = formatShortDate(docEntry.uploadedAt);
 
             if (rawStatus === "VERIFIED" || rawStatus === "APPROVED") {
-              return { ...item, status: "verified", subtitle: `Verified ${dateLabel}` };
+              return {
+                ...item,
+                status: "verified",
+                subtitle: `Verified ${dateLabel}`,
+                rejectionReason: null,
+              };
             }
             if (rawStatus === "REJECTED") {
               return {
                 ...item,
                 status: "rejected",
+                rejectionReason: docEntry.rejectionReason || data.kycReviewNote || null,
                 subtitle: docEntry.rejectionReason
                   ? `Rejected: ${docEntry.rejectionReason}`
                   : "Rejected — please re-submit a clearer copy",
               };
             }
-            return { ...item, status: "reviewing", subtitle: `Submitted ${dateLabel}` };
+            return {
+              ...item,
+              status: "reviewing",
+              subtitle: `Submitted ${dateLabel} · Pending Admin review`,
+              rejectionReason: null,
+            };
           }
 
           return item;
@@ -391,16 +516,50 @@ export default function AgentVerificationPage() {
     );
   };
 
+  const getSavedDocForItem = (item: VerificationItem): any => {
+    if (item.id === "nin-slip") return savedDocsMap.government_id;
+    if (item.id === "passport-photo") return savedDocsMap.passport_photo;
+    if (item.id === "proof-of-address")
+      return savedDocsMap.proof_of_address || savedDocsMap.utility_bill;
+    if (item.id === "guarantor-form") return savedDocsMap.guarantor_form;
+    if (item.id === "investigation-cert") {
+      return (
+        savedDocsMap[agentTypeOpt.credential.docKey] ||
+        savedDocsMap.bar_practicing_license ||
+        savedDocsMap.investigation_certificate ||
+        savedDocsMap.cac_certificate
+      );
+    }
+    if (item.id === "background-check") return savedDocsMap.background_check;
+    return null;
+  };
+
   const openFlowScreen = (item: VerificationItem) => {
     stopCamera();
     setActiveItem(item);
     setSelectedFile(null);
-    setSelectedFileName(null);
-    setSelectedPreviewUrl(null);
     setSelectedBackFile(null);
-    setSelectedBackFileName(null);
-    setSelectedBackPreviewUrl(null);
-    setShowBackSlot(item.id === "nin-slip");
+
+    const existingDoc = getSavedDocForItem(item);
+    const frontUrl = resolveStoredMediaUrl(
+      existingDoc?.documentUrl || existingDoc?.fileRef || existingDoc?.s3ObjectKey
+    );
+    const backUrl = resolveStoredMediaUrl(
+      existingDoc?.backDocumentUrl ||
+        existingDoc?.backS3ObjectKey ||
+        existingDoc?.metadata?.backDocumentUrl ||
+        existingDoc?.metadata?.backObjectKey
+    );
+
+    setSelectedPreviewUrl(frontUrl);
+    setSelectedFileName(
+      frontUrl ? existingDoc?.metadata?.fileName || `${item.title} (Submitted)` : null
+    );
+    setSelectedBackPreviewUrl(backUrl);
+    setSelectedBackFileName(
+      backUrl ? existingDoc?.metadata?.backFileName || `${item.title} — Back (Submitted)` : null
+    );
+    setShowBackSlot(item.id === "nin-slip" || Boolean(backUrl));
     setActiveCaptureSlot("front");
     setFormError(null);
   };
@@ -487,12 +646,12 @@ export default function AgentVerificationPage() {
         setFormError("Please enter a valid 11-digit NIN.");
         return;
       }
-      if (!selectedFile) {
+      if (!selectedFile && !selectedPreviewUrl) {
         setFormError("Please upload or snap your NIN slip.");
         return;
       }
     } else if (activeItem.id === "passport-photo") {
-      if (!selectedFile) {
+      if (!selectedFile && !selectedPreviewUrl) {
         setFormError("Please take your passport photograph using the camera.");
         return;
       }
@@ -501,7 +660,7 @@ export default function AgentVerificationPage() {
         setFormError("Please enter your residential address.");
         return;
       }
-      if (!selectedFile) {
+      if (!selectedFile && !selectedPreviewUrl) {
         setFormError("Please upload or snap a proof of address document.");
         return;
       }
@@ -514,21 +673,25 @@ export default function AgentVerificationPage() {
         setFormError("Please enter your guarantor's phone number.");
         return;
       }
-      if (!selectedFile) {
+      if (!selectedFile && !selectedPreviewUrl) {
         setFormError("Please upload or snap the completed guarantor form.");
         return;
       }
     } else if (activeItem.id === "investigation-cert") {
+      const activeQual =
+        agentTypeOpt.credential.qualificationOptions.find(
+          (q) => q.value === qualificationType
+        ) || agentTypeOpt.credential.qualificationOptions[0];
       if (!issuingBody.trim()) {
-        setFormError("Please enter the issuing body name.");
+        setFormError(`Please enter the ${activeQual.issuingBodyLabel.toLowerCase()}.`);
         return;
       }
       if (!certNumber.trim()) {
-        setFormError("Please enter your certificate number.");
+        setFormError(`Please enter your ${activeQual.numberLabel.toLowerCase()}.`);
         return;
       }
-      if (!selectedFile) {
-        setFormError("Please upload or snap your investigation certificate.");
+      if (!selectedFile && !selectedPreviewUrl) {
+        setFormError(activeQual.uploadPrompt);
         return;
       }
     } else if (activeItem.id === "background-check") {
@@ -541,6 +704,8 @@ export default function AgentVerificationPage() {
     setIsSubmitting(true);
 
     try {
+      const existingDoc = getSavedDocForItem(activeItem);
+
       let uploadedMedia = null;
       if (selectedFile) {
         uploadedMedia = await uploadAgentMedia(selectedFile, "kyc");
@@ -569,6 +734,20 @@ export default function AgentVerificationPage() {
         }).catch(() => null);
       }
 
+      if (
+        activeItem.id === "investigation-cert" &&
+        agentTypeOpt.credential.isNba &&
+        qualificationType !== "BSC_HND_EQUIVALENT" &&
+        certNumber.trim()
+      ) {
+        await fetch("/api/v1/kyc/verify/nba", {
+          method: "POST",
+          credentials: "include",
+          headers,
+          body: JSON.stringify({ nbaNumber: certNumber.trim().toUpperCase() }),
+        }).catch(() => null);
+      }
+
       if (activeItem.id === "background-check") {
         await fetch("/api/v1/kyc/consent", {
           method: "POST",
@@ -579,16 +758,25 @@ export default function AgentVerificationPage() {
             consentTermsAndConditions: true,
             signatureFullName: "Agent Field Consent",
           }),
-        }).catch(() => null);
+        });
+        showToast("Background check consent submitted!");
+        setActiveItem(null);
+        await syncLiveKycStatus();
+        return;
       }
 
       // Metadata compilation
       const metadata: Record<string, any> = {
+        ...(existingDoc?.metadata || {}),
         submittedAt: new Date().toISOString(),
-        fileName: uploadedMedia?.fileName || selectedFileName || `${activeItem.id}-submitted`,
-        objectKey: uploadedMedia?.objectKey,
-        contentType: uploadedMedia?.contentType,
-        fileSize: uploadedMedia?.compressedSize || selectedFile?.size,
+        fileName:
+          uploadedMedia?.fileName ||
+          selectedFileName ||
+          existingDoc?.metadata?.fileName ||
+          `${activeItem.id}-submitted`,
+        objectKey: uploadedMedia?.objectKey || existingDoc?.s3ObjectKey || existingDoc?.metadata?.objectKey,
+        contentType: uploadedMedia?.contentType || existingDoc?.metadata?.contentType,
+        fileSize: uploadedMedia?.compressedSize || selectedFile?.size || existingDoc?.metadata?.fileSize,
       };
 
       if (uploadedBackMedia) {
@@ -598,16 +786,25 @@ export default function AgentVerificationPage() {
         metadata.backContentType = uploadedBackMedia.contentType;
       }
 
-      if (activeItem.id === "proof-of-address") {
+      if (activeItem.id === "nin-slip") {
+        metadata.ninNumber = ninInput.trim();
+      } else if (activeItem.id === "proof-of-address") {
         metadata.residentialAddress = residentialAddress.trim();
       } else if (activeItem.id === "guarantor-form") {
         metadata.guarantorName = guarantorName.trim();
-        metadata.guarantorPhone = `+234${guarantorPhone.trim()}`;
+        metadata.guarantorPhone = `+234${guarantorPhone.trim().replace(/^\+?234/, "")}`;
       } else if (activeItem.id === "investigation-cert") {
+        const activeQual =
+          agentTypeOpt.credential.qualificationOptions.find(
+            (q) => q.value === qualificationType
+          ) || agentTypeOpt.credential.qualificationOptions[0];
+        metadata.qualificationType = activeQual.value;
+        metadata.qualificationLabel = activeQual.label;
         metadata.issuingBody = issuingBody.trim();
         metadata.certificateNumber = certNumber.trim();
         metadata.issuedDate = certIssuedDate.trim();
         metadata.expiryDate = certExpiryDate.trim();
+        metadata.agentType = agentTypeOpt.label;
       }
 
       // Ingest document into KYC
@@ -616,11 +813,26 @@ export default function AgentVerificationPage() {
         credentials: "include",
         headers,
         body: JSON.stringify({
-          documentType: activeItem.docType,
-          documentUrl: uploadedMedia?.url || `kyc/${activeItem.id}/completed.pdf`,
-          s3ObjectKey: uploadedMedia?.objectKey,
-          backDocumentUrl: uploadedBackMedia?.url || undefined,
-          backS3ObjectKey: uploadedBackMedia?.objectKey || undefined,
+          documentType:
+            activeItem.id === "investigation-cert"
+              ? agentTypeOpt.credential.docType
+              : activeItem.docType,
+          documentUrl:
+            uploadedMedia?.url ||
+            existingDoc?.documentUrl ||
+            existingDoc?.fileRef,
+          s3ObjectKey:
+            uploadedMedia?.objectKey ||
+            existingDoc?.s3ObjectKey ||
+            undefined,
+          backDocumentUrl:
+            uploadedBackMedia?.url ||
+            existingDoc?.backDocumentUrl ||
+            undefined,
+          backS3ObjectKey:
+            uploadedBackMedia?.objectKey ||
+            existingDoc?.backS3ObjectKey ||
+            undefined,
           metadata,
         }),
       });
@@ -646,9 +858,11 @@ export default function AgentVerificationPage() {
     const file = slot === "front" ? selectedFile : selectedBackFile;
     const fileName = slot === "front" ? selectedFileName : selectedBackFileName;
     const previewUrl = slot === "front" ? selectedPreviewUrl : selectedBackPreviewUrl;
+    const hasSlotMedia = Boolean(file || previewUrl);
     const isPdf =
       file?.type === "application/pdf" ||
-      (fileName ? /\.pdf$/i.test(fileName) : false);
+      (fileName ? /\.pdf$/i.test(fileName) : false) ||
+      (previewUrl ? /\.pdf(\?|$)/i.test(previewUrl) || previewUrl.startsWith("data:application/pdf") : false);
 
     const clearSlot = () => {
       if (slot === "front") {
@@ -682,7 +896,7 @@ export default function AgentVerificationPage() {
           </span>
         </div>
 
-        {!file ? (
+        {!hasSlotMedia ? (
           <div className="flex items-stretch gap-2.5">
             <button
               type="button"
@@ -717,7 +931,7 @@ export default function AgentVerificationPage() {
                     {fileName}
                   </p>
                   <span className="text-[11px] text-[var(--text-muted)]">
-                    PDF Document · {formatFileSize(file.size)}
+                    PDF Document{file ? ` · ${formatFileSize(file.size)}` : " · Submitted"}
                   </span>
                 </div>
               ) : previewUrl ? (
@@ -756,7 +970,7 @@ export default function AgentVerificationPage() {
                   {fileName}
                 </p>
                 <p className="text-[10.5px] text-[var(--primary)] font-medium">
-                  {formatFileSize(file.size)} · Ready to submit
+                  {file ? formatFileSize(file.size) : "Saved in your accreditation file"}
                 </p>
               </div>
 
@@ -1202,8 +1416,23 @@ export default function AgentVerificationPage() {
       );
     }
 
-    // 5. Investigation Certificate
+    // 5. Dynamic Professional Credential OR Academic Qualification (B.Sc / HND / Equivalent) for all 5 Agent Types
     if (activeItem.id === "investigation-cert") {
+      const cred = agentTypeOpt.credential;
+      const qualOptions = cred.qualificationOptions || [];
+      const activeQual =
+        qualOptions.find((q) => q.value === qualificationType) ||
+        qualOptions[0] || {
+          value: "PROFESSIONAL_LICENSE",
+          label: cred.shortLabel,
+          issuingBodyLabel: cred.issuingBodyLabel,
+          issuingBodyPlaceholder: cred.issuingBodyPlaceholder,
+          numberLabel: cred.numberLabel,
+          numberPlaceholder: cred.numberPlaceholder,
+          uploadPrompt: cred.uploadPrompt,
+        };
+      const isAcademicDegree = activeQual.value === "BSC_HND_EQUIVALENT";
+
       return (
         <div className="space-y-6 max-w-md mx-auto pb-12 animate-in fade-in duration-200">
           <div className="flex items-center gap-3 pt-2">
@@ -1214,59 +1443,104 @@ export default function AgentVerificationPage() {
             >
               <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
             </button>
-            <h1 className="text-base font-bold text-[var(--text-heading)]">Investigation certificate</h1>
+            <div>
+              <h1 className="text-base font-bold text-[var(--text-heading)]">{cred.title}</h1>
+              <p className="text-[11px] text-[var(--text-muted)]">
+                Required for {agentTypeOpt.label} — Submit professional license OR B.Sc / HND / Equivalent
+              </p>
+            </div>
           </div>
+
+          {activeItem.rejectionReason && (
+            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-600 dark:text-red-400">
+              <strong className="font-bold">Admin Review Note:</strong> {activeItem.rejectionReason}
+            </div>
+          )}
 
           <form onSubmit={handleSubmitFlow} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[var(--text-heading)] block">Issuing body</label>
+              <label className="text-xs font-semibold text-[var(--text-heading)] block">
+                Qualification / Credential Type
+              </label>
+              <ResponsiveSelect
+                label="Select Qualification / Credential Type"
+                value={activeQual.value}
+                onChange={(val) => {
+                  setQualificationType(val);
+                  if (val === "BSC_HND_EQUIVALENT" && issuingBody === "Nigerian Bar Association (NBA)") {
+                    setIssuingBody("");
+                  }
+                }}
+                options={qualOptions.map((q) => ({
+                  value: q.value,
+                  label: q.label,
+                  description:
+                    q.value === "BSC_HND_EQUIVALENT"
+                      ? "For recent graduates or operatives verifying with an academic degree (B.Sc, HND, B.Eng, LL.B, ND)"
+                      : `Role-specific professional accreditation for ${agentTypeOpt.label}`,
+                }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--text-heading)] block">
+                {activeQual.issuingBodyLabel}
+              </label>
               <input
                 type="text"
                 value={issuingBody}
                 onChange={(e) => setIssuingBody(e.target.value)}
-                placeholder="Nigeria Institute of private investigators"
-                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs"
+                placeholder={activeQual.issuingBodyPlaceholder}
+                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-lg px-4 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs"
                 required
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[var(--text-heading)] block">Certificate number</label>
+              <label className="text-xs font-semibold text-[var(--text-heading)] block">
+                {activeQual.numberLabel}
+              </label>
               <input
                 type="text"
                 value={certNumber}
                 onChange={(e) => setCertNumber(e.target.value)}
-                placeholder="NIPI/2024/08812"
-                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs font-mono"
+                placeholder={activeQual.numberPlaceholder}
+                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-lg px-4 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs font-mono"
                 required
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[var(--text-heading)] block">Issued</label>
+                <label className="text-xs font-semibold text-[var(--text-heading)] block">
+                  {isAcademicDegree ? "Graduation Year / Date" : "Issued"}
+                </label>
                 <input
                   type="text"
                   value={certIssuedDate}
                   onChange={(e) => setCertIssuedDate(e.target.value)}
-                  placeholder="05/2025"
-                  className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs text-center"
+                  placeholder={isAcademicDegree ? "11/2023" : "05/2025"}
+                  className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-lg px-4 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs text-center"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[var(--text-heading)] block">Expires</label>
+                <label className="text-xs font-semibold text-[var(--text-heading)] block">
+                  {isAcademicDegree ? "Expires (Optional)" : "Expires"}
+                </label>
                 <input
                   type="text"
                   value={certExpiryDate}
                   onChange={(e) => setCertExpiryDate(e.target.value)}
-                  placeholder="05/2028"
-                  className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-full px-5 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs text-center"
+                  placeholder={isAcademicDegree ? "N/A" : "05/2028"}
+                  className="w-full bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-lg px-4 py-3 text-xs text-[var(--text-heading)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-all shadow-2xs text-center"
                 />
               </div>
             </div>
 
             <div className="space-y-2.5 pt-2">
-              <h3 className="text-xs font-bold text-[var(--text-heading)]">Upload Certificate</h3>
+              <h3 className="text-xs font-bold text-[var(--text-heading)]">
+                {activeQual.uploadPrompt}
+              </h3>
               <div className="space-y-2 text-xs text-[var(--text-heading)]">
                 <div className="flex items-center gap-2.5">
                   <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
@@ -1278,15 +1552,23 @@ export default function AgentVerificationPage() {
                 </div>
                 <div className="flex items-center gap-2.5">
                   <Check className="w-4 h-4 text-[var(--text-heading)] shrink-0 stroke-[2.5]" />
-                  <span>Certificate number and dates clearly readable</span>
+                  <span>
+                    {isAcademicDegree
+                      ? "Full name, institution, degree class, and date clearly readable"
+                      : "Registration number and dates clearly readable"}
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Front & Optional Back Upload + Proper Certificate Preview */}
             {renderDocumentUploadSlots({
-              frontLabel: "Certificate (Front / Page 1)",
-              backLabel: "Certificate (Back / Page 2)",
+              frontLabel: `${
+                isAcademicDegree ? "B.Sc / HND / Equivalent Certificate" : cred.title
+              } (Front / Page 1)`,
+              backLabel: `${
+                isAcademicDegree ? "NYSC Certificate / Statement of Result" : cred.title
+              } (Back / Page 2)`,
               alwaysShowBack: false,
             })}
 
@@ -1468,6 +1750,25 @@ export default function AgentVerificationPage() {
           </p>
         </div>
 
+        {/* Admin Review Feedback / Note Banner */}
+        {kycReviewNote && (
+          <div
+            className={`rounded-xl p-4 border text-xs space-y-1 ${
+              overallKycStatus === "REJECTED"
+                ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
+                : overallKycStatus === "VERIFIED"
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300"
+            }`}
+          >
+            <div className="font-bold flex items-center gap-1.5">
+              <Shield className="w-4 h-4 shrink-0" />
+              <span>Central Operations KYC Review Note</span>
+            </div>
+            <p className="leading-relaxed">{kycReviewNote}</p>
+          </div>
+        )}
+
         {/* 6 Verification Checklist Items */}
         <div className="space-y-3">
           {items.map((item) => {
@@ -1479,14 +1780,13 @@ export default function AgentVerificationPage() {
               <button
                 key={item.id}
                 type="button"
-                disabled={isVerified}
-                onClick={() => {
-                  if (!isVerified) openFlowScreen(item);
-                }}
-                className={`w-full flex items-center justify-between gap-3 p-3 rounded-[20px] border transition-all text-left group ${
+                onClick={() => openFlowScreen(item)}
+                className={`w-full flex items-center justify-between gap-3 p-3.5 rounded-xl border transition-all text-left group cursor-pointer ${
                   isVerified
-                    ? "bg-[var(--bg-card)]/60 border-emerald-500/25 cursor-default opacity-95"
-                    : "hover:bg-[var(--bg-card)] border-transparent hover:border-[var(--border-color)]/70 cursor-pointer"
+                    ? "bg-[var(--bg-card)]/80 border-emerald-500/30 hover:border-emerald-500/60"
+                    : isRejected
+                    ? "bg-red-500/5 border-red-500/30 hover:border-red-500/60"
+                    : "bg-[var(--bg-card)] border-[var(--border-color)]/70 hover:border-[var(--primary)]/50"
                 }`}
               >
                 <div className="flex items-center gap-3.5 min-w-0">

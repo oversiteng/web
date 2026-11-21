@@ -10,9 +10,17 @@ import {
   ChevronDown,
   FileText,
   Eye,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
+import { ResponsiveSelect } from "@/components/ui/ResponsiveSelect";
+import {
+  CANONICAL_AGENT_TYPES,
+  getAgentTypeLabel,
+  getAgentTypeOption,
+} from "@/lib/constants/agentTypes";
 
 interface AdminUserItem {
   id: string;
@@ -62,6 +70,10 @@ function formatFieldLabel(raw: string): string {
 function isMediaRefString(val: string): boolean {
   const s = val.trim();
   if (!s) return false;
+  // Ignore legacy synthetic placeholder strings like "kyc/background-check/completed.pdf"
+  if (/^kyc\/[^/]+\/completed\.pdf$/i.test(s) || s === "consent-signed") {
+    return false;
+  }
   return (
     s.startsWith("http://") ||
     s.startsWith("https://") ||
@@ -70,6 +82,65 @@ function isMediaRefString(val: string): boolean {
     s.startsWith("data:application/pdf") ||
     /^(agent|user|admin|kyc|uploads|documents|reports|media)\//i.test(s) ||
     /\.(jpg|jpeg|png|webp|gif|pdf)(\?.*)?$/i.test(s)
+  );
+}
+
+function KycMediaPreview({
+  url,
+  title,
+  isPdf,
+}: {
+  url: string;
+  title: string;
+  isPdf?: boolean;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  return (
+    <div className="relative w-full min-h-[160px] flex items-center justify-center">
+      {loading && !error && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[var(--bg-secondary)]/80 rounded z-10">
+          <Loader2 className="w-5 h-5 text-[var(--primary)] animate-spin" />
+          <span className="text-[11px] text-[var(--text-muted)] font-medium">
+            Loading document preview...
+          </span>
+        </div>
+      )}
+      {error ? (
+        <div className="p-6 text-center text-xs text-[var(--text-muted)] space-y-1">
+          <FileText className="w-5 h-5 mx-auto opacity-50" />
+          <p className="font-semibold text-[var(--text-heading)]">
+            Preview unavailable
+          </p>
+          <p className="text-[11px]">
+            The media object could not be loaded from storage.
+          </p>
+        </div>
+      ) : isPdf ? (
+        <iframe
+          src={`${url}#toolbar=0`}
+          title={title}
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setLoading(false);
+            setError(true);
+          }}
+          className="w-full h-80 rounded bg-white"
+        />
+      ) : (
+        <img
+          src={url}
+          alt={title}
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setLoading(false);
+            setError(true);
+          }}
+          className="max-h-80 w-auto object-contain rounded select-none"
+        />
+      )}
+    </div>
   );
 }
 
@@ -281,14 +352,20 @@ export default function AdminUsersKycPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Full-Page Detail View state (modeled after Profile & KYC / Permissions mockup)
+  // Full-Page Detail View state (modeled after Profile & KYC / Ratings & Conduct / Permissions)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState<"OVERVIEW" | "PROFILE_KYC" | "PERMISSIONS">(
-    "OVERVIEW"
-  );
+  const [detailTab, setDetailTab] = useState<
+    "OVERVIEW" | "PROFILE_KYC" | "RATINGS_CONDUCT" | "PERMISSIONS"
+  >("OVERVIEW");
   const [userDetail, setUserDetail] = useState<any>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [selectedDocKey, setSelectedDocKey] = useState<string | null>(null);
+
+  // Disciplinary & Conduct Action state
+  const [discActionType, setDiscActionType] = useState<string>("ISSUE_WARNING");
+  const [discTargetDept, setDiscTargetDept] = useState<string>("Compliance & Legal Desk");
+  const [discNote, setDiscNote] = useState<string>("");
+  const [savingDisc, setSavingDisc] = useState<boolean>(false);
 
   // KYC form state
   const [kycStatusInput, setKycStatusInput] = useState<string>("VERIFIED");
@@ -406,6 +483,9 @@ export default function AdminUsersKycPage() {
           method: "POST",
           credentials: "include",
           headers,
+          body: JSON.stringify({
+            kycNote: kycNoteInput.trim() || undefined,
+          }),
         });
         const json = await res.json();
         if (!json.success) {
@@ -726,8 +806,27 @@ export default function AdminUsersKycPage() {
                   : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-heading)]"
               }`}
             >
-              Profile &amp; KYC
+              {userDetail?.role === "USER" ? "Profile & Email Verification" : "Profile & KYC"}
             </button>
+            {userDetail?.role === "AGENT" && (
+              <button
+                type="button"
+                onClick={() => setDetailTab("RATINGS_CONDUCT")}
+                className={`pb-2 text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  detailTab === "RATINGS_CONDUCT"
+                    ? "border-[var(--primary)] text-[var(--primary)]"
+                    : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+                }`}
+              >
+                <span>Ratings &amp; Conduct</span>
+                {Array.isArray(userDetail?.ratingsAndReports) &&
+                  userDetail.ratingsAndReports.length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-[var(--primary)]/15 text-[var(--primary)] text-[10px] font-bold">
+                      {userDetail.ratingsAndReports.length}
+                    </span>
+                  )}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setDetailTab("PERMISSIONS")}
@@ -770,7 +869,7 @@ export default function AdminUsersKycPage() {
                   <div className="flex flex-wrap items-center gap-2 mt-1.5">
                     <span className="px-2 py-0.5 rounded text-[10.5px] font-semibold bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-heading)]">
                       {userDetail.role === "AGENT"
-                        ? userDetail.agentProfile?.tier || "GENERAL"
+                        ? getAgentTypeLabel(userDetail.agentProfile?.tier)
                         : userDetail.userStats?.userType || "Individual Client"}
                     </span>
                     <span className={`px-2 py-0.5 rounded text-[10.5px] font-semibold ${kycBadgeClass}`}>
@@ -1168,10 +1267,10 @@ export default function AdminUsersKycPage() {
                   {userDetail.agentProfile && (
                     <div>
                       <p className="text-[var(--text-muted)] mb-1">
-                        Operative Tier
+                        Agent Type / Specialty
                       </p>
                       <p className="font-semibold text-[var(--text-heading)]">
-                        {userDetail.agentProfile.tier}
+                        {getAgentTypeLabel(userDetail.agentProfile.tier)}
                       </p>
                     </div>
                   )}
@@ -1321,10 +1420,10 @@ export default function AdminUsersKycPage() {
               );
             })()}
 
-            {/* KYC Information Card */}
+            {/* KYC / Email Verification Information Card */}
             <div className="space-y-2.5">
               <h2 className="text-sm font-semibold text-[var(--text-heading)]">
-                KYC Information
+                {userDetail.role === "USER" ? "Email Verification" : "KYC Information"}
               </h2>
               <form
                 onSubmit={handleSubmitKyc}
@@ -1389,84 +1488,228 @@ export default function AdminUsersKycPage() {
                     [ninDoc?.key, addressDoc?.key].filter(Boolean) as string[]
                   );
 
-                  const sections: UnifiedSection[] = [
-                    {
-                      id: "nin",
-                      title: "NIN Verification",
-                      subtitle:
-                        userDetail.agentProfile?.ninId ||
-                        userDetail.accreditationDocuments?.ninNumber ||
-                        (ninDoc ? "ID document uploaded" : "Not submitted"),
-                      status: userDetail.ninVerificationStatus || ninDoc?.status || "pending",
-                      detailValue:
-                        userDetail.agentProfile?.ninId ||
-                        userDetail.accreditationDocuments?.ninNumber ||
-                        null,
-                      doc: ninDoc,
-                      approvePayload: {
-                        ninVerificationStatus: "verified",
-                        ...(ninDoc ? { documentKey: ninDoc.key, documentStatus: "VERIFIED" } : {}),
-                      },
-                      rejectPayload: {
-                        ninVerificationStatus: "rejected",
-                        ...(ninDoc ? { documentKey: ninDoc.key, documentStatus: "REJECTED" } : {}),
-                      },
-                    },
-                    {
-                      id: "address",
-                      title: "Address Verification",
-                      subtitle:
-                        userDetail.address ||
-                        userDetail.location ||
-                        (addressDoc ? "Proof of address uploaded" : "Not submitted"),
-                      status:
-                        userDetail.addressVerificationStatus || addressDoc?.status || "pending",
-                      detailValue: userDetail.address || userDetail.location || null,
-                      doc: addressDoc,
-                      approvePayload: {
-                        addressVerificationStatus: "verified",
-                        ...(addressDoc
-                          ? { documentKey: addressDoc.key, documentStatus: "VERIFIED" }
-                          : {}),
-                      },
-                      rejectPayload: {
-                        addressVerificationStatus: "rejected",
-                        ...(addressDoc
-                          ? { documentKey: addressDoc.key, documentStatus: "REJECTED" }
-                          : {}),
-                      },
-                    },
-                    {
-                      id: "nba",
-                      title: "NBA Verification",
-                      subtitle: userDetail.agentProfile?.nbaNumber || "Not submitted",
-                      status: userDetail.nbaVerificationStatus || "pending",
-                      detailValue: userDetail.agentProfile?.nbaNumber || null,
-                      doc: null,
-                      approvePayload: { nbaVerificationStatus: "verified" },
-                      rejectPayload: { nbaVerificationStatus: "rejected" },
-                    },
-                    ...docsList
-                      .filter((d) => !usedDocKeys.has(d.key))
-                      .map((doc) => ({
-                        id: `doc:${doc.key}`,
-                        title: doc.label,
-                        subtitle: doc.submittedAt
-                          ? `Uploaded ${formatShortDate(doc.submittedAt)}`
-                          : "Submitted document",
-                        status: doc.status || "SUBMITTED",
-                        detailValue: null,
-                        doc,
-                        approvePayload: {
-                          documentKey: doc.key,
-                          documentStatus: "VERIFIED",
-                        },
-                        rejectPayload: {
-                          documentKey: doc.key,
-                          documentStatus: "REJECTED",
-                        },
-                      })),
-                  ];
+                  const bgCheckRaw =
+                    userDetail.accreditationDocuments &&
+                    typeof userDetail.accreditationDocuments === "object"
+                      ? (userDetail.accreditationDocuments as Record<string, any>)
+                          .background_check
+                      : null;
+                  const hasBgConsent = Boolean(
+                    userDetail.consentSignedAt || bgCheckRaw?.status
+                  );
+
+                  const isEmailVerified = Boolean(
+                    userDetail.accreditationDocuments?.emailVerified ||
+                      userDetail.kycStatus === "VERIFIED"
+                  );
+
+                  // For End Users (role === 'USER'), only show Email Verification (no NIN, Address, or NBA KYC!)
+                  const sections: UnifiedSection[] =
+                    userDetail.role === "USER"
+                      ? [
+                          {
+                            id: "email_verification",
+                            title: "Email Address Verification",
+                            subtitle: isEmailVerified
+                              ? `${userDetail.email} · Verified${
+                                  userDetail.accreditationDocuments?.emailVerifiedAt
+                                    ? ` on ${formatShortDate(
+                                        userDetail.accreditationDocuments.emailVerifiedAt
+                                      )}`
+                                    : ""
+                                }`
+                              : `${userDetail.email} · Awaiting 6-digit OTP confirmation`,
+                            status: isEmailVerified ? "verified" : "pending",
+                            detailValue: userDetail.email,
+                            doc: null,
+                            approvePayload: {
+                              emailVerified: true,
+                              kycStatus: "VERIFIED",
+                            },
+                            rejectPayload: {
+                              emailVerified: false,
+                              kycStatus: "PENDING",
+                            },
+                          },
+                        ]
+                      : [
+                          {
+                            id: "email_verification",
+                            title: "Email Verification",
+                            subtitle: isEmailVerified
+                              ? `${userDetail.email} · Verified`
+                              : `${userDetail.email} · Pending OTP verification`,
+                            status: isEmailVerified ? "verified" : "pending",
+                            detailValue: userDetail.email,
+                            doc: null,
+                            approvePayload: { emailVerified: true },
+                            rejectPayload: { emailVerified: false },
+                          },
+                          {
+                            id: "nin",
+                            title: "NIN Verification",
+                            subtitle:
+                              userDetail.agentProfile?.ninId ||
+                              userDetail.accreditationDocuments?.ninNumber ||
+                              (ninDoc ? "ID document uploaded" : "Not submitted"),
+                            status:
+                              userDetail.ninVerificationStatus || ninDoc?.status || "pending",
+                            detailValue:
+                              userDetail.agentProfile?.ninId ||
+                              userDetail.accreditationDocuments?.ninNumber ||
+                              null,
+                            doc: ninDoc,
+                            approvePayload: {
+                              ninVerificationStatus: "verified",
+                              ...(ninDoc
+                                ? { documentKey: ninDoc.key, documentStatus: "VERIFIED" }
+                                : {}),
+                            },
+                            rejectPayload: {
+                              ninVerificationStatus: "rejected",
+                              ...(ninDoc
+                                ? { documentKey: ninDoc.key, documentStatus: "REJECTED" }
+                                : {}),
+                            },
+                          },
+                          {
+                            id: "address",
+                            title: "Address Verification",
+                            subtitle:
+                              userDetail.address ||
+                              userDetail.location ||
+                              (addressDoc ? "Proof of address uploaded" : "Not submitted"),
+                            status:
+                              userDetail.addressVerificationStatus ||
+                              addressDoc?.status ||
+                              "pending",
+                            detailValue: userDetail.address || userDetail.location || null,
+                            doc: addressDoc,
+                            approvePayload: {
+                              addressVerificationStatus: "verified",
+                              ...(addressDoc
+                                ? { documentKey: addressDoc.key, documentStatus: "VERIFIED" }
+                                : {}),
+                            },
+                            rejectPayload: {
+                              addressVerificationStatus: "rejected",
+                              ...(addressDoc
+                                ? { documentKey: addressDoc.key, documentStatus: "REJECTED" }
+                                : {}),
+                            },
+                          },
+                          {
+                            id: "nba",
+                            title: `${
+                              getAgentTypeOption(userDetail.agentProfile?.tier)
+                                .credential.title
+                            }${
+                              userDetail.agentProfile?.nbaNumber ? " (NBA SCN)" : ""
+                            }`,
+                            subtitle:
+                              userDetail.agentProfile?.nbaNumber ||
+                              userDetail.accreditationDocuments?.professional_license
+                                ?.metadata?.qualificationLabel ||
+                              userDetail.accreditationDocuments?.investigation_certificate
+                                ?.metadata?.qualificationLabel ||
+                              userDetail.accreditationDocuments?.bar_practicing_license
+                                ?.metadata?.qualificationLabel ||
+                              userDetail.accreditationDocuments?.professional_license
+                                ?.metadata?.licenseNumber ||
+                              "Role-specific credential or B.Sc / HND / Equivalent",
+                            status:
+                              userDetail.nbaVerificationStatus !== "not_applicable"
+                                ? userDetail.nbaVerificationStatus
+                                : userDetail.accreditationDocuments
+                                    ?.professional_license?.status ||
+                                  userDetail.accreditationDocuments
+                                    ?.investigation_certificate?.status ||
+                                  userDetail.accreditationDocuments
+                                    ?.bar_practicing_license?.status ||
+                                  "pending",
+                            detailValue:
+                              [
+                                userDetail.accreditationDocuments?.investigation_certificate
+                                  ?.metadata?.qualificationLabel ||
+                                  userDetail.accreditationDocuments?.bar_practicing_license
+                                    ?.metadata?.qualificationLabel,
+                                userDetail.accreditationDocuments?.investigation_certificate
+                                  ?.metadata?.issuingBody ||
+                                  userDetail.accreditationDocuments?.bar_practicing_license
+                                    ?.metadata?.issuingBody,
+                                userDetail.agentProfile?.nbaNumber ||
+                                  userDetail.accreditationDocuments?.investigation_certificate
+                                    ?.metadata?.certificateNumber ||
+                                  userDetail.accreditationDocuments?.bar_practicing_license
+                                    ?.metadata?.certificateNumber ||
+                                  userDetail.accreditationDocuments?.professional_license
+                                    ?.metadata?.licenseNumber,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ") || null,
+                            doc: null,
+                            approvePayload: {
+                              nbaVerificationStatus: "verified",
+                              documentKey: "professional_license",
+                              documentStatus: "VERIFIED",
+                            },
+                            rejectPayload: {
+                              nbaVerificationStatus: "rejected",
+                              documentKey: "professional_license",
+                              documentStatus: "REJECTED",
+                            },
+                          },
+                          {
+                            id: "background_check",
+                            title: "Background Check & Compliance Consent",
+                            subtitle: hasBgConsent
+                              ? `Digital consent signed${
+                                  userDetail.consentSignedAt
+                                    ? ` on ${formatShortDate(userDetail.consentSignedAt)}`
+                                    : ""
+                                }`
+                              : "Awaiting agent consent authorization",
+                            status:
+                              bgCheckRaw?.status ||
+                              (userDetail.consentSignedAt ? "SUBMITTED" : "pending"),
+                            detailValue: hasBgConsent
+                              ? "Agent authorized Oversite Central Operations to conduct criminal & professional background verification."
+                              : null,
+                            doc: null,
+                            approvePayload: {
+                              documentKey: "background_check",
+                              documentStatus: "VERIFIED",
+                            },
+                            rejectPayload: {
+                              documentKey: "background_check",
+                              documentStatus: "REJECTED",
+                            },
+                          },
+                          ...docsList
+                            .filter(
+                              (d) =>
+                                !usedDocKeys.has(d.key) &&
+                                d.key.toLowerCase() !== "background_check"
+                            )
+                            .map((doc) => ({
+                              id: `doc:${doc.key}`,
+                              title: doc.label,
+                              subtitle: doc.submittedAt
+                                ? `Uploaded ${formatShortDate(doc.submittedAt)}`
+                                : "Submitted document",
+                              status: doc.status || "SUBMITTED",
+                              detailValue: null,
+                              doc,
+                              approvePayload: {
+                                documentKey: doc.key,
+                                documentStatus: "VERIFIED",
+                              },
+                              rejectPayload: {
+                                documentKey: doc.key,
+                                documentStatus: "REJECTED",
+                              },
+                            })),
+                        ];
 
                   const verifiedTotal = sections.filter(
                     (s) => statusBadgeStyle(s.status).isVerified
@@ -1577,19 +1820,11 @@ export default function AdminUsersKycPage() {
                                             Front Side
                                           </span>
                                         )}
-                                        {sec.doc.isPdf ? (
-                                          <iframe
-                                            src={`${sec.doc.url}#toolbar=0`}
-                                            title={sec.title}
-                                            className="w-full h-80 rounded bg-white"
-                                          />
-                                        ) : (
-                                          <img
-                                            src={sec.doc.url}
-                                            alt={sec.title}
-                                            className="max-h-80 w-auto object-contain rounded select-none"
-                                          />
-                                        )}
+                                        <KycMediaPreview
+                                          url={sec.doc.url}
+                                          title={sec.title}
+                                          isPdf={sec.doc.isPdf}
+                                        />
                                       </div>
 
                                       {sec.doc.backUrl && (
@@ -1597,19 +1832,11 @@ export default function AdminUsersKycPage() {
                                           <span className="self-start text-[10px] font-bold uppercase tracking-wider text-[var(--primary)]">
                                             Back Side
                                           </span>
-                                          {sec.doc.backIsPdf ? (
-                                            <iframe
-                                              src={`${sec.doc.backUrl}#toolbar=0`}
-                                              title={`${sec.title} (Back)`}
-                                              className="w-full h-80 rounded bg-white"
-                                            />
-                                          ) : (
-                                            <img
-                                              src={sec.doc.backUrl}
-                                              alt={`${sec.title} (Back)`}
-                                              className="max-h-80 w-auto object-contain rounded select-none"
-                                            />
-                                          )}
+                                          <KycMediaPreview
+                                            url={sec.doc.backUrl}
+                                            title={`${sec.title} (Back)`}
+                                            isPdf={sec.doc.backIsPdf}
+                                          />
                                         </div>
                                       )}
 
@@ -1663,8 +1890,8 @@ export default function AdminUsersKycPage() {
                         })}
                       </div>
 
-                      {/* Additional Human-Readable Form Fields (if any) */}
-                      {kycFields.length > 0 && (
+                      {/* Additional Human-Readable Form Fields (Agents only) */}
+                      {userDetail.role === "AGENT" && kycFields.length > 0 && (
                         <div className="pt-2 border-t border-[var(--border-color)]">
                           <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2.5">
                             Additional Form Details
@@ -1690,49 +1917,318 @@ export default function AdminUsersKycPage() {
                   );
                 })()}
 
-                {/* Status Select & Leave a Note */}
-                <div className="space-y-4 pt-1">
-                  <div className="max-w-xs space-y-1.5">
-                    <label className="text-xs font-medium text-[var(--text-heading)] block">
-                      Status
-                    </label>
-                    <select
-                      value={kycStatusInput}
-                      onChange={(e) => setKycStatusInput(e.target.value)}
-                      className="w-full h-10 px-3 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
-                    >
-                      <option value="PENDING">Pending</option>
-                      <option value="SUBMITTED">Submitted</option>
-                      <option value="VERIFIED">Verified (Approve)</option>
-                      <option value="REJECTED">Rejected</option>
-                    </select>
-                  </div>
+                {/* Status Select & Leave a Note (Agents only; End users only need Email Verification above) */}
+                {userDetail.role === "AGENT" && (
+                  <div className="space-y-4 pt-1">
+                    <div className="max-w-xs space-y-1.5">
+                      <label className="text-xs font-medium text-[var(--text-heading)] block">
+                        Overall KYC Status
+                      </label>
+                      <ResponsiveSelect
+                        label="Overall KYC Status"
+                        value={kycStatusInput}
+                        onChange={(val) => setKycStatusInput(val)}
+                        options={[
+                          { value: "PENDING", label: "Pending" },
+                          { value: "SUBMITTED", label: "Submitted" },
+                          { value: "VERIFIED", label: "Verified (Approve All)" },
+                          { value: "REJECTED", label: "Rejected" },
+                        ]}
+                      />
+                    </div>
 
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-[var(--text-heading)] block">
+                        Review Note / Rejection Reason (Sent to Agent)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={kycNoteInput}
+                        onChange={(e) => setKycNoteInput(e.target.value)}
+                        placeholder="Enter compliance note or reason for rejection (visible on the agent's verification page and sent via notification)..."
+                        className="w-full p-3 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                      />
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={savingKyc}
+                        className="px-5 h-9 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                      >
+                        {savingKyc ? "Submitting..." : "Submit"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </form>
+            </div>
+          </div>
+        ) : detailTab === "RATINGS_CONDUCT" ? (
+          /* RATINGS, CLIENT REPORTS & DISCIPLINARY / ESCALATION TAB (AGENTS) */
+          <div className="space-y-6">
+            {/* 7-Day Matured Credibility Score & Rating Summary */}
+            <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h2 className="text-sm font-bold text-[var(--text-heading)]">
+                  Operative Credibility &amp; 7-Day Matured Rating Score
+                </h2>
+                <p className="text-xs text-[var(--text-muted)] max-w-xl leading-relaxed">
+                  Reflects explicit client task ratings, 7-day post-completion uncontested good-standing credits (+5.0 ★), and client issue reports / disputes.
+                </p>
+              </div>
+              <div className="flex items-center gap-4 shrink-0">
+                <div className="text-right">
+                  <p className="text-2xl font-extrabold text-[var(--primary)]">
+                    {Number(userDetail.agentStats?.rating || 5).toFixed(2)} ★
+                  </p>
+                  <p className="text-[11px] text-[var(--text-muted)]">
+                    {userDetail.agentStats?.completionRate || 100}% completion ·{" "}
+                    {userDetail.agentStats?.disputedTasks || 0} disputes
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Client Ratings & Issue Reports Feed */}
+            <div className="space-y-2.5">
+              <h3 className="text-sm font-semibold text-[var(--text-heading)]">
+                Client Ratings, 7-Day Matured Credits &amp; Issue Reports (
+                {userDetail.ratingsAndReports?.length || 0})
+              </h3>
+              <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] divide-y divide-[var(--border-color)]">
+                {!userDetail.ratingsAndReports ||
+                userDetail.ratingsAndReports.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-[var(--text-muted)]">
+                    No client ratings, 7-day auto-verified credits, or issue reports recorded for this operative yet.
+                  </div>
+                ) : (
+                  userDetail.ratingsAndReports.map((item: any) => {
+                    const isIssue =
+                      item.kind === "ISSUE_REPORT" ||
+                      (item.rating !== null && item.rating <= 2);
+                    const isAuto = item.kind === "AUTO_GOOD_STANDING";
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                isIssue
+                                  ? "bg-red-500/15 text-red-500"
+                                  : isAuto
+                                  ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                                  : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                              }`}
+                            >
+                              {item.kind === "ISSUE_REPORT"
+                                ? "CLIENT ISSUE REPORT"
+                                : isAuto
+                                ? "7-DAY MATURED GOOD STANDING"
+                                : `CLIENT RATING · ${item.rating}/5 ★`}
+                            </span>
+                            <span className="font-semibold text-[var(--text-heading)]">
+                              {item.taskTitle}
+                            </span>
+                            <span className="text-[11px] text-[var(--text-muted)]">
+                              ({String(item.moduleType || "").replace(/_/g, " ")})
+                            </span>
+                          </div>
+                          <p className="text-[var(--text-body)] leading-relaxed">
+                            {item.comment}
+                          </p>
+                        </div>
+                        <span className="text-[11px] text-[var(--text-muted)] shrink-0">
+                          {formatShortDate(item.createdAt)}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Admin Disciplinary Action, Revolving Probation & Specialist Escalation Form */}
+            <div className="space-y-2.5">
+              <h3 className="text-sm font-semibold text-[var(--text-heading)]">
+                Issue Warning, Revolving Probation, or Escalate to Specialist Admin
+              </h3>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setSavingDisc(true);
+                  try {
+                    const token =
+                      typeof window !== "undefined"
+                        ? localStorage.getItem("oversite_token")
+                        : null;
+                    const headers: Record<string, string> = {
+                      "Content-Type": "application/json",
+                    };
+                    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+                    const res = await fetch(`/api/v1/admin/users/${userDetail.id}`, {
+                      method: "PATCH",
+                      credentials: "include",
+                      headers,
+                      body: JSON.stringify({
+                        disciplinaryAction: {
+                          actionType: discActionType,
+                          targetDepartment: discTargetDept,
+                          note: discNote.trim(),
+                        },
+                      }),
+                    });
+                    const json = await res.json();
+                    if (!json.success) {
+                      throw new Error(json.error?.message || "Failed to execute action");
+                    }
+                    const detailRes = await fetch(
+                      `/api/v1/admin/users/${userDetail.id}`,
+                      { credentials: "include", headers }
+                    );
+                    const detailJson = await detailRes.json();
+                    if (detailJson.success && detailJson.data) {
+                      setUserDetail(detailJson.data);
+                    }
+                    setDiscNote("");
+                    showToast(
+                      discActionType === "ISSUE_WARNING"
+                        ? "Official warning issued and sent to operative"
+                        : discActionType === "REVOLVING_PROBATION"
+                        ? "Operative placed on revolving QA probation"
+                        : discActionType === "ESCALATE_SPECIALIST"
+                        ? `Escalated to ${discTargetDept}`
+                        : "Operative suspended pending investigation"
+                    );
+                  } catch (err: any) {
+                    showToast(err.message || "Failed to record disciplinary action");
+                  } finally {
+                    setSavingDisc(false);
+                  }
+                }}
+                className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-5 space-y-4 text-xs"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-[var(--text-heading)] block">
-                      Leave a note
+                      Action Type
                     </label>
-                    <textarea
-                      rows={3}
-                      value={kycNoteInput}
-                      onChange={(e) => setKycNoteInput(e.target.value)}
-                      placeholder="Optional compliance note or rejection reason..."
-                      className="w-full p-3 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                    <ResponsiveSelect
+                      label="Select Disciplinary or Escalation Action"
+                      value={discActionType}
+                      onChange={(val) => setDiscActionType(val)}
+                      options={[
+                        {
+                          value: "ISSUE_WARNING",
+                          label: "Issue Official Warning to Operative",
+                          description: "Sends a formal compliance warning notification & email to the agent",
+                        },
+                        {
+                          value: "REVOLVING_PROBATION",
+                          label: "Proceed to Revolving QA Action (14-Day Probation)",
+                          description: "Flags the agent for mandatory deliverable audit on their next 3 tasks",
+                        },
+                        {
+                          value: "ESCALATE_SPECIALIST",
+                          label: "Escalate to Specialized Admin Desk",
+                          description: "Routes the case to Legal, Quality Control, or Senior Operations Admin",
+                        },
+                        {
+                          value: "SUSPEND_OPERATIVE",
+                          label: "Suspend Operative Account Immediately",
+                          description: "Freezes task dispatch while under investigation",
+                        },
+                      ]}
                     />
                   </div>
 
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={savingKyc}
-                      className="px-5 h-9 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
-                    >
-                      {savingKyc ? "Submitting..." : "Submit"}
-                    </button>
-                  </div>
+                  {discActionType === "ESCALATE_SPECIALIST" && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-[var(--text-heading)] block">
+                        Target Specialist Admin Desk
+                      </label>
+                      <ResponsiveSelect
+                        label="Select Target Specialist Admin Desk"
+                        value={discTargetDept}
+                        onChange={(val) => setDiscTargetDept(val)}
+                        options={[
+                          {
+                            value: "Quality Control & Field Audit Admin",
+                            label: "Quality Control & Field Audit Admin",
+                          },
+                          {
+                            value: "Legal & Statutory Compliance Admin",
+                            label: "Legal & Statutory Compliance Admin",
+                          },
+                          {
+                            value: "Financial & Escrow Dispute Admin",
+                            label: "Financial & Escrow Dispute Admin",
+                          },
+                          {
+                            value: "Super Admin / Executive Operations",
+                            label: "Super Admin / Executive Operations",
+                          },
+                        ]}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-[var(--text-heading)] block">
+                    Directive / Warning Message / Escalation Brief
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={discNote}
+                    onChange={(e) => setDiscNote(e.target.value)}
+                    placeholder="Specify the task discrepancy, client report summary, required corrective action, or specialist escalation instructions..."
+                    className="w-full p-3 rounded-md bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={savingDisc}
+                    className="px-5 h-9 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                  >
+                    {savingDisc ? "Processing..." : "Execute Action"}
+                  </button>
                 </div>
               </form>
             </div>
+
+            {/* Disciplinary & Escalation Audit Log */}
+            {Array.isArray(userDetail.disciplinaryLog) &&
+              userDetail.disciplinaryLog.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-[var(--text-heading)]">
+                    Disciplinary &amp; Escalation History ({userDetail.disciplinaryLog.length})
+                  </h3>
+                  <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] divide-y divide-[var(--border-color)] text-xs">
+                    {userDetail.disciplinaryLog.map((entry: any) => (
+                      <div key={entry.id} className="p-4 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-[var(--text-heading)]">
+                            {String(entry.actionType || "").replace(/_/g, " ")}
+                            {entry.targetDepartment ? ` → ${entry.targetDepartment}` : ""}
+                          </span>
+                          <span className="text-[11px] text-[var(--text-muted)]">
+                            {formatShortDate(entry.createdAt)}
+                          </span>
+                        </div>
+                        <p className="text-[var(--text-body)]">{entry.note}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
           </div>
         ) : (
           /* PERMISSIONS TAB */
@@ -1766,36 +2262,36 @@ export default function AdminUsersKycPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-[var(--text-heading)] block">
-                    Status
+                    Account Status
                   </label>
-                  <select
+                  <ResponsiveSelect
+                    label="Account Status"
                     value={permActiveInput}
-                    onChange={(e) =>
-                      setPermActiveInput(e.target.value as "ACTIVE" | "DORMANT")
+                    onChange={(val) =>
+                      setPermActiveInput(val as "ACTIVE" | "DORMANT")
                     }
-                    className="w-full h-10 px-3 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="DORMANT">Dormant (Suspended)</option>
-                  </select>
+                    options={[
+                      { value: "ACTIVE", label: "Active" },
+                      { value: "DORMANT", label: "Dormant (Suspended)" },
+                    ]}
+                  />
                 </div>
 
                 {userDetail.role === "AGENT" && (
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-[var(--text-heading)] block">
-                      Agent Role / Specialization (Admin Override)
+                      Agent Type / Specialization (Admin Override)
                     </label>
-                    <select
+                    <ResponsiveSelect
+                      label="Agent Type / Specialization"
                       value={permTierInput}
-                      onChange={(e) => setPermTierInput(e.target.value)}
-                      className="w-full h-10 px-3 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
-                    >
-                      {AGENT_TIERS.map((tier) => (
-                        <option key={tier} value={tier}>
-                          {tier}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setPermTierInput(val)}
+                      options={CANONICAL_AGENT_TYPES.map((t) => ({
+                        value: t.tierCode,
+                        label: t.label,
+                        description: t.description,
+                      }))}
+                    />
                     <p className="text-[11px] text-[var(--text-muted)]">
                       Initially set from agent signup (locked for the agent).
                       Override here if a role change is requested or after KYC

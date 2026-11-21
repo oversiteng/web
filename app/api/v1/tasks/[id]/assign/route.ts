@@ -101,13 +101,13 @@ export const PATCH = withAuth<{ id: string }>(
 );
 
 // POST /api/v1/tasks/:id/assign
-// Allows an ADMIN to assign any agentId to a task
+// Allows an ADMIN to assign any agentId to a task with an acceptance window (default 2 hours, dynamically scaled by SLA)
 export const POST = withAuth<{ id: string }>(
   async (req: NextRequest, { params }) => {
     try {
       const { id: taskId } = await params;
       const body = await req.json();
-      const { agentId } = body;
+      const { agentId, acceptanceWindowHours } = body;
 
       if (!agentId) {
         return NextResponse.json(
@@ -119,24 +119,59 @@ export const POST = withAuth<{ id: string }>(
         );
       }
 
+      const [existingTask] = await db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.id, taskId))
+        .limit(1);
+
+      const now = new Date();
+      const targetTurnaround = Number(existingTask?.agentTargetHours || 24);
+      const defaultWindowHrs =
+        targetTurnaround <= 6 ? 0.5 : targetTurnaround <= 12 ? 1 : 2;
+      const effectiveWindowHrs =
+        typeof acceptanceWindowHours === "number" && acceptanceWindowHours > 0
+          ? acceptanceWindowHours
+          : defaultWindowHrs;
+      const acceptanceDeadline = new Date(
+        now.getTime() + effectiveWindowHrs * 60 * 60 * 1000
+      ).toISOString();
+
+      const prevFormData =
+        existingTask?.formData && typeof existingTask.formData === "object"
+          ? (existingTask.formData as Record<string, any>)
+          : {};
+
       const [updatedTask] = await db
         .update(tasks)
         .set({
           agentId,
           status: "MATCHED",
-          updatedAt: new Date(),
+          formData: {
+            ...prevFormData,
+            assignedAt: now.toISOString(),
+            acceptanceWindowHours: effectiveWindowHrs,
+            acceptanceDeadline,
+          },
+          updatedAt: now,
         })
         .where(eq(tasks.id, taskId))
         .returning();
 
       return NextResponse.json<
-        ApiResponse<{ taskId: string; agentId: string; status: string }>
+        ApiResponse<{
+          taskId: string;
+          agentId: string;
+          status: string;
+          acceptanceDeadline: string;
+        }>
       >({
         success: true,
         data: {
           taskId: updatedTask?.id || taskId,
           agentId,
           status: "MATCHED",
+          acceptanceDeadline,
         },
       });
     } catch (error) {

@@ -5,10 +5,14 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getStoredToken } from "@/lib/storage/clientStorage";
 import { AgentTopNav } from "@/components/agent/AgentTopNav";
-import { X, Plus, ChevronDown, Check } from "lucide-react";
+import { X, Plus, Check, Lock } from "lucide-react";
+import { getAgentTypeLabel } from "@/lib/constants/agentTypes";
 
-const DEFAULT_COVERAGE_AREAS = ["Ikoyi", "Victoria Island", "Lekki", "Ajah"];
 const ALL_SUGGESTED_AREAS = [
+  "Ikoyi",
+  "Victoria Island",
+  "Lekki",
+  "Ajah",
   "Ikeja",
   "Surulere",
   "Yaba",
@@ -19,50 +23,56 @@ const ALL_SUGGESTED_AREAS = [
   "Wuse II",
 ];
 
-const AGENT_TYPES = [
-  "Field Investigator",
-  "Building Inspector / Engineer",
-  "Legal / Due Diligence Operative",
-  "Document Retrieval Runner",
-  "Property Oversite Supervisor",
-];
-
-const STORAGE_KEY = "oversite_agent_work_prefs";
+function getWorkPrefsStorageKey(userId?: string | null) {
+  return userId ? `oversite_agent_work_prefs_${userId}` : "oversite_agent_work_prefs";
+}
 
 export default function AgentCoveragePage() {
   const router = useRouter();
   const { user, refreshUser } = useAuth();
 
   const [coverageInput, setCoverageInput] = useState("");
-  const [coverageAreas, setCoverageAreas] = useState<string[]>(DEFAULT_COVERAGE_AREAS);
-  const [agentType, setAgentType] = useState("Field Investigator");
+  // Do NOT pre-fill mock areas; start empty until loaded from user profile or saved by agent
+  const [coverageAreas, setCoverageAreas] = useState<string[]>([]);
   const [acceptWeekendTasks, setAcceptWeekendTasks] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Canonical Agent Type comes strictly from signup / agentProfile.tier
+  const agentTypeLabel = getAgentTypeLabel(
+    (user as any)?.agentProfile?.tier || (user as any)?.agentTier || null
+  );
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const key = getWorkPrefsStorageKey(user?.id);
+        const raw = localStorage.getItem(key);
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed.coverageAreas) && parsed.coverageAreas.length > 0) {
+          if (Array.isArray(parsed.coverageAreas)) {
             setCoverageAreas(parsed.coverageAreas);
           }
-          if (parsed.agentType) setAgentType(parsed.agentType);
           if (typeof parsed.acceptWeekendTasks === "boolean") {
             setAcceptWeekendTasks(parsed.acceptWeekendTasks);
           }
+          return;
         }
       } catch {
-        // Use defaults
+        // Fallback to user.location
       }
     }
-    if (user?.occupation && AGENT_TYPES.includes(user.occupation)) {
-      setAgentType(user.occupation);
+    if (user?.location && user.location.trim().length > 0) {
+      const areas = user.location
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      setCoverageAreas(areas);
+    } else {
+      setCoverageAreas([]);
     }
-  }, [user?.occupation]);
+  }, [user?.id, user?.location]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -98,12 +108,12 @@ export default function AgentCoveragePage() {
 
     const payload = {
       coverageAreas,
-      agentType,
+      agentType: agentTypeLabel,
       acceptWeekendTasks,
     };
 
     if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      localStorage.setItem(getWorkPrefsStorageKey(user?.id), JSON.stringify(payload));
       window.dispatchEvent(new Event("oversite:coverage-updated"));
     }
 
@@ -119,7 +129,6 @@ export default function AgentCoveragePage() {
           },
           body: JSON.stringify({
             location: coverageAreas.join(", "),
-            occupation: agentType,
           }),
         });
         await refreshUser();
@@ -130,20 +139,20 @@ export default function AgentCoveragePage() {
 
     setIsSaving(false);
     setSavedSuccess(true);
-    showToast("Work area & preferences updated!");
+    showToast("Coverage area & work preferences updated!");
     setTimeout(() => setSavedSuccess(false), 2500);
   };
 
   const remainingSuggestions = ALL_SUGGESTED_AREAS.filter(
     (s) => !coverageAreas.some((c) => c.toLowerCase() === s.toLowerCase())
-  ).slice(0, 5);
+  ).slice(0, 6);
 
   return (
-    <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-12 select-none">
+    <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-24 select-none">
       {/* Toast Feedback */}
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none">
-          <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
+          <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
             <div className="w-5 h-5 rounded-full bg-[var(--primary-light)] flex items-center justify-center shrink-0">
               <Check className="w-3.5 h-3.5 text-[var(--primary)] stroke-[3]" />
             </div>
@@ -152,31 +161,31 @@ export default function AgentCoveragePage() {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header — Uses router.replace to prevent back-button loop with /settings/profile */}
       <AgentTopNav
         showBack={true}
-        backHref="/settings/profile"
+        onBack={() => router.replace("/settings/profile")}
         title="Where you work"
         hideRightControls={true}
         className="mb-5"
       />
 
-      <form onSubmit={handleSave} className="space-y-7">
+      <form onSubmit={handleSave} className="space-y-6">
         {/* Coverage Area Section */}
-        <div className="space-y-4">
+        <div className="space-y-3.5">
           <label className="block text-[14px] font-bold text-[var(--text-heading)]">
             Coverage area
           </label>
 
           {/* Search / Add Input */}
-          <div className="flex items-center gap-2 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-full px-5 py-3.5 shadow-2xs transition-colors">
+          <div className="flex items-center gap-2 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-lg px-4 py-3 shadow-2xs transition-colors">
             <input
               type="text"
               value={coverageInput}
               onChange={(e) => setCoverageInput(e.target.value)}
               onKeyDown={handleInputKeyDown}
-              placeholder="Add coverage area..."
-              className="w-full bg-transparent text-[13.5px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+              placeholder="Enter city, LGA, or neighborhood..."
+              className="w-full bg-transparent text-[13px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
             />
             {coverageInput.trim() && (
               <button
@@ -189,32 +198,32 @@ export default function AgentCoveragePage() {
             )}
           </div>
 
-          {/* Active Selected Areas (Matches Screenshot 4) */}
+          {/* Active Selected Areas */}
           {coverageAreas.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-1">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               {coverageAreas.map((area) => (
                 <button
                   key={area}
                   type="button"
                   onClick={() => removeArea(area)}
-                  className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-[var(--text-heading)] hover:text-[var(--danger)] transition-colors cursor-pointer group"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--primary-light)] border border-[var(--primary-border)] text-xs font-semibold text-[var(--primary)] hover:text-[var(--danger)] transition-colors cursor-pointer group"
                   title={`Remove ${area}`}
                 >
                   <span>{area}</span>
-                  <X className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-[var(--danger)] stroke-[2.2]" />
+                  <X className="w-3.5 h-3.5 stroke-[2.2]" />
                 </button>
               ))}
             </div>
           ) : (
             <p className="text-xs text-[var(--text-muted)] px-1">
-              No areas selected yet. Add an area above or pick from suggestions below.
+              No coverage areas added yet. Type an area above or tap a suggestion below.
             </p>
           )}
 
           {/* Suggested Areas */}
           {remainingSuggestions.length > 0 && (
-            <div className="space-y-2.5 pt-2">
-              <span className="block text-[12px] font-medium text-[var(--text-muted)]">
+            <div className="space-y-2 pt-1">
+              <span className="block text-xs font-medium text-[var(--text-muted)]">
                 Suggested areas
               </span>
               <div className="flex flex-wrap items-center gap-2">
@@ -223,7 +232,7 @@ export default function AgentCoveragePage() {
                     key={area}
                     type="button"
                     onClick={() => addArea(area)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--primary)] text-[12.5px] font-semibold text-[var(--text-heading)] transition-all cursor-pointer shadow-2xs active:scale-95"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--primary)] text-xs font-semibold text-[var(--text-heading)] transition-all cursor-pointer shadow-2xs active:scale-95"
                   >
                     <Plus className="w-3.5 h-3.5 text-[var(--primary)] stroke-[2.5]" />
                     <span>{area}</span>
@@ -234,29 +243,20 @@ export default function AgentCoveragePage() {
           )}
         </div>
 
-        {/* Agent Type Dropdown */}
-        <div className="space-y-2.5">
+        {/* Agent Type (Correlated with Signup & Locked) */}
+        <div className="space-y-2">
           <label className="block text-[14px] font-bold text-[var(--text-heading)]">
             Agent type
           </label>
-          <div className="relative bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
-            <select
-              value={agentType}
-              onChange={(e) => setAgentType(e.target.value)}
-              className="w-full bg-transparent text-[14px] font-semibold text-[var(--text-heading)] outline-none appearance-none pr-6 cursor-pointer"
-            >
-              {AGENT_TYPES.map((type) => (
-                <option
-                  key={type}
-                  value={type}
-                  className="bg-[var(--bg-card)] text-[var(--text-heading)]"
-                >
-                  {type}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-[var(--text-muted)] absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <div className="flex items-center justify-between gap-3 bg-[var(--bg-card)]/80 border border-[var(--border-color)] rounded-lg px-4 py-3 opacity-90 cursor-not-allowed shadow-2xs">
+            <span className="text-[13.5px] font-semibold text-[var(--text-heading)]">
+              {agentTypeLabel}
+            </span>
+            <Lock className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
           </div>
+          <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+            Your agent specialization is linked to your signup and accreditation profile. Only Central Operations can update your agent type after KYC verification.
+          </p>
         </div>
 
         {/* Accept Weekend Tasks Toggle */}
@@ -290,14 +290,14 @@ export default function AgentCoveragePage() {
         </div>
 
         {/* Save Changes Button */}
-        <div className="pt-8">
+        <div className="pt-4">
           <button
             type="submit"
             disabled={isSaving}
-            className="w-full py-3.5 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.99] text-white font-bold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-60"
+            className="w-full py-3 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.99] text-white font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-60"
           >
             {isSaving ? (
-              <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : savedSuccess ? (
               <span className="flex items-center gap-1.5">
                 <Check className="w-4 h-4 stroke-[3]" /> Saved Changes
@@ -311,4 +311,3 @@ export default function AgentCoveragePage() {
     </div>
   );
 }
-

@@ -4,9 +4,10 @@ import { ApiResponse } from "@/lib/types/api";
 import { getDbReady } from "@/lib/db/client";
 import { users, agentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { getAgentTypeOption } from "@/lib/constants/agentTypes";
 
 // GET /api/v1/kyc/status — Aggregated 6-Step Operative Accreditation Status Pipeline
-export const GET = withAuth(async (req: NextRequest, { user }) => {
+export const GET = withAuth(async (_req: NextRequest, { user }) => {
   try {
     const db = await getDbReady();
 
@@ -16,6 +17,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
         email: users.email,
         phone: users.phone,
         name: users.name,
+        address: users.address,
         role: users.role,
         kycStatus: users.kycStatus,
         ninVerificationStatus: users.ninVerificationStatus,
@@ -46,14 +48,22 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
 
     const profile = profiles[0];
     const docs = (u.accreditationDocuments as Record<string, any>) || {};
+    const agentTypeOpt = getAgentTypeOption(profile?.tier);
 
     // 1. Phone Verification Step
     const isPhoneVerified = Boolean(u.phone && u.phone.trim().length >= 10);
     // 2. NIN Verification Step
     const isNinVerified = u.ninVerificationStatus === "verified";
-    // 3. Professional Accreditation / Agent Tier Step
+    // 3. Professional Accreditation / Agent Tier Step (Dynamic by Agent Type)
     const isNbaVerified = u.nbaVerificationStatus === "verified";
-    const isProfessionalVerified = isNbaVerified || Boolean(profile && profile.tier);
+    const profDoc =
+      docs[agentTypeOpt.credential.docKey] ||
+      docs.investigation_certificate ||
+      docs.bar_practicing_license ||
+      docs.cac_certificate;
+    const isProfessionalVerified =
+      (agentTypeOpt.credential.isNba && isNbaVerified) ||
+      (profDoc && ["VERIFIED", "APPROVED"].includes(String(profDoc.status || "").toUpperCase()));
     // 4. Proof of Address / Residency
     const isAddressVerified =
       u.addressVerificationStatus === "verified" ||
@@ -81,10 +91,15 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
         completed: isNinVerified,
       },
       step3Accreditation: {
-        title: "Professional Accreditation (NBA / Certification)",
-        status: isProfessionalVerified ? "VERIFIED" : (u.nbaVerificationStatus.toUpperCase() || "PENDING"),
+        title: agentTypeOpt.credential.title,
+        status: isProfessionalVerified
+          ? "VERIFIED"
+          : profDoc
+          ? String(profDoc.status || "SUBMITTED").toUpperCase()
+          : u.nbaVerificationStatus.toUpperCase() || "PENDING",
         completed: isProfessionalVerified,
-        tier: profile?.tier || (isNbaVerified ? "LEGAL_COUNSEL" : "GENERAL"),
+        tier: agentTypeOpt.tierCode,
+        agentTypeLabel: agentTypeOpt.label,
       },
       step4ProofOfAddress: {
         title: "Proof of Address & Residency",
@@ -155,7 +170,11 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
       {
         id: "proof-of-address",
         title: "Proof of address",
-        status: isAddressVerified ? (u.addressVerificationStatus === "verified" ? "verified" : docStatus(docs.proof_of_address || docs.utility_bill)) : "awaiting",
+        status: isAddressVerified
+          ? u.addressVerificationStatus === "verified"
+            ? "verified"
+            : docStatus(docs.proof_of_address || docs.utility_bill)
+          : "awaiting",
       },
       {
         id: "guarantor-form",
@@ -164,8 +183,8 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
       },
       {
         id: "investigation-cert",
-        title: "Investigation certificate",
-        status: docStatus(docs.investigation_certificate || docs.cac_certificate),
+        title: agentTypeOpt.credential.title,
+        status: isProfessionalVerified ? "verified" : docStatus(profDoc),
       },
       {
         id: "background-check",
@@ -188,6 +207,23 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
         ninVerificationStatus: u.ninVerificationStatus,
         nbaVerificationStatus: u.nbaVerificationStatus,
         addressVerificationStatus: u.addressVerificationStatus,
+        ninId: profile?.ninId || docs.ninNumber || docs.government_id?.metadata?.ninNumber || null,
+        nbaNumber:
+          profile?.nbaNumber ||
+          docs.nbaNumber ||
+          docs.bar_practicing_license?.metadata?.certificateNumber ||
+          docs.investigation_certificate?.metadata?.certificateNumber ||
+          null,
+        residentialAddress:
+          u.address ||
+          docs.proof_of_address?.metadata?.residentialAddress ||
+          null,
+        agentTier: agentTypeOpt.tierCode,
+        agentTypeLabel: agentTypeOpt.label,
+        credentialConfig: agentTypeOpt.credential,
+        kycReviewNote: docs.kycReviewNote || null,
+        kycReviewedAt: docs.kycReviewedAt || null,
+        bankVerification: docs.bankVerification || null,
         completedSteps: completedStepsCount,
         totalSteps: 6,
         currentStep,

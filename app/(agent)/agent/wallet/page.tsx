@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { AgentTopNav } from "@/components/agent/AgentTopNav";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ResponsiveSelect } from "@/components/ui/ResponsiveSelect";
 import { useAuth } from "@/context/AuthContext";
 import {
   ChevronDown,
@@ -110,6 +111,7 @@ export default function AgentWalletPage() {
   // PIN setup & confirmation state
   const [hasWithdrawalPin, setHasWithdrawalPin] = useState(false);
   const [pinReturnView, setPinReturnView] = useState<"earnings" | "confirm">("earnings");
+  const [verifiedCurrentPin, setVerifiedCurrentPin] = useState("");
   const [setupPinFirst, setSetupPinFirst] = useState("");
   const [pin, setPin] = useState<string>("");
   const [isSavingPin, setIsSavingPin] = useState(false);
@@ -140,10 +142,8 @@ export default function AgentWalletPage() {
   // Load live wallet & bank directory when available
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const localPin = localStorage.getItem("oversite_withdrawal_pin");
-      if (localPin && /^\d{4}$/.test(localPin)) {
-        setHasWithdrawalPin(true);
-      }
+      // Remove legacy unscoped PIN key so new signups never inherit another user's PIN state
+      localStorage.removeItem("oversite_withdrawal_pin");
     }
 
     async function loadWalletAndBanks() {
@@ -397,12 +397,53 @@ export default function AgentWalletPage() {
     setPin((prev) => prev.slice(0, -1));
   }, [isSubmittingWithdrawal, isSavingPin]);
 
-  // Handle 4 digits entered in Setup PIN view
+  // Handle 4 digits entered in Setup/Change PIN view (Requires Current PIN first if hasWithdrawalPin is true)
   useEffect(() => {
     if (currentView !== "setup-pin" || pin.length !== 4 || isSavingPin) return;
 
+    // Step 0: If user already has a PIN and hasn't verified current PIN yet, verify current PIN first!
+    if (hasWithdrawalPin && !verifiedCurrentPin) {
+      const candidateCurrent = pin;
+      setIsSavingPin(true);
+      (async () => {
+        try {
+          const token =
+            typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
+          const res = await fetch("/api/v1/agent/wallet/pin", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ currentPin: candidateCurrent, verifyOnly: true }),
+          });
+          const json = await res.json();
+          if (res.ok && json.success) {
+            setVerifiedCurrentPin(candidateCurrent);
+            setPin("");
+            setPinError(null);
+          } else {
+            setPinError(json.error?.message || "Incorrect current PIN. Please try again.");
+            setPin("");
+          }
+        } catch {
+          setPinError("Network error verifying current PIN.");
+          setPin("");
+        } finally {
+          setIsSavingPin(false);
+        }
+      })();
+      return;
+    }
+
     if (!setupPinFirst) {
-      // First entry done; prompt to confirm
+      if (hasWithdrawalPin && pin === verifiedCurrentPin) {
+        setPinError("New PIN must be different from your current PIN.");
+        setPin("");
+        return;
+      }
+      // First entry of new PIN done; prompt to confirm
       setSetupPinFirst(pin);
       setPin("");
       return;
@@ -415,50 +456,51 @@ export default function AgentWalletPage() {
       return;
     }
 
-    // Both entries match — save PIN to backend and local storage
+    // Both entries match — save PIN to backend
     async function savePin() {
       setIsSavingPin(true);
       try {
-        if (typeof window !== "undefined") {
-          localStorage.setItem("oversite_withdrawal_pin", pin);
-        }
         const token =
           typeof window !== "undefined" ? localStorage.getItem("oversite_token") : null;
-        if (token) {
-          await fetch("/api/v1/agent/wallet/pin", {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ pin }),
-          }).catch(() => null);
+        const res = await fetch("/api/v1/agent/wallet/pin", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            pin,
+            currentPin: hasWithdrawalPin ? verifiedCurrentPin : undefined,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          setPinError(json?.error?.message || "Could not update withdrawal PIN.");
+          setSetupPinFirst("");
+          setPin("");
+          return;
         }
         setHasWithdrawalPin(true);
+        setVerifiedCurrentPin("");
         setSetupPinFirst("");
         setPin("");
         showToast("4-digit withdrawal PIN configured!");
         setCurrentView(pinReturnView);
+      } catch {
+        setPinError("Network error saving PIN.");
+        setPin("");
       } finally {
         setIsSavingPin(false);
       }
     }
 
     savePin();
-  }, [currentView, pin, setupPinFirst, isSavingPin, pinReturnView, showToast]);
+  }, [currentView, pin, setupPinFirst, hasWithdrawalPin, verifiedCurrentPin, isSavingPin, pinReturnView, showToast]);
 
   // Auto-submit once 4 PIN digits are entered on Confirm view
   useEffect(() => {
     if (currentView === "confirm" && pin.length === 4 && !isSubmittingWithdrawal) {
-      if (typeof window !== "undefined") {
-        const savedPin = localStorage.getItem("oversite_withdrawal_pin");
-        if (savedPin && /^\d{4}$/.test(savedPin) && pin !== savedPin) {
-          setPinError("Incorrect withdrawal PIN. Please try again.");
-          setPin("");
-          return;
-        }
-      }
       executeWithdrawal();
     }
   }, [currentView, pin, isSubmittingWithdrawal, executeWithdrawal]);
@@ -610,12 +652,13 @@ export default function AgentWalletPage() {
                 type="button"
                 onClick={() => {
                   setPin("");
+                  setVerifiedCurrentPin("");
                   setSetupPinFirst("");
                   setPinError(null);
                   setPinReturnView("earnings");
                   setCurrentView("setup-pin");
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--bg-secondary)] hover:bg-[var(--primary-light)] border border-[var(--border-color)] text-[11px] font-semibold text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--primary-light)] border border-[var(--border-color)] text-[11px] font-semibold text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer shrink-0"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-[var(--primary)]" />
                 <span>{hasWithdrawalPin ? "Change PIN" : "Set Withdrawal PIN"}</span>
@@ -626,13 +669,45 @@ export default function AgentWalletPage() {
               type="button"
               disabled={balance < MIN_WITHDRAWAL_NGN}
               onClick={() => setCurrentView("withdraw")}
-              className={`w-full py-3.5 px-4 rounded-full font-bold text-xs transition-all text-center shadow-xs ${
+              className={`w-full py-3.5 px-4 rounded-lg font-bold text-xs transition-all text-center shadow-xs ${
                 balance >= MIN_WITHDRAWAL_NGN
                   ? "bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white cursor-pointer"
                   : "bg-[var(--bg-secondary)] dark:bg-[var(--bg-body)] text-[var(--text-muted)] border border-[var(--border-color)] cursor-not-allowed opacity-70"
               }`}
             >
               {balance >= MIN_WITHDRAWAL_NGN ? "Withdraw" : "Minimum ₦1,000 required to withdraw"}
+            </button>
+          </div>
+
+          {/* Payout Bank Account Card — Always Accessible Even With ₦0 Balance */}
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 flex items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,0,0,0.03)]">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-lg bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center shrink-0">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold text-[var(--text-heading)] block truncate">
+                  {selectedAccount
+                    ? `${selectedAccount.bankName} •••• ${selectedAccount.accountNumber.slice(-4)}`
+                    : "Payout Bank Account"}
+                </span>
+                <span className="text-[11px] text-[var(--text-muted)] block truncate mt-0.5">
+                  {selectedAccount
+                    ? selectedAccount.accountName
+                    : "No NUBAN payout account linked yet"}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                savedAccounts.length > 0
+                  ? setShowSelectAccountModal(true)
+                  : setCurrentView("add-bank")
+              }
+              className="px-3.5 py-2 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--primary-light)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] hover:text-[var(--primary)] transition-colors cursor-pointer shrink-0"
+            >
+              {selectedAccount ? "Manage Bank" : "Add Bank Account"}
             </button>
           </div>
 
@@ -931,25 +1006,40 @@ export default function AgentWalletPage() {
               showBack={true}
               onBack={() => {
                 setPin("");
+                setVerifiedCurrentPin("");
                 setSetupPinFirst("");
                 setPinError(null);
                 setCurrentView(pinReturnView === "confirm" ? "review" : "earnings");
               }}
-              title={setupPinFirst ? "Confirm your 4-digit PIN" : "Create withdrawal PIN"}
+              title={
+                hasWithdrawalPin && !verifiedCurrentPin
+                  ? "Enter current PIN"
+                  : setupPinFirst
+                  ? "Confirm your 4-digit PIN"
+                  : hasWithdrawalPin
+                  ? "Enter new withdrawal PIN"
+                  : "Create withdrawal PIN"
+              }
               hideRightControls={true}
             />
 
-            <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-[24px] p-5 space-y-2 text-center shadow-[0_0_10px_rgba(0,0,0,0.03)]">
+            <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/70 rounded-xl p-5 space-y-2 text-center shadow-[0_0_10px_rgba(0,0,0,0.03)]">
               <div className="w-10 h-10 rounded-full bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center mx-auto">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <h2 className="text-sm font-bold text-[var(--text-heading)]">
-                {setupPinFirst
+                {hasWithdrawalPin && !verifiedCurrentPin
+                  ? "Verify your current 4-digit PIN"
+                  : setupPinFirst
                   ? "Re-enter your 4-digit PIN to confirm"
+                  : hasWithdrawalPin
+                  ? "Choose your new 4-digit PIN"
                   : "Protect your operative payouts"}
               </h2>
               <p className="text-xs text-[var(--text-muted)]">
-                {setupPinFirst
+                {hasWithdrawalPin && !verifiedCurrentPin
+                  ? "Enter your current 4-digit PIN before setting a new one."
+                  : setupPinFirst
                   ? "Enter the same 4 digits one more time."
                   : "Choose a 4-digit security PIN required whenever you withdraw funds."}
               </p>
@@ -1326,23 +1416,16 @@ export default function AgentWalletPage() {
 
           <div className="space-y-2">
             <label className="text-xs font-semibold text-[var(--text-heading)] block">Bank</label>
-            <div className="relative">
-              <select
-                value={selectedBankCode}
-                onChange={(e) => setSelectedBankCode(e.target.value)}
-                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] focus:border-[var(--primary)] rounded-2xl px-4 py-3.5 text-xs text-[var(--text-heading)] focus:outline-none appearance-none cursor-pointer transition-colors shadow-xs"
-              >
-                <option value="" disabled className="text-[var(--text-muted)]">
-                  Select bank
-                </option>
-                {banksList.map((b) => (
-                  <option key={b.code} value={b.code} className="bg-[var(--bg-card)] text-[var(--text-heading)]">
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-[var(--text-muted)] absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
+            <ResponsiveSelect
+              value={selectedBankCode}
+              onChange={setSelectedBankCode}
+              options={banksList.map((b) => ({ value: b.code, label: b.name }))}
+              placeholder="Select bank"
+              modalTitle="Select Nigerian Bank"
+              searchable={true}
+              searchPlaceholder="Search bank name..."
+              triggerClassName="py-3.5 px-4 rounded-xl"
+            />
           </div>
 
           <div className="space-y-2">

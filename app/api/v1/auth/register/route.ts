@@ -7,6 +7,9 @@ import { getDbReady } from "@/lib/db/client";
 import { users, agentProfiles } from "@/db/schema";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
 import { createSession } from "@/lib/auth/sessionManager";
+import { normalizeAgentTier, getAgentTypeLabel } from "@/lib/constants/agentTypes";
+import { generateOtpCode, storeOtp } from "@/lib/auth/otp";
+import { sendEmailAsync } from "@/lib/services/mailService";
 
 export interface RegisterResponseData {
   user: Partial<User> & {
@@ -121,6 +124,25 @@ export async function POST(
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    const cleanNin =
+      typeof body.ninId === "string" && /^\d{11}$/.test(body.ninId.trim())
+        ? body.ninId.trim()
+        : null;
+    const cleanNba =
+      typeof body.nbaNumber === "string" && body.nbaNumber.trim().length > 0
+        ? body.nbaNumber.trim().toUpperCase()
+        : null;
+    const resolvedTier: AgentTier =
+      role === "AGENT" ? (normalizeAgentTier(body.tier) as AgentTier) : "GENERAL";
+
+    const initialAccreditationDocs =
+      role === "AGENT" && (cleanNin || cleanNba)
+        ? {
+            ...(cleanNin ? { ninNumber: cleanNin } : {}),
+            ...(cleanNba ? { nbaNumber: cleanNba } : {}),
+          }
+        : null;
+
     // Insert user record
     const [newUser] = await db
       .insert(users)
@@ -131,8 +153,9 @@ export async function POST(
         phone,
         role,
         kycStatus: "PENDING",
-        ninVerificationStatus: "pending",
-        nbaVerificationStatus: "pending",
+        ninVerificationStatus: cleanNin ? "submitted" : "pending",
+        nbaVerificationStatus: cleanNba ? "submitted" : "pending",
+        accreditationDocuments: initialAccreditationDocs,
         isActive: true,
       })
       .returning({
@@ -158,19 +181,31 @@ export async function POST(
 
     // If agent, create corresponding agent profile
     if (newUser.role === "AGENT") {
-      const normalizedTier = body.tier === "LEGAL" ? "LEGAL_COUNSEL" : body.tier === "TECHNICAL" ? "TECHNICAL_SUPERVISOR" : body.tier;
-      const tier: AgentTier =
-        normalizedTier && ["GENERAL", "TECHNICAL_SUPERVISOR", "INVESTIGATOR", "LEGAL_COUNSEL", "ENFORCEMENT_LIAISON"].includes(normalizedTier)
-          ? (normalizedTier as AgentTier)
-          : "GENERAL";
-
       await db.insert(agentProfiles).values({
         userId: newUser.id,
-        tier,
-        nbaNumber: body.nbaNumber || null,
-        ninId: body.ninId || null,
+        tier: resolvedTier,
+        nbaNumber: cleanNba,
+        ninId: cleanNin,
         isAvailable: false,
       });
+    }
+
+    // Dispatch verification OTP email on signup
+    try {
+      const otpCode = generateOtpCode(6);
+      await storeOtp(rawEmail, otpCode, 600);
+      await sendEmailAsync({
+        to: rawEmail,
+        subject: "Verify Your Oversite Account",
+        template: "OTP_VERIFICATION",
+        payload: {
+          code: otpCode,
+          name: newUser.name || getAgentTypeLabel(resolvedTier) || "User",
+          expiresIn: "10 minutes",
+        },
+      });
+    } catch (mailErr) {
+      console.warn("Signup OTP email dispatch warning:", mailErr);
     }
 
     // Sign JWT tokens

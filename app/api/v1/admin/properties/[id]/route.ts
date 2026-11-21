@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
 import { getDbReady } from "@/lib/db/client";
-import { properties, users, tasks, notifications } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { properties, users, tasks, taskMilestones, taskChats, notifications } from "@/db/schema";
+import { desc, eq, inArray } from "drizzle-orm";
 import { parsePropertyDescriptionMeta } from "@/lib/services/propertyTaskService";
 
 function extractExtendedMeta(rawDescription: string | null) {
@@ -77,11 +77,12 @@ export const GET = withAuth<{ id: string }>(
             name: users.name,
             email: users.email,
             phone: users.phone,
+            role: users.role,
             isActive: users.isActive,
             kycStatus: users.kycStatus,
           })
           .from(users)
-          .where(eq(users.role, "AGENT")),
+          .where(inArray(users.role, ["ADMIN", "SUPER_ADMIN", "AGENT"])),
       ]);
 
       const isOwned = meta.ownershipType === "OWNED";
@@ -112,7 +113,12 @@ export const GET = withAuth<{ id: string }>(
         acquisitionCostNgn: Number(ext.acquisitionCostNgn || 0),
         documentationCostNgn: Number(ext.documentationCostNgn || 0),
         ownershipVerificationStatus:
-          ext.ownershipVerificationStatus || (isOwned ? "PENDING" : "NOT_APPLICABLE"),
+          ext.ownershipVerificationStatus || (isOwned ? "PENDING" : "PENDING_REVIEW"),
+        reviewStatus:
+          ext.reviewStatus ||
+          (ext.ownershipVerificationStatus === "VERIFIED" || propTasks.length > 0
+            ? "APPROVED"
+            : "PENDING_ADMIN_REVIEW"),
         ownershipVerificationNote: ext.ownershipVerificationNote || null,
         vulnerabilityTestStatus: !isOwned
           ? "NOT_APPLICABLE"
@@ -138,7 +144,13 @@ export const GET = withAuth<{ id: string }>(
           createdAt: t.createdAt.toISOString(),
           completedAt: t.completedAt ? t.completedAt.toISOString() : null,
         })),
-        availableAgents: availableAgents.filter((a) => a.isActive),
+        availableAgents: availableAgents
+          .filter((a) => a.isActive)
+          .sort((a, b) => {
+            const aIsAdmin = a.role === "ADMIN" || a.role === "SUPER_ADMIN" ? 0 : 1;
+            const bIsAdmin = b.role === "ADMIN" || b.role === "SUPER_ADMIN" ? 0 : 1;
+            return aIsAdmin - bIsAdmin;
+          }),
         createdAt: prop.createdAt.toISOString(),
         updatedAt: prop.updatedAt.toISOString(),
       };
@@ -159,7 +171,7 @@ export const GET = withAuth<{ id: string }>(
 );
 
 export const PATCH = withAuth<{ id: string }>(
-  async (req: NextRequest, { params }) => {
+  async (req: NextRequest, { user, params }) => {
     try {
       const { id } = await params;
       const body = await req.json();
@@ -170,6 +182,7 @@ export const PATCH = withAuth<{ id: string }>(
         documentationCostNgn,
         ownershipVerificationStatus,
         ownershipVerificationNote,
+        reviewStatus,
         scheduleConfig,
       } = body;
 
@@ -213,29 +226,148 @@ export const PATCH = withAuth<{ id: string }>(
       if (documentationCostNgn !== undefined) {
         updatedMeta.documentationCostNgn = Number(documentationCostNgn) || 0;
       }
-      if (ownershipVerificationStatus) {
-        updatedMeta.ownershipVerificationStatus = ownershipVerificationStatus;
-        updatedMeta.ownershipVerificationNote = ownershipVerificationNote || null;
-
-        await db.insert(notifications).values({
-          userId: prop.userId,
-          type: ownershipVerificationStatus === "REJECTED" ? "ALERT" : "SYSTEM",
-          title:
-            ownershipVerificationStatus === "VERIFIED"
-              ? `Property Ownership Verified: ${prop.title}`
-              : `Property Ownership Verification Update: ${prop.title}`,
-          body:
-            ownershipVerificationNote ||
-            (ownershipVerificationStatus === "VERIFIED"
-              ? `Your ownership documentation for ${prop.title} has been verified by Central Operations.`
-              : `Your ownership documentation for ${prop.title} requires review. Please re-submit valid proof of ownership.`),
-        });
-      }
       if (scheduleConfig && typeof scheduleConfig === "object") {
         updatedMeta.scheduleConfig = {
           ...(ext.scheduleConfig || {}),
           ...scheduleConfig,
         };
+      }
+
+      const isApprovingNow =
+        reviewStatus === "APPROVED" || ownershipVerificationStatus === "VERIFIED";
+
+      if (reviewStatus) {
+        updatedMeta.reviewStatus = reviewStatus;
+      }
+      if (ownershipVerificationStatus) {
+        updatedMeta.ownershipVerificationStatus = ownershipVerificationStatus;
+        updatedMeta.ownershipVerificationNote = ownershipVerificationNote || null;
+        if (ownershipVerificationStatus === "VERIFIED") {
+          updatedMeta.reviewStatus = "APPROVED";
+        }
+      } else if (isApprovingNow) {
+        updatedMeta.ownershipVerificationStatus = "VERIFIED";
+        updatedMeta.reviewStatus = "APPROVED";
+      }
+
+      // If approved and no baseline PROPERTY_OVERSITE task exists yet, dispense the initial subscription-included task
+      if (isApprovingNow) {
+        const existingPropTasks = await db
+          .select({ id: tasks.id })
+          .from(tasks)
+          .where(eq(tasks.propertyId, prop.id));
+
+        const cadenceLabel =
+          (updatedMeta.scheduleConfig?.cadence || "SEMI_ANNUALLY")
+            .replace(/_/g, " ")
+            .toLowerCase();
+
+        if (existingPropTasks.length === 0) {
+          const promisedDeliveryDate = new Date(now.getTime() + 168 * 60 * 60 * 1000);
+          const managerId = updatedMeta.assignedAgentId || user.sub;
+
+          const [dispensedTask] = await db
+            .insert(tasks)
+            .values({
+              userId: prop.userId,
+              propertyId: prop.id,
+              moduleType: "PROPERTY_OVERSITE",
+              status: "PENDING",
+              priority: "normal",
+              title: `Property Oversight: ${prop.title}`,
+              description:
+                meta.description ||
+                `Baseline subscription property intelligence: Physical site summary, community inquiry ("Word on the Street"), statutory layout compliance, and vicinity landmarks for ${prop.title} (${prop.address}).`,
+              locationAddress: prop.address,
+              locationLat: prop.latitude,
+              locationLng: prop.longitude,
+              priceNgn: "0",
+              pricingMode: "SUBSCRIPTION_INCLUDED",
+              quoteStatus: "INCLUDED_IN_SUBSCRIPTION",
+              agentTargetHours: 72,
+              clientPromisedHours: 168,
+              clientPromisedDeliveryDate: promisedDeliveryDate,
+              pricingBreakdown: {
+                clientPriceNgn: 0,
+                agentPayoutNgn: 10500,
+                platformMarginNgn: 0,
+                isSubscriptionIncluded: true,
+                isAgentPayExplicitlySet: true,
+              },
+              formData: {
+                isPropertyIntelTask: true,
+                isSubscriptionIncluded: true,
+                propertyId: prop.id,
+                propertyTitle: prop.title,
+                ownershipType: meta.ownershipType,
+                landmarkDescription: meta.description || "",
+                scheduleCadence: updatedMeta.scheduleConfig?.cadence || "SEMI_ANNUALLY",
+              },
+            })
+            .returning();
+
+          if (dispensedTask) {
+            await db.insert(taskMilestones).values([
+              {
+                taskId: dispensedTask.id,
+                title: "1. Physical Site Summary & Geofence Verification",
+                description:
+                  "Verify perimeter fence, occupancy status, setback compliance, and capture geo-tagged baseline photographs.",
+                orderIndex: 1,
+                status: "PENDING",
+                completionPct: 0,
+              },
+              {
+                taskId: dispensedTask.id,
+                title: "2. Word on the Street (Community & Neighbor Inquiries)",
+                description:
+                  "Interview caretakers and adjacent property managers to verify absence of communal disputes or encroachment.",
+                orderIndex: 2,
+                status: "PENDING",
+                completionPct: 0,
+              },
+              {
+                taskId: dispensedTask.id,
+                title: "3. Statutory Layout Directives & Vicinity Landmarks",
+                description:
+                  "Verify state physical planning compliance, surveyor general beacon coordinates, and vicinity transit landmarks.",
+                orderIndex: 3,
+                status: "PENDING",
+                completionPct: 0,
+              },
+            ]);
+
+            await db.insert(taskChats).values({
+              taskId: dispensedTask.id,
+              senderId: managerId,
+              receiverId: prop.userId,
+              rawMessage: `Your property "${prop.title}" has been verified and activated on a ${cadenceLabel} monitoring schedule. You are connected directly with your Oversite Personal Property Manager here.`,
+              moderatedMessage: `Your property "${prop.title}" has been verified and activated on a ${cadenceLabel} monitoring schedule. You are connected directly with your Oversite Personal Property Manager here.`,
+              message: `Your property "${prop.title}" has been verified and activated on a ${cadenceLabel} monitoring schedule. You are connected directly with your Oversite Personal Property Manager here.`,
+              messageType: "TEXT",
+              isModerated: true,
+              moderationStatus: "APPROVED_AS_IS",
+            });
+          }
+        }
+
+        await db.insert(notifications).values({
+          userId: prop.userId,
+          type: "SYSTEM",
+          title: `Property Verified & Monitoring Active: ${prop.title}`,
+          body:
+            ownershipVerificationNote ||
+            `Your property "${prop.title}" has been verified by Central Operations. Baseline inspection has been initiated and recurring updates are scheduled (${cadenceLabel}).`,
+        });
+      } else if (ownershipVerificationStatus === "REJECTED" || reviewStatus === "REJECTED") {
+        await db.insert(notifications).values({
+          userId: prop.userId,
+          type: "ALERT",
+          title: `Property Verification Action Required: ${prop.title}`,
+          body:
+            ownershipVerificationNote ||
+            `Your listing "${prop.title}" requires additional verification details before monitoring can begin.`,
+        });
       }
 
       await db

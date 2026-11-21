@@ -23,6 +23,7 @@ import {
   Plus,
 } from "lucide-react";
 import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
+import { ResponsiveSelect } from "@/components/ui/ResponsiveSelect";
 
 interface PropertyListItem {
   id: string;
@@ -32,6 +33,7 @@ interface PropertyListItem {
   ownershipType: "OWNED" | "OTHER";
   parcelNumber: string | null;
   estimatedValueNgn: number;
+  reviewStatus?: string;
   ownershipVerificationStatus: string;
   vulnerabilityTestStatus: string;
   scheduleConfig: {
@@ -120,7 +122,9 @@ function getAuthHeaders(): Record<string, string> {
 export default function AdminPropertiesListingsPage() {
   const [items, setItems] = useState<PropertyListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"ALL" | "PENDING_OWNERSHIP" | "PENDING_VULN">("ALL");
+  const [activeTab, setActiveTab] = useState<
+    "ALL" | "PENDING_OWNERSHIP" | "PENDING_VULN" | "UNASSIGNED"
+  >("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [ownershipFilter, setOwnershipFilter] = useState<"ALL" | "OWNED" | "OTHER">("ALL");
   const [showFilters, setShowFilters] = useState(false);
@@ -299,11 +303,19 @@ export default function AdminPropertiesListingsPage() {
     [items]
   );
 
+  const unassignedCount = useMemo(
+    () => items.filter((p) => !p.assignedAgent).length,
+    [items]
+  );
+
   const filtered = useMemo(() => {
     return items.filter((p) => {
       if (
         activeTab === "PENDING_OWNERSHIP" &&
-        !(p.ownershipType === "OWNED" && p.ownershipVerificationStatus !== "VERIFIED")
+        !(
+          p.ownershipVerificationStatus !== "VERIFIED" ||
+          p.reviewStatus === "PENDING_ADMIN_REVIEW"
+        )
       ) {
         return false;
       }
@@ -311,6 +323,9 @@ export default function AdminPropertiesListingsPage() {
         activeTab === "PENDING_VULN" &&
         !(p.ownershipType === "OWNED" && p.vulnerabilityTestStatus === "PENDING")
       ) {
+        return false;
+      }
+      if (activeTab === "UNASSIGNED" && p.assignedAgent) {
         return false;
       }
       if (ownershipFilter !== "ALL" && p.ownershipType !== ownershipFilter) {
@@ -370,14 +385,41 @@ export default function AdminPropertiesListingsPage() {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowAssignModal((v) => !v)}
-            className="inline-flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold cursor-pointer"
-          >
-            <Building2 className="w-3.5 h-3.5" />
-            <span>{detail?.assignedAgent ? "Reassign Property" : "Assign Property"}</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {detail &&
+              (detail.reviewStatus !== "APPROVED" ||
+                detail.ownershipVerificationStatus !== "VERIFIED") && (
+                <button
+                  type="button"
+                  disabled={savingPatch}
+                  onClick={() =>
+                    handlePatchProperty(
+                      {
+                        reviewStatus: "APPROVED",
+                        ownershipVerificationStatus: "VERIFIED",
+                      },
+                      "Property verified, owner notified & baseline monitoring activated!"
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Approve &amp; Activate Monitoring</span>
+                </button>
+              )}
+            <button
+              type="button"
+              onClick={() => setShowAssignModal((v) => !v)}
+              className="inline-flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold cursor-pointer"
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>
+                {detail?.assignedAgent
+                  ? "Reassign Personal Manager"
+                  : "Assign Personal Manager"}
+              </span>
+            </button>
+          </div>
         </div>
 
         {isLoadingDetail || !detail ? (
@@ -653,28 +695,23 @@ export default function AdminPropertiesListingsPage() {
                     Defaults to Every 6 Months (Annually on Basic plan). End users can adjust
                     frequency within their subscription plan&apos;s min/max bounds.
                   </p>
-                  <select
+                  <ResponsiveSelect
+                    label="Recurring Cadence"
                     value={detail.scheduleConfig?.cadence || "SEMI_ANNUALLY"}
                     disabled={savingPatch}
-                    onChange={(e) =>
+                    onChange={(val) =>
                       handlePatchProperty(
                         {
                           scheduleConfig: {
                             ...(detail.scheduleConfig || {}),
-                            cadence: e.target.value,
+                            cadence: val,
                           },
                         },
                         "Recurring task cadence updated"
                       )
                     }
-                    className="w-full h-9 px-3 rounded-md bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-heading)]"
-                  >
-                    {CADENCE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                    options={CADENCE_OPTIONS}
+                  />
                 </div>
 
                 {/* Property Manager Information Card */}
@@ -824,9 +861,17 @@ export default function AdminPropertiesListingsPage() {
                       Property Owner Details
                     </h3>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-[var(--primary)]/15 text-[var(--primary)] font-bold text-sm flex items-center justify-center shrink-0">
-                        {ownerName.slice(0, 2).toUpperCase()}
-                      </div>
+                      {resolveMediaUrl(detail.owner?.avatarUrl) ? (
+                        <img
+                          src={resolveMediaUrl(detail.owner?.avatarUrl) || ""}
+                          alt={ownerName}
+                          className="w-12 h-12 rounded-full object-cover border border-[var(--border-color)] shrink-0 pointer-events-none"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-[var(--primary)]/15 text-[var(--primary)] font-bold text-sm flex items-center justify-center shrink-0">
+                          {ownerName.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs flex-1">
                         <div>
                           <p className="text-[var(--text-muted)]">First Name</p>
@@ -1214,6 +1259,23 @@ export default function AdminPropertiesListingsPage() {
                 {pendingVulnCount}
               </span>
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("UNASSIGNED");
+                setCurrentPage(1);
+              }}
+              className={`pb-2 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "UNASSIGNED"
+                  ? "border-[var(--primary)] text-[var(--primary)]"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+              }`}
+            >
+              <span>Unassigned Manager</span>
+              <span className="px-1.5 py-0.5 rounded bg-red-500/15 text-red-600 dark:text-red-400 text-[11px]">
+                {unassignedCount}
+              </span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2.5">
@@ -1281,7 +1343,7 @@ export default function AdminPropertiesListingsPage() {
                   <tr>
                     <th className="px-5 py-3 font-semibold">Name</th>
                     <th className="px-5 py-3 font-semibold">Ownership</th>
-                    <th className="px-5 py-3 font-semibold">Type</th>
+                    <th className="px-5 py-3 font-semibold">Property Manager</th>
                     <th className="px-5 py-3 font-semibold">Owner</th>
                     <th className="px-5 py-3 font-semibold">Created on</th>
                     <th className="px-5 py-3 font-semibold text-right">Action</th>
@@ -1294,7 +1356,14 @@ export default function AdminPropertiesListingsPage() {
                       className="hover:bg-[var(--bg-secondary)]/40 transition-colors"
                     >
                       <td className="px-5 py-3.5">
-                        <p className="font-semibold text-[var(--text-heading)]">{prop.title}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-[var(--text-heading)]">{prop.title}</p>
+                          {prop.reviewStatus === "PENDING_ADMIN_REVIEW" && (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[10px] font-semibold">
+                              Pending Approval
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] text-[var(--text-muted)] truncate max-w-[240px]">
                           {prop.address}
                         </p>
@@ -1310,8 +1379,16 @@ export default function AdminPropertiesListingsPage() {
                           {prop.ownershipType === "OWNED" ? "Owned" : "Encroachment"}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-[var(--text-heading)]">
-                        {prop.propertyType}
+                      <td className="px-5 py-3.5">
+                        {prop.assignedAgent ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10.5px] font-semibold">
+                            <span>Assigned: {prop.assignedAgent.name || prop.assignedAgent.email}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/10 text-red-600 dark:text-red-400 text-[10.5px] font-semibold">
+                            <span>Unassigned</span>
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-[var(--text-muted)]">
                         {prop.owner?.name || prop.owner?.email || "—"}
@@ -1351,8 +1428,18 @@ export default function AdminPropertiesListingsPage() {
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-[var(--text-muted)]">Type</span>
-                    <span className="text-[var(--text-heading)]">{prop.propertyType}</span>
+                    <span className="text-[var(--text-muted)]">Manager</span>
+                    <span
+                      className={`font-semibold ${
+                        prop.assignedAgent
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-red-500"
+                      }`}
+                    >
+                      {prop.assignedAgent
+                        ? prop.assignedAgent.name || prop.assignedAgent.email
+                        : "Unassigned"}
+                    </span>
                   </div>
                   <button
                     type="button"

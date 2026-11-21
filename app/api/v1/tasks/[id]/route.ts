@@ -47,26 +47,29 @@ function getDefaultMilestones(moduleType: string, taskId: string, taskDesc?: str
       return [
         {
           taskId,
-          title: "1. Perimeter & Security Boundaries",
-          description: "Stage 1: Perimeter wall, access gates and boundary beacon verification.",
+          title: "1. Physical Site Summary & Geofence Verification",
+          description:
+            "Verify perimeter fence, occupancy status, setback compliance, and capture geo-tagged baseline photographs.",
           orderIndex: 1,
           deliverableType: "INSPECTION_CHECKLIST",
-          status: "COMPLETED" as const,
-          completionPct: 100,
+          status: "PENDING" as const,
+          completionPct: 0,
         },
         {
           taskId,
-          title: "2. Building Envelope & Utilities",
-          description: "Stage 2: Exterior wall condition, water supply, meter readings and electrical connection.",
+          title: "2. Word on the Street (Community & Neighbor Inquiries)",
+          description:
+            "Interview caretakers and adjacent property managers to verify absence of communal disputes or encroachment.",
           orderIndex: 2,
           deliverableType: "INSPECTION_CHECKLIST",
-          status: "IN_PROGRESS" as const,
-          completionPct: 50,
+          status: "PENDING" as const,
+          completionPct: 0,
         },
         {
           taskId,
-          title: "3. Occupancy & Groundskeeping Audit",
-          description: "Stage 3: Verification of current occupants, vegetation control and unauthorized access checks.",
+          title: "3. Statutory Layout Directives & Vicinity Landmarks",
+          description:
+            "Verify state physical planning compliance, surveyor general beacon coordinates, and vicinity transit landmarks.",
           orderIndex: 3,
           deliverableType: "INSPECTION_CHECKLIST",
           status: "PENDING" as const,
@@ -383,10 +386,37 @@ export const GET = withAuth<{ id: string }>(
         }
       }
 
-      // 6. Dual-Price Economics Resolution
-      // - AGENT sees `agentPayoutNgn` as `priceNgn`
-      // - USER sees `clientPriceNgn` as `priceNgn`
-      // - ADMIN sees both + margin
+      // 6. Dual-Price Economics & Legacy Property Oversight Normalization
+      // If an existing PROPERTY_OVERSITE / property-intel task still had legacy AUTO_STANDARD ₦15,000 / 24h in DB, normalize it to SUBSCRIPTION_INCLUDED (₦0 client charge, 72h agent target / 7-day baseline window)
+      const isLegacyPropertyIntel =
+        (t.moduleType === "PROPERTY_OVERSITE" && Boolean(t.propertyId)) ||
+        Boolean((t.formData as any)?.isPropertyIntelTask);
+
+      if (
+        isLegacyPropertyIntel &&
+        t.pricingMode !== "SUBSCRIPTION_INCLUDED" &&
+        t.pricingMode !== "ADMIN_MANUAL"
+      ) {
+        t.pricingMode = "SUBSCRIPTION_INCLUDED";
+        t.quoteStatus = "INCLUDED_IN_SUBSCRIPTION";
+        t.priceNgn = "0";
+        if (!t.agentTargetHours || t.agentTargetHours === 24) {
+          t.agentTargetHours = 72;
+          t.clientPromisedHours = 168;
+        }
+        await db
+          .update(tasks)
+          .set({
+            pricingMode: "SUBSCRIPTION_INCLUDED",
+            quoteStatus: "INCLUDED_IN_SUBSCRIPTION",
+            priceNgn: "0",
+            agentTargetHours: t.agentTargetHours,
+            clientPromisedHours: t.clientPromisedHours,
+          })
+          .where(eq(tasks.id, t.id))
+          .catch(() => {});
+      }
+
       const dual = resolveTaskDualPricing(t);
       const visiblePriceNgn = isAgent ? dual.agentPayoutNgn : dual.clientPriceNgn;
 

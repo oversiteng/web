@@ -17,7 +17,9 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { DynamicLoadingState } from "@/components/ui/DynamicLoadingState";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { ResponsiveSelect } from "@/components/ui/ResponsiveSelect";
 import { calculateClientBufferedHours } from "@/lib/services/pricing";
+import { getAgentTypeLabel } from "@/lib/constants/agentTypes";
 
 const TASK_STATUSES = [
   "DRAFT",
@@ -67,9 +69,10 @@ export default function AdminTaskDetailPage() {
   const [adminNotesInput, setAdminNotesInput] = useState("");
   const [isSavingQuote, setIsSavingQuote] = useState(false);
 
-  // Operative search
+  // Operative search & acceptance window
   const [agentSearch, setAgentSearch] = useState("");
   const [assigningAgentId, setAssigningAgentId] = useState<string | null>(null);
+  const [acceptanceWindowInput, setAcceptanceWindowInput] = useState("2");
 
   // Milestones & Directives
   const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
@@ -146,7 +149,10 @@ export default function AdminTaskDetailPage() {
     task &&
       (task.pricingMode === "SUBSCRIPTION_INCLUDED" ||
         task.quoteStatus === "INCLUDED_IN_SUBSCRIPTION" ||
-        task.formData?.isSubscriptionIncluded)
+        task.formData?.isSubscriptionIncluded ||
+        task.formData?.isPropertyIntelTask ||
+        (task.moduleType === "PROPERTY_OVERSITE" &&
+          (task.propertyId || task.property?.id)))
   );
 
   const handleSavePay = async (e: React.FormEvent) => {
@@ -209,11 +215,16 @@ export default function AdminTaskDetailPage() {
         method: "POST",
         credentials: "include",
         headers: getAuthHeaders(true),
-        body: JSON.stringify({ agentId }),
+        body: JSON.stringify({
+          agentId,
+          acceptanceWindowHours: Number(acceptanceWindowInput) || 2,
+        }),
       });
       const json = await res.json();
       if (json.success) {
-        showToast("Operative assigned to task");
+        showToast(
+          `Operative invited (${Number(acceptanceWindowInput) || 2}h acceptance window)`
+        );
         loadMissionData();
       } else {
         showToast(json.error?.message || "Failed to assign operative");
@@ -376,17 +387,17 @@ export default function AdminTaskDetailPage() {
         </Link>
 
         <div className="flex items-center gap-2">
-          <select
-            value={task.status}
-            onChange={(e) => handleStatusChange(e.target.value)}
-            className="h-9 px-3 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
-          >
-            {TASK_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s.replace(/_/g, " ")}
-              </option>
-            ))}
-          </select>
+          <div className="w-48">
+            <ResponsiveSelect
+              label="Task Lifecycle Status"
+              value={task.status}
+              onChange={(val) => handleStatusChange(val)}
+              options={TASK_STATUSES.map((s) => ({
+                value: s,
+                label: s.replace(/_/g, " "),
+              }))}
+            />
+          </div>
 
           {canDelete && (
             <button
@@ -464,9 +475,7 @@ export default function AdminTaskDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           <form
             onSubmit={handleSavePay}
-            className={`${
-              isSubTask ? "lg:col-span-12" : "lg:col-span-8"
-            } rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-5 space-y-5`}
+            className="lg:col-span-8 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-5 space-y-5"
           >
             <div>
               <h2 className="text-sm font-semibold text-[var(--text-heading)]">
@@ -559,7 +568,43 @@ export default function AdminTaskDetailPage() {
             </div>
           </form>
 
-          {!isSubTask && (
+          {isSubTask ? (
+            <div className="lg:col-span-4 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-5 h-fit space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-[var(--text-heading)]">
+                  Subscription Coverage
+                </h3>
+                <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                  1 Credit / Plan Included
+                </span>
+              </div>
+              <div className="space-y-3 text-xs">
+                <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                  <span className="text-[var(--text-muted)]">Client Pays</span>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                    ₦0 (Included in Plan)
+                  </span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
+                  <span className="text-[var(--text-muted)]">Agent Earns</span>
+                  <span className="font-semibold text-[var(--primary)]">
+                    {formatCurrency(agentPayNum)}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="font-semibold text-[var(--text-heading)]">
+                    Recurring Cadence
+                  </span>
+                  <span className="font-bold text-[var(--text-heading)]">
+                    {String(task.formData?.scheduleCadence || "SEMI_ANNUALLY").replace(
+                      /_/g,
+                      " "
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
             <div className="lg:col-span-4 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-5 h-fit space-y-4">
               <h3 className="text-sm font-semibold text-[var(--text-heading)]">
                 Margin Summary
@@ -590,72 +635,306 @@ export default function AdminTaskDetailPage() {
       )}
 
       {/* TAB 2: OPERATIVE ASSIGNMENT */}
-      {activeTab === "OPERATIVE" && (
-        <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold text-[var(--text-heading)]">
-                Assign Field Operative
-              </h2>
-              <p className="text-xs text-[var(--text-muted)]">
-                Select an active operative to dispatch for this task.
-              </p>
-            </div>
-            <div className="relative sm:w-64">
-              <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={agentSearch}
-                onChange={(e) => setAgentSearch(e.target.value)}
-                placeholder="Search operatives..."
-                className="w-full h-9 pl-9 pr-3 rounded-md bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
-              />
-            </div>
-          </div>
+      {activeTab === "OPERATIVE" && (() => {
+        const applications: any[] = Array.isArray(task.formData?.applications)
+          ? task.formData.applications
+          : [];
+        const rejections: any[] = Array.isArray(task.formData?.rejections)
+          ? task.formData.rejections
+          : [];
 
-          <div className="divide-y divide-[var(--border-color)] border border-[var(--border-color)] rounded-md">
-            {filteredAgents.length === 0 ? (
-              <p className="p-6 text-center text-xs text-[var(--text-muted)]">
-                No active operatives found.
-              </p>
-            ) : (
-              filteredAgents.map((agent) => {
-                const isAssigned = task.agentId === agent.id;
-                return (
-                  <div
-                    key={agent.id}
-                    className="px-4 py-3 flex items-center justify-between gap-3 text-xs"
-                  >
-                    <div>
-                      <p className="font-semibold text-[var(--text-heading)]">
-                        {agent.name || "Unnamed Agent"}
-                      </p>
-                      <p className="text-[11px] text-[var(--text-muted)]">
-                        {agent.email} · {agent.agentTier || "GENERAL"} · KYC {agent.kycStatus}
-                      </p>
-                    </div>
-                    {isAssigned ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold">
-                        <UserCheck className="w-3.5 h-3.5" />
-                        Assigned
-                      </span>
-                    ) : (
+        const computeReliabilityPct = (agent: any) => {
+          const rating = parseFloat(agent.rating || "4.8");
+          const base = Math.round((Math.min(5, Math.max(3.5, rating)) / 5) * 100);
+          return Math.min(100, Math.max(78, base));
+        };
+
+        const MODULE_SPECIALTY_MAP: Record<string, string[]> = {
+          PROPERTY_OVERSITE: ["GENERAL", "INVESTIGATOR", "TECHNICAL_SUPERVISOR"],
+          DUE_DILIGENCE: ["INVESTIGATOR", "LEGAL_COUNSEL"],
+          PROJECT_WATCH: ["TECHNICAL_SUPERVISOR", "GENERAL"],
+          LEGAL_ADVISORY: ["LEGAL_COUNSEL"],
+          LAW_ENFORCEMENT: ["LEGAL_COUNSEL", "INVESTIGATOR"],
+          DOCUMENT_PROCESSING: ["LEGAL_COUNSEL", "ENFORCEMENT_LIAISON", "INVESTIGATOR"],
+          QUICK_ERRANDS: ["ENFORCEMENT_LIAISON", "GENERAL"],
+          VULNERABILITY_TEST: ["INVESTIGATOR", "TECHNICAL_SUPERVISOR"],
+        };
+
+        const targetLocRaw = String(
+          task.property?.address || task.locationAddress || ""
+        ).toLowerCase();
+        const preferredTiers =
+          MODULE_SPECIALTY_MAP[String(task.moduleType || "PROPERTY_OVERSITE")] || [
+            "GENERAL",
+          ];
+
+        const scoreOperativeRecommendation = (agent: any) => {
+          const tier = String(agent.agentTier || "GENERAL");
+          const isPrimarySpecialty = preferredTiers[0] === tier;
+          const isSecondarySpecialty = preferredTiers.includes(tier);
+          const specialtyPoints = isPrimarySpecialty
+            ? 35
+            : isSecondarySpecialty
+            ? 25
+            : 10;
+
+          // Location proximity check against coverageAreas, location, and state
+          const covList: string[] = Array.isArray(agent.coverageAreas)
+            ? agent.coverageAreas
+            : [];
+          const agentLocTokens = [
+            ...covList,
+            agent.location || "",
+            agent.state || "",
+          ]
+            .map((s) => String(s).trim().toLowerCase())
+            .filter((s) => s.length >= 3);
+
+          const matchedCorridor = agentLocTokens.find(
+            (tok) => targetLocRaw && targetLocRaw.includes(tok)
+          );
+          const locationPoints = matchedCorridor
+            ? 30
+            : targetLocRaw &&
+              agent.state &&
+              targetLocRaw.includes(String(agent.state).toLowerCase())
+            ? 18
+            : 8;
+
+          // Credibility / Rating score (0-20 pts)
+          const ratingNum = Math.min(5, Math.max(1, parseFloat(agent.rating || "4.8")));
+          const credibilityPoints = Math.round((ratingNum / 5) * 20);
+
+          // Tasks completed experience (0-15 pts)
+          const completedCount = Number(agent.totalTasks || 0);
+          const experiencePoints = Math.min(15, completedCount * 3);
+
+          const totalMatchScore = Math.min(
+            99,
+            specialtyPoints + locationPoints + credibilityPoints + experiencePoints
+          );
+
+          return {
+            totalMatchScore,
+            isPrimarySpecialty,
+            isSecondarySpecialty,
+            matchedCorridor: matchedCorridor
+              ? matchedCorridor.replace(/\b\w/g, (c) => c.toUpperCase())
+              : null,
+            completedCount,
+            ratingNum,
+          };
+        };
+
+        const rankedAgents = [...filteredAgents]
+          .map((agent) => ({
+            ...agent,
+            _rec: scoreOperativeRecommendation(agent),
+          }))
+          .sort((a, b) => b._rec.totalMatchScore - a._rec.totalMatchScore);
+
+        return (
+          <div className="space-y-4">
+            {/* Acceptance Window Setting & Pool Notice */}
+            <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div>
+                <p className="font-semibold text-[var(--text-heading)]">
+                  Direct Invitation Acceptance Window
+                </p>
+                <p className="text-[11px] text-[var(--text-muted)]">
+                  Operatives directly assigned (`MATCHED`) must accept within this window before the task can be reassigned. Unassigned (`PENDING`) tasks are visible in the Available Tasks pool for agents to apply.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <input
+                  type="number"
+                  min={0.5}
+                  max={48}
+                  step={0.5}
+                  value={acceptanceWindowInput}
+                  onChange={(e) => setAcceptanceWindowInput(e.target.value)}
+                  className="w-20 h-9 px-2.5 rounded-md bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)]"
+                />
+                <span className="text-[var(--text-muted)] font-medium">Hours</span>
+              </div>
+            </div>
+
+            {/* Open-Pool Agent Applications */}
+            {applications.length > 0 && (
+              <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--primary)]/30 p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-[var(--text-heading)]">
+                    Operative Applications ({applications.length})
+                  </h3>
+                  <span className="px-2 py-0.5 rounded bg-[var(--primary)]/15 text-[var(--primary)] text-[10.5px] font-semibold">
+                    From Available Queue Pool
+                  </span>
+                </div>
+                <div className="divide-y divide-[var(--border-color)] border border-[var(--border-color)] rounded-md">
+                  {applications.map((app, idx) => (
+                    <div
+                      key={app.agentId || idx}
+                      className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-[var(--text-heading)]">
+                            {app.agentName}
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-[var(--bg-secondary)] text-[10px] font-semibold text-[var(--text-heading)]">
+                            {app.agentTypeLabel || getAgentTypeLabel(app.agentTier)}
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold">
+                            ★ {Number(app.rating || 5).toFixed(1)}
+                          </span>
+                        </div>
+                        <p className="text-[var(--text-body)] italic">
+                          &ldquo;{app.reason}&rdquo;
+                        </p>
+                      </div>
                       <button
                         type="button"
-                        disabled={assigningAgentId === agent.id}
-                        onClick={() => handleAssignAgent(agent.id)}
-                        className="px-3 h-8 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                        disabled={assigningAgentId === app.agentId}
+                        onClick={() => handleAssignAgent(app.agentId)}
+                        className="px-3.5 h-8 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold cursor-pointer shrink-0 disabled:opacity-50"
                       >
-                        {assigningAgentId === agent.id ? "Assigning..." : "Assign"}
+                        {assigningAgentId === app.agentId ? "Awarding..." : "Award Task"}
                       </button>
-                    )}
-                  </div>
-                );
-              })
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
+
+            {/* Previous Decline Reasons (if any) */}
+            {rejections.length > 0 && (
+              <div className="rounded-lg bg-amber-500/5 border border-amber-500/25 p-4 space-y-2 text-xs">
+                <p className="font-semibold text-amber-700 dark:text-amber-300">
+                  Recent Operative Declines ({rejections.length})
+                </p>
+                <div className="space-y-1.5">
+                  {rejections.slice(0, 3).map((rej, idx) => (
+                    <p key={idx} className="text-[11px] text-[var(--text-muted)]">
+                      <strong className="text-[var(--text-heading)]">
+                        {rej.agentName || "Operative"}:
+                      </strong>{" "}
+                      {rej.reason}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Full Directory of Active Operatives with Reliability Score */}
+            <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-[var(--text-heading)]">
+                    Recommended &amp; Available Field Operatives
+                  </h2>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Ranked automatically by Specialty Match, Proximity to Task Location, Tasks Completed, and 7-Day Credibility Score.
+                  </p>
+                </div>
+                <div className="relative sm:w-64">
+                  <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={agentSearch}
+                    onChange={(e) => setAgentSearch(e.target.value)}
+                    placeholder="Search operatives..."
+                    className="w-full h-9 pl-9 pr-3 rounded-md bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                  />
+                </div>
+              </div>
+
+              <div className="divide-y divide-[var(--border-color)] border border-[var(--border-color)] rounded-md">
+                {rankedAgents.length === 0 ? (
+                  <p className="p-6 text-center text-xs text-[var(--text-muted)]">
+                    No active operatives found.
+                  </p>
+                ) : (
+                  rankedAgents.map((agent, idx) => {
+                    const isAssigned = task.agentId === agent.id;
+                    const reliabilityPct = computeReliabilityPct(agent);
+                    const rec = agent._rec;
+                    const isTopRecommended = idx < 3 && rec.totalMatchScore >= 60;
+                    return (
+                      <div
+                        key={agent.id}
+                        className={`px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
+                          isTopRecommended ? "bg-[var(--primary)]/[0.03]" : ""
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold text-[var(--text-heading)]">
+                              {agent.name || "Unnamed Agent"}
+                            </p>
+                            {isTopRecommended && (
+                              <span className="px-2 py-0.5 rounded bg-[var(--primary)] text-white text-[10px] font-bold">
+                                Recommended · {rec.totalMatchScore}% Match
+                              </span>
+                            )}
+                            <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold">
+                              {reliabilityPct}% Credibility · ★ {rec.ratingNum.toFixed(1)}
+                            </span>
+                            {rec.isPrimarySpecialty && (
+                              <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-semibold">
+                                Exact Specialty Match
+                              </span>
+                            )}
+                            {rec.matchedCorridor && (
+                              <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-semibold">
+                                Near {rec.matchedCorridor}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-[var(--text-muted)]">
+                            {agent.email} ·{" "}
+                            <strong className="text-[var(--text-heading)]">
+                              {getAgentTypeLabel(agent.agentTier)}
+                            </strong>{" "}
+                            ·{" "}
+                            <strong className="text-[var(--text-heading)]">
+                              {rec.completedCount} tasks completed
+                            </strong>{" "}
+                            ·{" "}
+                            {Array.isArray(agent.coverageAreas) &&
+                            agent.coverageAreas.length > 0
+                              ? `Corridors: ${agent.coverageAreas.slice(0, 3).join(", ")}`
+                              : agent.location || agent.state || "General Corridor"}{" "}
+                            · KYC {agent.kycStatus}
+                          </p>
+                        </div>
+                        {isAssigned ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold shrink-0">
+                            <UserCheck className="w-3.5 h-3.5" />
+                            {task.status === "MATCHED" ? "Invited (Awaiting Accept)" : "Assigned"}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={assigningAgentId === agent.id}
+                            onClick={() => handleAssignAgent(agent.id)}
+                            className="px-3.5 h-8 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold cursor-pointer shrink-0 disabled:opacity-50"
+                          >
+                            {assigningAgentId === agent.id
+                              ? "Assigning..."
+                              : isTopRecommended
+                              ? "Assign Recommended"
+                              : "Assign"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* TAB 3: MILESTONES */}
       {activeTab === "MILESTONES" && (
@@ -834,17 +1113,20 @@ export default function AdminTaskDetailPage() {
                 placeholder="e.g. Court Suit Number, Caretaker Name..."
                 className="flex-1 h-9 px-3 rounded-md bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-heading)]"
               />
-              <select
-                value={newInputType}
-                onChange={(e) => setNewInputType(e.target.value as any)}
-                className="h-9 px-3 rounded-md bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-heading)]"
-              >
-                <option value="text">Short Text</option>
-                <option value="textarea">Detailed Notes</option>
-                <option value="number">Number</option>
-                <option value="select">Select</option>
-                <option value="media">Media Upload</option>
-              </select>
+              <div className="w-44">
+                <ResponsiveSelect
+                  label="Input Field Type"
+                  value={newInputType}
+                  onChange={(val) => setNewInputType(val as any)}
+                  options={[
+                    { value: "text", label: "Short Text" },
+                    { value: "textarea", label: "Detailed Notes" },
+                    { value: "number", label: "Number" },
+                    { value: "select", label: "Select" },
+                    { value: "media", label: "Media Upload" },
+                  ]}
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => {

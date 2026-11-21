@@ -114,6 +114,10 @@ export const DEFAULT_PLATFORM_DEDUCTION_PCT = 30;
  */
 export function resolveTaskDualPricing(
   taskRow: {
+    moduleType?: string | null;
+    propertyId?: string | null;
+    pricingMode?: string | null;
+    quoteStatus?: string | null;
     priceNgn?: string | number | null;
     pricingBreakdown?: unknown;
     formData?: unknown;
@@ -124,8 +128,8 @@ export function resolveTaskDualPricing(
   agentPayoutNgn: number;
   platformMarginNgn: number;
   isAgentPayExplicitlySet: boolean;
+  isSubscriptionIncluded: boolean;
 } {
-  const clientPriceNgn = taskRow.priceNgn ? parseFloat(String(taskRow.priceNgn)) : 0;
   const breakdown =
     taskRow.pricingBreakdown && typeof taskRow.pricingBreakdown === "object"
       ? (taskRow.pricingBreakdown as Record<string, any>)
@@ -134,6 +138,19 @@ export function resolveTaskDualPricing(
     taskRow.formData && typeof taskRow.formData === "object"
       ? (taskRow.formData as Record<string, any>)
       : {};
+
+  // Property Oversight & property intelligence tasks are covered by the owner's subscription (₦0 client fee)
+  const isSubscriptionIncluded = Boolean(
+    taskRow.pricingMode === "SUBSCRIPTION_INCLUDED" ||
+      taskRow.quoteStatus === "INCLUDED_IN_SUBSCRIPTION" ||
+      breakdown.isSubscriptionIncluded ||
+      form.isSubscriptionIncluded ||
+      form.isPropertyIntelTask ||
+      (taskRow.moduleType === "PROPERTY_OVERSITE" && taskRow.propertyId)
+  );
+
+  const rawClientPrice = taskRow.priceNgn ? parseFloat(String(taskRow.priceNgn)) : 0;
+  const clientPriceNgn = isSubscriptionIncluded ? 0 : rawClientPrice;
 
   const explicitAgentPay =
     breakdown.agentPayoutNgn !== undefined && breakdown.agentPayoutNgn !== null
@@ -147,17 +164,22 @@ export function resolveTaskDualPricing(
 
   const agentPayoutNgn = isAgentPayExplicitlySet
     ? explicitAgentPay!
-    : clientPriceNgn > 0
-      ? Math.round(clientPriceNgn * ((100 - deductionPct) / 100))
-      : 0;
+    : isSubscriptionIncluded
+      ? 10500
+      : clientPriceNgn > 0
+        ? Math.round(clientPriceNgn * ((100 - deductionPct) / 100))
+        : 0;
 
-  const platformMarginNgn = Math.max(0, clientPriceNgn - agentPayoutNgn);
+  const platformMarginNgn = isSubscriptionIncluded
+    ? 0
+    : Math.max(0, clientPriceNgn - agentPayoutNgn);
 
   return {
     clientPriceNgn,
     agentPayoutNgn,
     platformMarginNgn,
     isAgentPayExplicitlySet,
+    isSubscriptionIncluded,
   };
 }
 

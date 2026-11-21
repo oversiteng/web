@@ -70,9 +70,9 @@ export default function AgentTasksPage() {
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          // Filter to tasks assigned to this agent
+          // Only show tasks explicitly assigned to this agent
           const myTasks = json.data.filter(
-            (t: any) => t.agentId === user?.id || (user?.role === "AGENT" && t.status !== "DRAFT")
+            (t: any) => t.agentId === user?.id && t.status !== "DRAFT"
           );
           setTasks(myTasks);
         } else {
@@ -91,8 +91,9 @@ export default function AgentTasksPage() {
     fetchTasks();
   }, [user]);
 
+  // Only accepted active tasks appear in Active; MATCHED/PENDING tasks stay in /agent/queue until accepted
   const activeTasks = tasks.filter((t) =>
-    ["AGENT_EN_ROUTE", "AGENT_ON_SITE", "IN_PROGRESS", "PENDING", "MATCHED"].includes(t.status)
+    ["AGENT_EN_ROUTE", "AGENT_ON_SITE", "IN_PROGRESS"].includes(t.status)
   );
   const reviewTasks = tasks.filter((t) =>
     ["REPORT_SUBMITTED", "UNDER_REVIEW"].includes(t.status)

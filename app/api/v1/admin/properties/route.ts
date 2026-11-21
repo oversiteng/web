@@ -67,7 +67,12 @@ export const GET = withAuth(
 
         const isOwned = meta.ownershipType === "OWNED";
         const ownershipVerificationStatus =
-          ext.ownershipVerificationStatus || (isOwned ? "PENDING" : "NOT_APPLICABLE");
+          ext.ownershipVerificationStatus || (isOwned ? "PENDING" : "PENDING_REVIEW");
+        const reviewStatus =
+          ext.reviewStatus ||
+          (ownershipVerificationStatus === "VERIFIED" || propTasks.length > 0
+            ? "APPROVED"
+            : "PENDING_ADMIN_REVIEW");
 
         const hasCompletedVulnTest = propTasks.some(
           (t) => t.moduleType === "VULNERABILITY_TEST" && t.status === "COMPLETED"
@@ -98,6 +103,7 @@ export const GET = withAuth(
           baselinePhotos: meta.baselinePhotos,
           proofOfOwnershipUrl: meta.proofOfOwnershipUrl,
           estimatedValueNgn: Number(ext.estimatedValueNgn || 0),
+          reviewStatus,
           ownershipVerificationStatus,
           vulnerabilityTestStatus,
           scheduleConfig: ext.scheduleConfig || {

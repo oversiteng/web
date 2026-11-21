@@ -67,11 +67,26 @@ export const GET = withAuth(
 
       return NextResponse.json<PaginatedResponse<any>>({
         success: true,
-        data: userList.map((u) => ({
-          ...u,
-          operativeCode: u.role === "AGENT" ? formatOperativeCode(u.id) : null,
-          createdAt: u.createdAt.toISOString(),
-        })),
+        data: userList.map((u) => {
+          const docs =
+            u.accreditationDocuments && typeof u.accreditationDocuments === "object"
+              ? (u.accreditationDocuments as Record<string, any>)
+              : {};
+          const coverageAreas = Array.isArray(docs.coverageAreas)
+            ? docs.coverageAreas
+            : u.location
+            ? u.location
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : [];
+          return {
+            ...u,
+            coverageAreas,
+            operativeCode: u.role === "AGENT" ? formatOperativeCode(u.id) : null,
+            createdAt: u.createdAt.toISOString(),
+          };
+        }),
         pagination: {
           page,
           limit,

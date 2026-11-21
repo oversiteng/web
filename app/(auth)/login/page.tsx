@@ -225,14 +225,14 @@ function LoginFormContent() {
         {/* Email Input */}
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-(--text-heading) block">
-            Email or Phone Number
+            Email
           </label>
           <div className="flex items-center bg-(--bg-card) rounded-3xl overflow-hidden border border-transparent shadow-[0_0_10px_rgba(0,0,0,0.03)] focus-within:ring-1 focus-within:ring-(--primary) focus-within:border-[var(--primary)] transition-all">
             <input
               type="text"
               value={email}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-              placeholder="e.g. mailali@gmail.com or 08012345678"
+              placeholder="e.g. mailali@gmail.com"
               className="w-full py-3 px-6 bg-transparent text-(--text-heading) placeholder:text-[#a0aab4] focus:outline-none text-[12px] font-medium"
               required
             />

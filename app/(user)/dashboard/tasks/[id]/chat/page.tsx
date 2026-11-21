@@ -314,17 +314,17 @@ export default function TaskMissionChatPage({
   }
 
   const agentName = isPropertyOversite
-    ? "Oversite"
+    ? task?.assignedManager?.name || "Personal Property Manager"
     : hasAssignedAgent
       ? task?.agent?.name || task?.agentName || "Assigned Field Agent"
       : "Awaiting Agent Assignment";
   const agentBadge = isPropertyOversite
-    ? "PROPERTY-DESK"
+    ? "PROPERTY-MANAGER"
     : hasAssignedAgent
       ? task?.agent?.badge ||
         `OS-${String(task.agentId).slice(0, 4).toUpperCase()}`
       : null;
-  const taskTitle = task?.title || "Task Task";
+  const taskTitle = task?.title || "Task";
 
   const getInitials = (name: string) => {
     const parts = name.trim().split(" ");
@@ -342,9 +342,9 @@ export default function TaskMissionChatPage({
   };
 
   return (
-    <div className="max-w-xl mx-auto min-h-[100dvh] flex flex-col justify-between bg-[var(--bg-body)] animate-in fade-in duration-150">
-      {/* ── Top Header (Exact Match to Screenshot 1) ── */}
-      <div className="sticky top-0 z-30 bg-[var(--bg-body)]/95 backdrop-blur-md border-b border-[var(--border-color)] px-4 py-3 flex items-center gap-3">
+    <div className="max-w-xl mx-auto h-[calc(100dvh-5rem)] sm:h-[calc(100dvh-2rem)] overflow-hidden flex flex-col justify-between bg-[var(--bg-body)] animate-in fade-in duration-150">
+      {/* ── Top Header ── */}
+      <div className="shrink-0 z-30 bg-[var(--bg-body)]/95 backdrop-blur-md border-b border-[var(--border-color)] px-4 py-3 flex items-center gap-3">
         <button
           type="button"
           onClick={() =>
@@ -356,13 +356,13 @@ export default function TaskMissionChatPage({
                   : `/dashboard/tasks/${taskId}`
             )
           }
-          className="p-2 -ml-2 rounded-xl text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer"
+          className="p-2 -ml-2 rounded-lg text-[var(--text-heading)] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer"
           aria-label="Back"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
 
-        {/* Agent / Oversite Avatar */}
+        {/* Agent / Personal Property Manager Avatar */}
         <div
           className={`w-10 h-10 rounded-full font-bold text-[14px] flex items-center justify-center shrink-0 shadow-xs ${
             isPropertyOversite
@@ -371,20 +371,20 @@ export default function TaskMissionChatPage({
           }`}
         >
           {isPropertyOversite
-            ? "OS"
+            ? "PM"
             : hasAssignedAgent
               ? getInitials(agentName)
               : "—"}
         </div>
 
-        {/* Agent / Oversite Identity */}
+        {/* Agent / Personal Property Manager Identity */}
         <div className="min-w-0 flex-1">
           <h2 className="text-[15.5px] font-bold text-[var(--text-heading)] leading-tight truncate">
             {agentName}
           </h2>
           <p className="text-[12px] text-[var(--text-muted)] truncate">
             {isPropertyOversite
-              ? `Oversite Property Intelligence · ${taskTitle.replace(/^Property Oversight:\s*/i, "")}`
+              ? `Oversite Personal Property Manager · ${taskTitle.replace(/^Property Oversight:\s*/i, "")}`
               : agentBadge
                 ? `Field Agent #${agentBadge} · ${taskTitle}`
                 : taskTitle}
@@ -398,26 +398,14 @@ export default function TaskMissionChatPage({
               : `/dashboard/tasks/${taskId}`
           }
           title={isPropertyOversite ? "View Property Overview" : "View Task Dossier"}
-          className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--bg-secondary)] transition-colors"
+          className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--bg-secondary)] transition-colors"
         >
           <ExternalLink className="w-4 h-4" />
         </Link>
       </div>
 
-      {/* ── Hub-and-Spoke Admin Moderation Banner ── */}
-      <div className="px-4 pt-3">
-        <div className="p-3 rounded-2xl bg-[var(--primary-light)]/60 border border-[var(--primary-border)] flex items-start gap-2.5 text-[11.5px] text-[var(--text-heading)]">
-          <ShieldCheck className="w-4 h-4 text-[var(--primary)] shrink-0 mt-0.5" />
-          <span>
-            <strong>Admin-Moderated Channel:</strong> Messages, reports, and
-            milestone submissions are reviewed and approved by Oversite Admin
-            before delivery.
-          </span>
-        </div>
-      </div>
-
       {/* ── Chat Messages Timeline ── */}
-      <div className="flex-1 px-4 py-4 space-y-4 overflow-y-auto">
+      <div className="flex-1 min-h-0 px-4 py-4 space-y-4 overflow-y-auto">
         {isLoading ? (
           <div className="py-16 flex justify-center">
             <div className="w-7 h-7 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
@@ -587,20 +575,20 @@ export default function TaskMissionChatPage({
                         <span>{formatMessageTime(m.createdAt)}</span>
                         {isPending ? (
                           <span className="font-semibold bg-black/15 px-2 py-0.5 rounded-full">
-                            Pending Admin Review
+                            Sent
                           </span>
                         ) : isRefined ? (
                           <span className="font-semibold bg-black/15 px-2 py-0.5 rounded-full">
-                            Modified &amp; Approved
+                            Delivered
                           </span>
                         ) : isRejected ? (
                           <span className="font-semibold bg-black/25 px-2 py-0.5 rounded-full">
-                            Rejected by Admin
+                            Not Delivered
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1">
                             <CheckCheck className="w-3.5 h-3.5" />
-                            <span>Approved</span>
+                            <span>Delivered</span>
                           </span>
                         )}
                       </div>
@@ -651,8 +639,8 @@ export default function TaskMissionChatPage({
         </div>
       )}
 
-      {/* ── Bottom Sticky Input Bar ── */}
-      <div className="sticky bottom-0 z-30 bg-[var(--bg-body)]/95 backdrop-blur-md border-t border-[var(--border-color)] p-3 sm:p-4">
+      {/* ── Bottom Pinned Input Bar ── */}
+      <div className="shrink-0 z-30 bg-[var(--bg-body)]/95 backdrop-blur-md border-t border-[var(--border-color)] p-3 sm:p-4">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -667,19 +655,19 @@ export default function TaskMissionChatPage({
             onChange={(e) => setInputText(e.target.value)}
             placeholder={
               isPropertyOversite
-                ? "Message Oversite regarding this property..."
+                ? "Message your Personal Property Manager..."
                 : canChat
                   ? "Type a message..."
                   : "Chat unlocks once an agent accepts this task..."
             }
-            className="flex-1 bg-[#F4F6F4] dark:bg-[var(--bg-card)] text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] rounded-full px-5 py-3.5 border border-[var(--border-color)]/60 focus:border-[var(--primary)] focus:outline-none transition-colors shadow-xs disabled:opacity-50"
+            className="flex-1 bg-[#F4F6F4] dark:bg-[var(--bg-card)] text-[14px] text-[var(--text-heading)] placeholder:text-[var(--text-muted)] rounded-xl px-4 py-3 border border-[var(--border-color)]/60 focus:border-[var(--primary)] focus:outline-none transition-colors shadow-xs disabled:opacity-50"
           />
 
           <button
             type="submit"
             disabled={!inputText.trim() || isSending || !canChat}
             aria-label="Send message"
-            className="w-12 h-12 rounded-full bg-[var(--primary)] hover:bg-[#23993e] text-white flex items-center justify-center shrink-0 shadow-md transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="w-11 h-11 rounded-xl bg-[var(--primary)] hover:bg-[#23993e] text-white flex items-center justify-center shrink-0 shadow-md transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             <Send className="w-5 h-5 -ml-0.5" />
           </button>

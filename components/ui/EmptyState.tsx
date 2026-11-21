@@ -168,7 +168,7 @@ export function EmptyState({
     notifications: {
       title: "You're all caught up",
       description:
-        "Zero unread alerts. Real-time updates on agent arrivals, report sign-offs, and critical boundary alerts will notify you here.",
+        "Your notifications are empty.",
       icon: <Sparkles className="w-8 h-8 text-[var(--primary)] stroke-[1.8]" />,
       action: {
         label: "Back to Dashboard",

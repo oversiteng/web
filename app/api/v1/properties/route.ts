@@ -3,7 +3,7 @@ import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse, PaginatedResponse } from "@/lib/types/api";
 import { Property, PropertyWithCurrentTask } from "@/lib/types/task";
 import { getDbReady } from "@/lib/db/client";
-import { properties, tasks, taskMilestones, taskChats } from "@/db/schema";
+import { properties, tasks, taskMilestones, taskChats, users, notifications } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import {
   enrichPropertiesWithCurrentTasks,
@@ -77,6 +77,65 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       );
     }
 
+    // Check user subscription property quota & anti-abuse recent-deletion window
+    const [ownerRows, existingUserProperties] = await Promise.all([
+      db
+        .select({
+          id: users.id,
+          role: users.role,
+          accreditationDocuments: users.accreditationDocuments,
+        })
+        .from(users)
+        .where(eq(users.id, user.sub))
+        .limit(1),
+      db
+        .select({ id: properties.id })
+        .from(properties)
+        .where(eq(properties.userId, user.sub)),
+    ]);
+
+    const ownerDocs =
+      ownerRows[0]?.accreditationDocuments &&
+      typeof ownerRows[0].accreditationDocuments === "object"
+        ? (ownerRows[0].accreditationDocuments as Record<string, any>)
+        : {};
+
+    const subscriptionTier = String(ownerDocs.subscriptionTier || "STANDARD").toUpperCase();
+    const maxPropertyQuota =
+      typeof ownerDocs.maxPropertiesQuota === "number"
+        ? ownerDocs.maxPropertiesQuota
+        : subscriptionTier === "BASIC"
+        ? 2
+        : subscriptionTier === "PREMIUM" || subscriptionTier === "ENTERPRISE"
+        ? 15
+        : 5;
+
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recentDeletes: Array<{ deletedAt: string }> = Array.isArray(
+      ownerDocs.recentPropertyDeletions
+    )
+      ? ownerDocs.recentPropertyDeletions.filter(
+          (d: any) => d?.deletedAt && new Date(d.deletedAt).getTime() > thirtyDaysAgo
+        )
+      : [];
+
+    const effectiveQuotaUsed = existingUserProperties.length + recentDeletes.length;
+    if (
+      user.role === "USER" &&
+      effectiveQuotaUsed >= maxPropertyQuota
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "QUOTA_EXCEEDED",
+            message: `You have reached your ${subscriptionTier} plan property monitoring limit (${maxPropertyQuota} properties, including properties removed within the current 30-day cycle). Upgrade your plan or contact Oversite Support to add more properties.`,
+          },
+        },
+        { status: 403 }
+      );
+    }
+
     let finalLat = latitude ? String(latitude) : undefined;
     let finalLng = longitude ? String(longitude) : undefined;
 
@@ -100,9 +159,17 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     const serializedDescription = JSON.stringify({
       __meta: true,
       ownershipType: effectiveOwnership,
+      reviewStatus: "PENDING_ADMIN_REVIEW",
+      ownershipVerificationStatus:
+        effectiveOwnership === "OWNED" ? "PENDING" : "PENDING_REVIEW",
       landmarkDescription: description || "",
       baselinePhotos: Array.isArray(baselinePhotos) ? baselinePhotos.slice(0, 3) : [],
       proofOfOwnershipUrl: proofOfOwnershipUrl || null,
+      scheduleConfig: {
+        cadence: subscriptionTier === "BASIC" ? "ANNUALLY" : "SEMI_ANNUALLY",
+        autoDispenseEnabled: true,
+        subscriptionTier,
+      },
       intelTimeline: getDefaultPropertyIntelTimeline(),
     });
 
@@ -120,87 +187,19 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       })
       .returning();
 
-    // Immediately dispense the Property Oversight task for Admin to assign an agent and submit property intelligence
-    try {
-      const [dispensedTask] = await db
-        .insert(tasks)
-        .values({
-          userId: user.sub,
-          propertyId: newProp.id,
-          moduleType: "PROPERTY_OVERSITE",
-          status: "PENDING",
-          priority: "normal",
-          title: `Property Oversight: ${title}`,
-          description:
-            description ||
-            `Continuous property intelligence, community inquiry ("Word on the Street"), statutory layout directives, and vicinity landmark verification for ${title} (${address}).`,
-          locationAddress: address,
-          locationLat: finalLat,
-          locationLng: finalLng,
-          priceNgn: "15000",
-          pricingMode: "AUTO_STANDARD",
-          quoteStatus: "PAID_ESCROW",
-          pricingBreakdown: {
-            agentPayoutNgn: 10500,
-            platformMarginNgn: 4500,
-            isAgentPayExplicitlySet: true,
-          },
-          formData: {
-            isPropertyIntelTask: true,
-            propertyId: newProp.id,
-            propertyTitle: title,
-            ownershipType: effectiveOwnership,
-            landmarkDescription: description || "",
-          },
-        })
-        .returning();
-
-      if (dispensedTask) {
-        await db.insert(taskMilestones).values([
-          {
-            taskId: dispensedTask.id,
-            title: "1. Physical Site Summary & Geofence Verification",
-            description:
-              "Verify perimeter fence, occupancy status, setback compliance, and capture geo-tagged baseline photographs.",
-            orderIndex: 1,
-            status: "IN_PROGRESS",
-            completionPct: 50,
-          },
-          {
-            taskId: dispensedTask.id,
-            title: "2. Word on the Street (Community & Neighbor Inquiries)",
-            description:
-              "Interview caretakers and adjacent property managers to verify absence of communal disputes or encroachment.",
-            orderIndex: 2,
-            status: "PENDING",
-            completionPct: 0,
-          },
-          {
-            taskId: dispensedTask.id,
-            title: "3. Statutory Layout Directives & Vicinity Landmarks",
-            description:
-              "Verify state physical planning compliance, surveyor general beacon coordinates, and vicinity transit landmarks.",
-            orderIndex: 3,
-            status: "PENDING",
-            completionPct: 0,
-          },
-        ]);
-
-        await db.insert(taskChats).values({
-          taskId: dispensedTask.id,
-          senderId: user.sub,
-          receiverId: user.sub,
-          rawMessage: `Oversite Property Intelligence task dispensed for "${title}". You are connected directly with Oversite regarding this property. Request site updates or ask questions here anytime.`,
-          moderatedMessage: `Oversite Property Intelligence task dispensed for "${title}". You are connected directly with Oversite regarding this property. Request site updates or ask questions here anytime.`,
-          message: `Oversite Property Intelligence task dispensed for "${title}". You are connected directly with Oversite regarding this property. Request site updates or ask questions here anytime.`,
-          messageType: "TEXT",
-          isModerated: true,
-          moderationStatus: "APPROVED_AS_IS",
-        });
-      }
-    } catch (taskErr) {
-      console.warn("Auto-dispensing property oversight task failed:", taskErr);
-    }
+    // Notify user that property is under Admin verification before monitoring tasks are dispatched
+    await db
+      .insert(notifications)
+      .values({
+        userId: user.sub,
+        type: "SYSTEM",
+        title: `Property Submitted for Review: ${title}`,
+        body:
+          effectiveOwnership === "OWNED"
+            ? `Your property "${title}" (${address}) has been submitted to Central Operations for ownership & coordinate verification. Once approved, your Personal Property Manager will activate baseline monitoring.`
+            : `Your Encroachment Watch listing "${title}" (${address}) has been submitted for coordinate & corridor verification. You will be notified as soon as monitoring is activated.`,
+      })
+      .catch(() => {});
 
     const meta = parsePropertyDescriptionMeta(newProp.description, newProp.parcelNumber);
 

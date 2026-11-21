@@ -3,7 +3,7 @@ import { withAuth } from "@/lib/auth/middleware";
 import { ApiResponse } from "@/lib/types/api";
 import { Property, PropertyWithCurrentTask, Task, TaskModule, TaskStatus } from "@/lib/types/task";
 import { getDbReady } from "@/lib/db/client";
-import { properties, tasks, taskMilestones, taskChats } from "@/db/schema";
+import { properties, tasks, taskMilestones, taskChats, users } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import {
   enrichPropertiesWithCurrentTasks,
@@ -54,97 +54,40 @@ export const GET = withAuth<{ id: string }>(
 
       const prop = propRecords[0];
       const meta = parsePropertyDescriptionMeta(prop.description, prop.parcelNumber);
+      let rawMetaObj: Record<string, any> = {};
+      if (prop.description && prop.description.trim().startsWith("{")) {
+        try {
+          const parsed = JSON.parse(prop.description);
+          if (parsed && parsed.__meta) rawMetaObj = parsed;
+        } catch {}
+      }
 
-      let dbTasks = await db
+      const dbTasks = await db
         .select()
         .from(tasks)
         .where(eq(tasks.propertyId, prop.id))
         .orderBy(desc(tasks.createdAt));
 
-      // Ensure every registered property has its dispensed Property Oversight task
-      if (dbTasks.length === 0) {
-        try {
-          const [dispensedTask] = await db
-            .insert(tasks)
-            .values({
-              userId: prop.userId,
-              propertyId: prop.id,
-              moduleType: "PROPERTY_OVERSITE",
-              status: "PENDING",
-              priority: "normal",
-              title: `Property Oversight: ${prop.title}`,
-              description:
-                meta.description ||
-                `Continuous property intelligence, community inquiry ("Word on the Street"), statutory layout directives, and vicinity landmark verification for ${prop.title} (${prop.address}).`,
-              locationAddress: prop.address,
-              locationLat: prop.latitude,
-              locationLng: prop.longitude,
-              priceNgn: "15000",
-              pricingMode: "AUTO_STANDARD",
-              quoteStatus: "PAID_ESCROW",
-              pricingBreakdown: {
-                agentPayoutNgn: 10500,
-                platformMarginNgn: 4500,
-                isAgentPayExplicitlySet: true,
-              },
-              formData: {
-                isPropertyIntelTask: true,
-                propertyId: prop.id,
-                propertyTitle: prop.title,
-                ownershipType: meta.ownershipType,
-                landmarkDescription: meta.description || "",
-              },
-            })
-            .returning();
-
-          if (dispensedTask) {
-            await db.insert(taskMilestones).values([
-              {
-                taskId: dispensedTask.id,
-                title: "1. Physical Site Summary & Geofence Verification",
-                description:
-                  "Verify perimeter fence, occupancy status, setback compliance, and capture geo-tagged baseline photographs.",
-                orderIndex: 1,
-                status: "IN_PROGRESS",
-                completionPct: 50,
-              },
-              {
-                taskId: dispensedTask.id,
-                title: "2. Word on the Street (Community & Neighbor Inquiries)",
-                description:
-                  "Interview caretakers and adjacent property managers to verify absence of communal disputes or encroachment.",
-                orderIndex: 2,
-                status: "PENDING",
-                completionPct: 0,
-              },
-              {
-                taskId: dispensedTask.id,
-                title: "3. Statutory Layout Directives & Vicinity Landmarks",
-                description:
-                  "Verify state physical planning compliance, surveyor general beacon coordinates, and vicinity transit landmarks.",
-                orderIndex: 3,
-                status: "PENDING",
-                completionPct: 0,
-              },
-            ]);
-
-            await db.insert(taskChats).values({
-              taskId: dispensedTask.id,
-              senderId: prop.userId,
-              receiverId: prop.userId,
-              rawMessage: `Oversite Property Intelligence task dispensed for "${prop.title}". You are connected directly with Oversite regarding this property.`,
-              moderatedMessage: `Oversite Property Intelligence task dispensed for "${prop.title}". You are connected directly with Oversite regarding this property.`,
-              message: `Oversite Property Intelligence task dispensed for "${prop.title}". You are connected directly with Oversite regarding this property.`,
-              messageType: "TEXT",
-              isModerated: true,
-              moderationStatus: "APPROVED_AS_IS",
-            });
-
-            dbTasks = [dispensedTask];
-          }
-        } catch (err) {
-          console.warn("Could not auto-dispense missing property task:", err);
-        }
+      let assignedManager: {
+        id: string;
+        name: string | null;
+        email: string;
+        role: string;
+        avatarUrl?: string | null;
+      } | null = null;
+      if (rawMetaObj.assignedAgentId) {
+        const mgrRows = await db
+          .select({
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            role: users.role,
+            avatarUrl: users.avatarUrl,
+          })
+          .from(users)
+          .where(eq(users.id, rawMetaObj.assignedAgentId))
+          .limit(1);
+        if (mgrRows[0]) assignedManager = mgrRows[0];
       }
 
       const mappedTasks: Task[] = dbTasks.map((t) => ({
@@ -168,13 +111,27 @@ export const GET = withAuth<{ id: string }>(
 
       const [enriched] = await enrichPropertiesWithCurrentTasks([prop], db);
 
-      const propertyData: PropertyWithTasks = {
+      const propertyData: PropertyWithTasks & Record<string, any> = {
         ...prop,
         description: meta.description,
         ownershipType: meta.ownershipType,
         baselinePhotos: meta.baselinePhotos,
         proofOfOwnershipUrl: meta.proofOfOwnershipUrl,
         intelTimeline: meta.intelTimeline,
+        reviewStatus:
+          rawMetaObj.reviewStatus ||
+          (rawMetaObj.ownershipVerificationStatus === "VERIFIED" || dbTasks.length > 0
+            ? "APPROVED"
+            : "PENDING_ADMIN_REVIEW"),
+        ownershipVerificationStatus:
+          rawMetaObj.ownershipVerificationStatus ||
+          (meta.ownershipType === "OWNED" ? "PENDING" : "PENDING_REVIEW"),
+        scheduleConfig: rawMetaObj.scheduleConfig || {
+          cadence: "SEMI_ANNUALLY",
+          autoDispenseEnabled: true,
+          subscriptionTier: "STANDARD",
+        },
+        assignedManager,
         latitude: prop.latitude ? parseFloat(prop.latitude) : undefined,
         longitude: prop.longitude ? parseFloat(prop.longitude) : undefined,
         createdAt: prop.createdAt.toISOString(),
@@ -215,14 +172,93 @@ export const PATCH = withAuth<{ id: string }>(
 
       const db = await getDbReady();
       const body = await req.json();
-      const { title, address, latitude, longitude, parcelNumber, propertyType, description } = body;
+      const {
+        title,
+        address,
+        latitude,
+        longitude,
+        parcelNumber,
+        propertyType,
+        description,
+        baselinePhotos,
+      } = body;
 
-      let finalLat = latitude ? String(latitude) : undefined;
-      let finalLng = longitude ? String(longitude) : undefined;
+      const isAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
 
-      if ((!finalLat || !finalLng) && address) {
+      const [existingProp] = await db
+        .select()
+        .from(properties)
+        .where(
+          and(
+            eq(properties.id, id),
+            isAdmin ? undefined : eq(properties.userId, user.sub)
+          )
+        )
+        .limit(1);
+
+      if (!existingProp) {
+        return NextResponse.json(
+          { success: false, error: { code: "NOT_FOUND", message: "Property not found" } },
+          { status: 404 }
+        );
+      }
+
+      const propTasks = await db
+        .select({ id: tasks.id, status: tasks.status })
+        .from(tasks)
+        .where(eq(tasks.propertyId, id));
+
+      let parsedMeta: Record<string, any> = {};
+      if (existingProp.description && existingProp.description.trim().startsWith("{")) {
         try {
-          const geo = await geocodeAddress(address);
+          const p = JSON.parse(existingProp.description);
+          if (p && p.__meta) parsedMeta = p;
+        } catch {}
+      }
+
+      const isIdentityLocked =
+        !isAdmin &&
+        (parsedMeta.ownershipVerificationStatus === "VERIFIED" ||
+          parsedMeta.reviewStatus === "APPROVED" ||
+          propTasks.length > 0);
+
+      if (
+        isIdentityLocked &&
+        ((address && address.trim() !== existingProp.address.trim()) ||
+          (parcelNumber && parcelNumber !== existingProp.parcelNumber))
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "PROPERTY_IDENTITY_LOCKED",
+              message:
+                "Property physical address and title parcel cannot be altered once verification or field tasks have commenced. You may still update the property nickname, landmark notes, and photos.",
+            },
+          },
+          { status: 400 }
+        );
+      }
+
+      const nextAddress = isIdentityLocked ? existingProp.address : address ?? existingProp.address;
+      const nextParcel = isIdentityLocked
+        ? existingProp.parcelNumber
+        : parcelNumber ?? existingProp.parcelNumber;
+
+      let finalLat = isIdentityLocked
+        ? existingProp.latitude ?? undefined
+        : latitude
+        ? String(latitude)
+        : existingProp.latitude ?? undefined;
+      let finalLng = isIdentityLocked
+        ? existingProp.longitude ?? undefined
+        : longitude
+        ? String(longitude)
+        : existingProp.longitude ?? undefined;
+
+      if (!isIdentityLocked && (!finalLat || !finalLng) && nextAddress) {
+        try {
+          const geo = await geocodeAddress(nextAddress);
           if (geo) {
             finalLat = String(geo.latitude);
             finalLng = String(geo.longitude);
@@ -232,51 +268,34 @@ export const PATCH = withAuth<{ id: string }>(
         }
       }
 
-      // Preserve existing __meta JSON envelope inside properties.description
-      let mergedDescription = description;
-      if (description !== undefined) {
-        const [existingProp] = await db
-          .select({ description: properties.description })
-          .from(properties)
-          .where(eq(properties.id, id))
-          .limit(1);
-
-        if (existingProp?.description) {
-          try {
-            const parsed = JSON.parse(existingProp.description);
-            if (parsed && typeof parsed === "object" && parsed.__meta) {
-              mergedDescription = JSON.stringify({
-                ...parsed,
-                text: description,
-                description,
-              });
-            }
-          } catch {
-            // Plain text description; keep incoming description
-          }
-        }
+      let mergedDescription = existingProp.description;
+      if (parsedMeta.__meta) {
+        mergedDescription = JSON.stringify({
+          ...parsedMeta,
+          ...(description !== undefined
+            ? { landmarkDescription: description, text: description, description }
+            : {}),
+          ...(Array.isArray(baselinePhotos)
+            ? { baselinePhotos: baselinePhotos.slice(0, 6) }
+            : {}),
+        });
+      } else if (description !== undefined) {
+        mergedDescription = description;
       }
 
       const [updatedProp] = await db
         .update(properties)
         .set({
-          title,
-          address,
+          title: title ?? existingProp.title,
+          address: nextAddress,
           latitude: finalLat,
           longitude: finalLng,
-          parcelNumber,
-          propertyType,
-          ...(mergedDescription !== undefined ? { description: mergedDescription } : {}),
+          parcelNumber: nextParcel,
+          propertyType: propertyType ?? existingProp.propertyType,
+          description: mergedDescription,
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(properties.id, id),
-            user.role === "ADMIN" || user.role === "SUPER_ADMIN"
-              ? undefined
-              : eq(properties.userId, user.sub)
-          )
-        )
+        .where(eq(properties.id, id))
         .returning();
 
       if (!updatedProp) {
@@ -332,15 +351,19 @@ export const DELETE = withAuth<{ id: string }>(
       const db = await getDbReady();
 
       // Verify ownership before unlinking tasks and deleting property
+      const isAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
       const [existingProp] = await db
-        .select({ id: properties.id })
+        .select({
+          id: properties.id,
+          userId: properties.userId,
+          title: properties.title,
+          createdAt: properties.createdAt,
+        })
         .from(properties)
         .where(
           and(
             eq(properties.id, id),
-            user.role === "ADMIN" || user.role === "SUPER_ADMIN"
-              ? undefined
-              : eq(properties.userId, user.sub)
+            isAdmin ? undefined : eq(properties.userId, user.sub)
           )
         )
         .limit(1);
@@ -352,10 +375,71 @@ export const DELETE = withAuth<{ id: string }>(
         );
       }
 
-      // Unlink associated tasks to prevent FK constraint failure
+      const propTasks = await db
+        .select({ id: tasks.id, status: tasks.status, title: tasks.title })
+        .from(tasks)
+        .where(eq(tasks.propertyId, id));
+
+      const activeBlockingStatuses = new Set([
+        "MATCHED",
+        "AGENT_EN_ROUTE",
+        "AGENT_ON_SITE",
+        "IN_PROGRESS",
+        "REPORT_SUBMITTED",
+        "UNDER_REVIEW",
+      ]);
+
+      const activeTasksOnProperty = propTasks.filter((t) =>
+        activeBlockingStatuses.has(t.status)
+      );
+
+      if (!isAdmin && activeTasksOnProperty.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "ACTIVE_TASKS_EXIST",
+              message: `This property cannot be deleted while an active field task ("${activeTasksOnProperty[0].title}") is in progress or under review.`,
+            },
+          },
+          { status: 400 }
+        );
+      }
+
+      // Record deletion in user's 30-day anti-abuse quota ledger
+      if (!isAdmin) {
+        const [ownerRow] = await db
+          .select({ accreditationDocuments: users.accreditationDocuments })
+          .from(users)
+          .where(eq(users.id, existingProp.userId))
+          .limit(1);
+        const docs =
+          ownerRow?.accreditationDocuments &&
+          typeof ownerRow.accreditationDocuments === "object"
+            ? { ...(ownerRow.accreditationDocuments as Record<string, any>) }
+            : {};
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        const recent = Array.isArray(docs.recentPropertyDeletions)
+          ? docs.recentPropertyDeletions.filter(
+              (d: any) => d?.deletedAt && new Date(d.deletedAt).getTime() > thirtyDaysAgo
+            )
+          : [];
+        recent.push({
+          propertyId: existingProp.id,
+          title: existingProp.title,
+          deletedAt: new Date().toISOString(),
+        });
+        docs.recentPropertyDeletions = recent;
+        await db
+          .update(users)
+          .set({ accreditationDocuments: docs, updatedAt: new Date() })
+          .where(eq(users.id, existingProp.userId));
+      }
+
+      // Cancel any remaining PENDING tasks for this property and unlink
       await db
         .update(tasks)
-        .set({ propertyId: null, updatedAt: new Date() })
+        .set({ propertyId: null, status: "CANCELLED", updatedAt: new Date() })
         .where(eq(tasks.propertyId, id));
 
       await db.delete(properties).where(eq(properties.id, id));

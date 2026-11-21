@@ -116,7 +116,6 @@ export default function AgentMorePage() {
         </div>
       )}
 
-      {/* ── Unified Top Navigation Bar ── */}
       <AgentTopNav title="More" subtitle="Operative tools, credentials & settings" />
 
       {/* ── Agent Profile Card ── */}
@@ -144,9 +143,6 @@ export default function AgentMorePage() {
             <h2 className="text-[16px] font-bold text-[var(--text-heading)] truncate group-hover:text-[var(--primary)] transition-colors">
               {agentIdDisplay}
             </h2>
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary-border)] shrink-0">
-              Agent
-            </span>
           </div>
           <p className="text-[12.5px] text-[var(--text-muted)] truncate mt-0.5">
             {displayEmail}

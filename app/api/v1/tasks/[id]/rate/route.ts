@@ -56,6 +56,48 @@ export const POST = withAuth<{ id: string }>(
       }
 
       const prevFormData = (task.formData as Record<string, any>) || {};
+      if (prevFormData.clientRating && !isAdmin) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "ALREADY_RATED",
+              message: "You have already submitted a rating for this task.",
+            },
+          },
+          { status: 409 }
+        );
+      }
+
+      const completionTimestamp = task.completedAt
+        ? new Date(task.completedAt).getTime()
+        : task.updatedAt
+        ? new Date(task.updatedAt).getTime()
+        : new Date(task.createdAt).getTime();
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+      if (
+        task.status === "COMPLETED" &&
+        Date.now() - completionTimestamp > SEVEN_DAYS_MS &&
+        !isAdmin
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "RATING_WINDOW_EXPIRED",
+              message:
+                "The 7-day rating window after task completion has closed. This task has been auto-finalized.",
+            },
+          },
+          { status: 400 }
+        );
+      }
+
+      const commentText =
+        typeof body.comment === "string" && body.comment.trim()
+          ? body.comment.trim()
+          : feedback;
       const nowIso = new Date().toISOString();
 
       await db
@@ -65,7 +107,8 @@ export const POST = withAuth<{ id: string }>(
             ...prevFormData,
             clientRating: {
               rating,
-              feedback,
+              feedback: commentText,
+              comment: commentText,
               ratedBy: user.sub,
               ratedAt: nowIso,
             },

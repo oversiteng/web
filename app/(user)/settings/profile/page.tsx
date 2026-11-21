@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   Pencil,
   Check,
-  ChevronDown,
   Lock,
   MapPin,
   Briefcase,
@@ -15,6 +14,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getStoredToken } from "@/lib/storage/clientStorage";
+import { ResponsiveSelect } from "@/components/ui/ResponsiveSelect";
+import { getAgentTypeLabel } from "@/lib/constants/agentTypes";
 
 const TITLE_OPTIONS = [
   "Mr/Mrs",
@@ -53,6 +54,10 @@ function parsePhoneParts(rawPhone?: string | null): { code: string; number: stri
   return { code: "+234", number: cleaned };
 }
 
+function getWorkPrefsStorageKey(userId?: string | null) {
+  return userId ? `oversite_agent_work_prefs_${userId}` : "oversite_agent_work_prefs";
+}
+
 export default function PersonalDetailsPage() {
   const router = useRouter();
   const { user: authUser, refreshUser } = useAuth();
@@ -66,9 +71,8 @@ export default function PersonalDetailsPage() {
   const [email, setEmail] = useState(authUser?.email || "");
   const [phoneCode, setPhoneCode] = useState(initialPhone.code);
   const [phoneNumber, setPhoneNumber] = useState(initialPhone.number);
-  const [occupation, setOccupation] = useState(
-    authUser?.occupation || (authUser?.role === "AGENT" ? "Field Investigator" : "")
-  );
+  // Occupation / Profession is independent of Agent Type
+  const [occupation, setOccupation] = useState(authUser?.occupation || "");
 
   // Location & Residence
   const [address, setAddress] = useState(authUser?.address || "");
@@ -88,40 +92,46 @@ export default function PersonalDetailsPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
 
-  // Agent "Where you work" summary state
-  const [coverageAreas, setCoverageAreas] = useState<string[]>(["Ikoyi", "Victoria Island", "Lekki", "Ajah"]);
-  const [workAgentType, setWorkAgentType] = useState("Field Investigator");
+  // Agent "Where you work" summary state — starts empty (no mock prefill)
+  const [coverageAreas, setCoverageAreas] = useState<string[]>([]);
   const [acceptWeekendTasks, setAcceptWeekendTasks] = useState(true);
+
+  const workAgentType = getAgentTypeLabel(
+    (authUser as any)?.agentProfile?.tier || (authUser as any)?.agentTier || null
+  );
 
   useEffect(() => {
     const syncWorkPrefs = () => {
       if (typeof window === "undefined") return;
       try {
-        const raw = localStorage.getItem("oversite_agent_work_prefs");
+        const raw = localStorage.getItem(getWorkPrefsStorageKey(authUser?.id));
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed.coverageAreas) && parsed.coverageAreas.length > 0) {
+          if (Array.isArray(parsed.coverageAreas)) {
             setCoverageAreas(parsed.coverageAreas);
           }
-          if (parsed.agentType) setWorkAgentType(parsed.agentType);
           if (typeof parsed.acceptWeekendTasks === "boolean") {
             setAcceptWeekendTasks(parsed.acceptWeekendTasks);
           }
-        } else if (authUser?.location) {
-          const split = authUser.location
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean);
-          if (split.length > 0) setCoverageAreas(split);
+          return;
         }
       } catch {
-        // Keep defaults
+        // Fallback to location
+      }
+      if (authUser?.location && authUser.location.trim().length > 0) {
+        const split = authUser.location
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        setCoverageAreas(split);
+      } else {
+        setCoverageAreas([]);
       }
     };
     syncWorkPrefs();
     window.addEventListener("oversite:coverage-updated", syncWorkPrefs);
     return () => window.removeEventListener("oversite:coverage-updated", syncWorkPrefs);
-  }, [authUser?.location]);
+  }, [authUser?.id, authUser?.location]);
 
   // Sync state if AuthContext finishes hydrating or updates
   useEffect(() => {
@@ -138,8 +148,6 @@ export default function PersonalDetailsPage() {
       }
       if (authUser.occupation) {
         setOccupation(authUser.occupation);
-      } else if (authUser.role === "AGENT" && !occupation) {
-        setOccupation("Field Investigator");
       }
       if (authUser.address) setAddress(authUser.address);
       if (authUser.location) setLocation(authUser.location);
@@ -150,7 +158,7 @@ export default function PersonalDetailsPage() {
         setAvatarPreview(authUser.avatarUrl || authUser.avatar || null);
       }
     }
-  }, [authUser, occupation]);
+  }, [authUser]);
 
   // Load latest authoritative profile from API
   useEffect(() => {
@@ -375,11 +383,11 @@ export default function PersonalDetailsPage() {
 
   if (!isEditingPersonal) {
     return (
-      <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-12 select-none">
+      <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-24 select-none">
         {/* ── Toast Notification Banner ── */}
         {toastMessage && (
           <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
-            <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
+            <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
               <div className="w-5 h-5 rounded-full bg-[var(--primary-light)] flex items-center justify-center shrink-0">
                 <Check className="w-3.5 h-3.5 text-[var(--primary)] stroke-[3]" />
               </div>
@@ -388,19 +396,15 @@ export default function PersonalDetailsPage() {
           </div>
         )}
 
-        {/* ── Top Header ── */}
+        {/* ── Top Header (Deterministic navigation to prevent loop with /agent/coverage) ── */}
         <div className="flex items-center gap-3 py-3 mb-4">
           <button
             type="button"
             onClick={() => {
-              if (window.history.length > 1) {
-                router.back();
-              } else {
-                router.push(isAgent ? "/agent/more" : "/settings");
-              }
+              router.push(isAgent ? "/agent/more" : "/settings");
             }}
             aria-label="Go back"
-            className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-colors cursor-pointer -ml-1"
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-colors cursor-pointer -ml-1"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -432,7 +436,7 @@ export default function PersonalDetailsPage() {
 
         <div className="space-y-5">
           {/* ── Section 1: Personal Details ── */}
-          <div className="rounded-[24px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-2xs space-y-4">
+          <div className="rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-[15px] font-bold text-[var(--text-heading)]">
                 Personal details
@@ -441,7 +445,7 @@ export default function PersonalDetailsPage() {
                 type="button"
                 onClick={() => setIsEditingPersonal(true)}
                 aria-label="Edit personal details"
-                className="w-8 h-8 rounded-full bg-[var(--bg-secondary)] hover:bg-[var(--primary-light)] text-[var(--text-heading)] hover:text-[var(--primary)] flex items-center justify-center transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--primary-light)] text-[var(--text-heading)] hover:text-[var(--primary)] flex items-center justify-center transition-colors cursor-pointer"
               >
                 <Pencil className="w-4 h-4" />
               </button>
@@ -468,7 +472,7 @@ export default function PersonalDetailsPage() {
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4 pt-3">
-                <span className="text-[var(--text-muted)]">Occupation</span>
+                <span className="text-[var(--text-muted)]">Occupation / Profession</span>
                 <span className="font-semibold text-[var(--text-heading)] text-right">
                   {occupation || "Not set"}
                 </span>
@@ -498,7 +502,7 @@ export default function PersonalDetailsPage() {
 
           {/* ── Section 2: Where You Work (Agents) ── */}
           {isAgent && (
-            <div className="rounded-[24px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-2xs space-y-4">
+            <div className="rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] p-5 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-[15px] font-bold text-[var(--text-heading)]">
                   Where you work
@@ -506,7 +510,7 @@ export default function PersonalDetailsPage() {
                 <Link
                   href="/agent/coverage"
                   aria-label="Edit where you work"
-                  className="w-8 h-8 rounded-full bg-[var(--bg-secondary)] hover:bg-[var(--primary-light)] text-[var(--text-heading)] hover:text-[var(--primary)] flex items-center justify-center transition-colors cursor-pointer"
+                  className="w-8 h-8 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--primary-light)] text-[var(--text-heading)] hover:text-[var(--primary)] flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <Pencil className="w-4 h-4" />
                 </Link>
@@ -518,22 +522,28 @@ export default function PersonalDetailsPage() {
                     <MapPin className="w-3.5 h-3.5 text-[var(--primary)]" />
                     <span>Coverage areas</span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {coverageAreas.map((area) => (
-                      <span
-                        key={area}
-                        className="px-3 py-1 rounded-full bg-[var(--primary-light)] text-[var(--primary)] text-[11.5px] font-semibold"
-                      >
-                        {area}
-                      </span>
-                    ))}
-                  </div>
+                  {coverageAreas.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {coverageAreas.map((area) => (
+                        <span
+                          key={area}
+                          className="px-2.5 py-1 rounded-md bg-[var(--primary-light)] text-[var(--primary)] text-[11.5px] font-semibold"
+                        >
+                          {area}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[var(--text-muted)]">
+                      No coverage areas added yet. Tap edit to add your active areas.
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between gap-4 pt-3 border-t border-[var(--border-color)]/60">
                   <span className="text-[var(--text-muted)] flex items-center gap-1.5">
                     <Briefcase className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                    Operative role
+                    Agent type
                   </span>
                   <span className="font-semibold text-[var(--text-heading)] text-right">
                     {workAgentType}
@@ -558,11 +568,11 @@ export default function PersonalDetailsPage() {
   }
 
   return (
-    <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-12 select-none">
+    <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-24 select-none">
       {/* ── Toast Notification Banner ── */}
       {toastMessage && (
         <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none transition-all duration-300">
-          <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-2xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
+          <div className="w-full max-w-sm bg-[var(--bg-card)] text-[var(--text-heading)] px-4 py-3 rounded-xl shadow-2xl border border-[var(--border-color)] flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-4">
             <div className="w-5 h-5 rounded-full bg-[var(--primary-light)] flex items-center justify-center shrink-0">
               <Check className="w-3.5 h-3.5 text-[var(--primary)] stroke-[3]" />
             </div>
@@ -577,7 +587,7 @@ export default function PersonalDetailsPage() {
           type="button"
           onClick={() => setIsEditingPersonal(false)}
           aria-label="Go back to profile"
-          className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-colors cursor-pointer -ml-1"
+          className="w-9 h-9 rounded-lg flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-colors cursor-pointer -ml-1"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -634,37 +644,26 @@ export default function PersonalDetailsPage() {
               <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
                 Title
               </label>
-              <div className="relative bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-3.5 py-3.5 shadow-2xs">
-                <select
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-transparent text-[13.5px] font-medium text-[var(--text-heading)] outline-none appearance-none pr-5 cursor-pointer"
-                >
-                  {TITLE_OPTIONS.map((opt) => (
-                    <option
-                      key={opt}
-                      value={opt}
-                      className="bg-[var(--bg-card)] text-[var(--text-heading)]"
-                    >
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-[var(--text-muted)] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+              <ResponsiveSelect
+                value={title}
+                onChange={setTitle}
+                options={TITLE_OPTIONS}
+                modalTitle="Select Title"
+                triggerClassName="py-3 px-3 rounded-lg"
+              />
             </div>
 
             <div className="flex-1 min-w-0">
               <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
                 Full Name
               </label>
-              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
+              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-lg px-3.5 py-2.5 shadow-2xs">
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Agent User"
-                  className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+                  placeholder="e.g. Chinedu Okafor"
+                  className="w-full bg-transparent text-[13.5px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
                 />
               </div>
             </div>
@@ -675,13 +674,13 @@ export default function PersonalDetailsPage() {
             <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
               Email Address
             </label>
-            <div className="flex items-center justify-between gap-3 bg-[var(--bg-card)]/80 border border-[var(--border-color)] rounded-2xl px-4 py-3.5 opacity-85 cursor-not-allowed shadow-2xs">
+            <div className="flex items-center justify-between gap-3 bg-[var(--bg-card)]/80 border border-[var(--border-color)] rounded-lg px-3.5 py-2.5 opacity-85 cursor-not-allowed shadow-2xs">
               <input
                 type="email"
                 value={email}
                 readOnly
                 disabled
-                className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] outline-none cursor-not-allowed"
+                className="w-full bg-transparent text-[13.5px] font-medium text-[var(--text-heading)] outline-none cursor-not-allowed"
               />
               <Lock className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
             </div>
@@ -692,76 +691,41 @@ export default function PersonalDetailsPage() {
             <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
               Phone Number
             </label>
-            <div className="flex items-center gap-3 bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
-              <select
+            <div className="flex items-center bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-lg shadow-2xs">
+              <ResponsiveSelect
                 value={phoneCode}
-                onChange={(e) => setPhoneCode(e.target.value)}
-                aria-label="Country dialing code"
-                className="bg-transparent text-[14px] font-semibold text-[var(--text-heading)] outline-none cursor-pointer shrink-0"
-              >
-                {PHONE_CODES.map((code) => (
-                  <option
-                    key={code}
-                    value={code}
-                    className="bg-[var(--bg-card)] text-[var(--text-heading)]"
-                  >
-                    {code}
-                  </option>
-                ))}
-              </select>
+                onChange={setPhoneCode}
+                options={PHONE_CODES}
+                modalTitle="Select Dialing Code"
+                className="shrink-0"
+                triggerClassName="border-0 border-r border-[var(--border-color)] rounded-none rounded-l-lg px-3 py-2.5 bg-transparent font-semibold"
+              />
               <input
                 type="tel"
                 inputMode="numeric"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value.replace(/[^\d\s]/g, ""))}
                 placeholder="801 234 5678"
-                className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+                className="w-full bg-transparent text-[13.5px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none px-3.5 py-2.5"
               />
             </div>
           </div>
 
-          {/* Agent Role / Specialization (Locked for Agents) OR Occupation / Profession (Editable for End Users) */}
-          {authUser?.role === "AGENT" ? (
-            <div>
-              <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
-                Agent Role / Specialization
-              </label>
-              <div className="flex items-center justify-between gap-3 bg-[var(--bg-card)]/80 border border-[var(--border-color)] rounded-2xl px-4 py-3.5 opacity-85 cursor-not-allowed shadow-2xs">
-                <input
-                  type="text"
-                  value={
-                    (authUser as any)?.agentProfile?.tier
-                      ? String((authUser as any).agentProfile.tier)
-                          .replace(/_/g, " ")
-                          .replace(/\b\w/g, (c) => c.toUpperCase())
-                      : occupation || "General Operative"
-                  }
-                  readOnly
-                  disabled
-                  className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] outline-none cursor-not-allowed"
-                />
-                <Lock className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
-              </div>
-              <p className="text-[11px] text-[var(--text-muted)] mt-1.5">
-                Fixed from registration. Only Central Operations can update your agent role after KYC review.
-              </p>
+          {/* Occupation / Profession (Editable for BOTH End Users and Agents) */}
+          <div>
+            <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
+              Occupation / Profession
+            </label>
+            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-lg px-3.5 py-2.5 shadow-2xs">
+              <input
+                type="text"
+                value={occupation}
+                onChange={(e) => setOccupation(e.target.value)}
+                placeholder="e.g. Civil Engineer, Lawyer, Surveyor, Business Owner"
+                className="w-full bg-transparent text-[13.5px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+              />
             </div>
-          ) : (
-            <div>
-              <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
-                Occupation / Profession
-              </label>
-              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
-                <input
-                  type="text"
-                  value={occupation}
-                  onChange={(e) => setOccupation(e.target.value)}
-                  placeholder="e.g. Architect, Business Owner"
-                  className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
-                />
-              </div>
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Section 2: Location & Residence */}
@@ -775,13 +739,13 @@ export default function PersonalDetailsPage() {
             <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
               Street Address
             </label>
-            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
+            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-lg px-3.5 py-2.5 shadow-2xs">
               <input
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="e.g. 14 Admiralty Way, Lekki Phase 1"
-                className="w-full bg-transparent text-[14px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
+                className="w-full bg-transparent text-[13.5px] font-medium text-[var(--text-heading)] placeholder:text-[var(--text-muted)] outline-none"
               />
             </div>
           </div>
@@ -792,7 +756,7 @@ export default function PersonalDetailsPage() {
               <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
                 City / Area
               </label>
-              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
+              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-lg px-3.5 py-2.5 shadow-2xs">
                 <input
                   type="text"
                   value={location}
@@ -807,7 +771,7 @@ export default function PersonalDetailsPage() {
               <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
                 State / Province
               </label>
-              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
+              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-lg px-3.5 py-2.5 shadow-2xs">
                 <input
                   type="text"
                   value={state}
@@ -825,7 +789,7 @@ export default function PersonalDetailsPage() {
               <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
                 Country
               </label>
-              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
+              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-lg px-3.5 py-2.5 shadow-2xs">
                 <input
                   type="text"
                   value={country}
@@ -840,42 +804,27 @@ export default function PersonalDetailsPage() {
               <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1.5">
                 Residence Status
               </label>
-              <div className="relative bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--primary)] rounded-2xl px-4 py-3.5 shadow-2xs">
-                <select
-                  value={residence}
-                  onChange={(e) => setResidence(e.target.value)}
-                  className={`w-full bg-transparent text-[13.5px] font-medium outline-none appearance-none pr-5 cursor-pointer ${
-                    residence ? "text-[var(--text-heading)]" : "text-[var(--text-muted)]"
-                  }`}
-                >
-                  <option value="" className="bg-[var(--bg-card)] text-[var(--text-muted)]">
-                    Select status
-                  </option>
-                  {RESIDENCE_STATUS_OPTIONS.map((opt) => (
-                    <option
-                      key={opt}
-                      value={opt}
-                      className="bg-[var(--bg-card)] text-[var(--text-heading)]"
-                    >
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-[var(--text-muted)] absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+              <ResponsiveSelect
+                value={residence}
+                onChange={setResidence}
+                options={RESIDENCE_STATUS_OPTIONS}
+                placeholder="Select status"
+                modalTitle="Select Residence Status"
+                triggerClassName="py-2.5 px-3.5 rounded-lg"
+              />
             </div>
           </div>
         </div>
 
-        {/* Save Changes Primary Pill Button */}
+        {/* Save Changes Primary Button */}
         <div className="pt-4">
           <button
             type="submit"
             disabled={isSaving}
-            className="w-full py-3.5 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.99] text-white font-bold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-60"
+            className="w-full py-3 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.99] text-white font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-60"
           >
             {isSaving ? (
-              <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : savedSuccess ? (
               <span className="flex items-center gap-1.5">
                 <Check className="w-4 h-4 stroke-[3]" /> Saved Changes

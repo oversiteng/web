@@ -15,6 +15,13 @@ import {
   BadgeCheck,
   AlertTriangle,
   Award,
+  Pencil,
+  Trash2,
+  Lock,
+  Clock,
+  X,
+  Check,
+  Loader2,
 } from "lucide-react";
 import { PropertyIntelTimeline } from "@/lib/types/task";
 
@@ -43,6 +50,20 @@ interface PropertyDetails {
   baselinePhotos?: string[];
   proofOfOwnershipUrl?: string | null;
   intelTimeline?: PropertyIntelTimeline;
+  reviewStatus?: string;
+  ownershipVerificationStatus?: string;
+  scheduleConfig?: {
+    cadence?: string;
+    autoDispenseEnabled?: boolean;
+    subscriptionTier?: string;
+  };
+  assignedManager?: {
+    id: string;
+    name: string | null;
+    email: string;
+    role: string;
+    avatarUrl?: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
   tasks: PropertyTask[];
@@ -70,6 +91,18 @@ export default function PropertyDetailPage() {
   const [streetHistoryExpanded, setStreetHistoryExpanded] = useState(false);
   const [reviewHistoryExpanded, setReviewHistoryExpanded] = useState(false);
 
+  // Edit & Delete Guardrail Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editFeedback, setEditFeedback] = useState<string | null>(null);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!id) return;
 
@@ -94,6 +127,9 @@ export default function PropertyDetailPage() {
         }
 
         setProperty(json.data);
+        setEditTitle(json.data.title || "");
+        setEditAddress(json.data.address || "");
+        setEditDescription(json.data.description || "");
       } catch (err) {
         setErrorMsg((err as Error).message);
       } finally {
@@ -241,18 +277,90 @@ export default function PropertyDetailPage() {
           Property Overview
         </h1>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setEditTitle(property.title || "");
+              setEditAddress(property.address || "");
+              setEditDescription(property.description || "");
+              setEditFeedback(null);
+              setShowEditModal(true);
+            }}
+            title="Edit property details"
+            className="w-8.5 h-8.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--primary)] text-[var(--text-heading)] flex items-center justify-center transition-colors cursor-pointer"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDeleteError(null);
+              setShowDeleteModal(true);
+            }}
+            title="Remove property listing"
+            className="w-8.5 h-8.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 flex items-center justify-center transition-colors cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
           {oversiteTask && (
             <Link
               href={`/dashboard/tasks/${oversiteTask.id}/chat`}
-              title="Chat with Oversite regarding this property"
-              className="w-8.5 h-8.5 rounded-full bg-[#22b14c]/10 hover:bg-[#22b14c]/20 text-[#22b14c] flex items-center justify-center transition-colors"
+              title="Chat with your Personal Property Manager"
+              className="w-8.5 h-8.5 rounded-lg bg-[#22b14c]/10 hover:bg-[#22b14c]/20 text-[#22b14c] flex items-center justify-center transition-colors"
             >
               <MessageCircle className="w-4 h-4" />
             </Link>
           )}
         </div>
       </div>
+
+      {/* ── Verification & Monitoring Cadence Banner ── */}
+      {property.reviewStatus === "PENDING_ADMIN_REVIEW" &&
+      property.ownershipVerificationStatus !== "VERIFIED" ? (
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-xs">
+          <Clock className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="font-bold text-[var(--text-heading)]">
+              Pending Central Operations Verification
+            </p>
+            <p className="text-[var(--text-muted)] leading-relaxed">
+              Your property submission is currently being verified by Oversite Operations. Once approved, your Personal Property Manager will activate baseline monitoring on your{" "}
+              <span className="font-semibold text-[var(--text-heading)]">
+                {(property.scheduleConfig?.cadence || "SEMI_ANNUALLY")
+                  .replace(/_/g, " ")
+                  .toLowerCase()}
+              </span>{" "}
+              cadence.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-bold text-[var(--text-heading)] truncate">
+                Active Property Monitoring ·{" "}
+                {(property.scheduleConfig?.cadence || "SEMI_ANNUALLY").replace(/_/g, " ")}
+              </p>
+              <p className="text-[11px] text-[var(--text-muted)] truncate">
+                {property.assignedManager
+                  ? `Personal Property Manager: ${property.assignedManager.name || property.assignedManager.email}`
+                  : "Managed by Oversite Property Desk"}
+              </p>
+            </div>
+          </div>
+          {oversiteTask && (
+            <Link
+              href={`/dashboard/tasks/${oversiteTask.id}/chat`}
+              className="px-3 py-1.5 rounded-lg bg-[#22b14c] text-white font-bold text-[11px] shrink-0"
+            >
+              Message Manager
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* ── Property Title & Address Subheader ── */}
       <div className="-mt-2">
@@ -728,12 +836,260 @@ export default function PropertyDetailPage() {
 
           <Link
             href={`/vulnerability?propertyId=${property.id}`}
-            className="py-3.5 px-4 rounded-full bg-[#22b14c] hover:bg-[#1e9e43] text-white font-bold text-[14px] text-center transition-all shadow-md active:scale-[0.98]"
+            className="py-3.5 px-4 rounded-xl bg-[#22b14c] hover:bg-[#1e9e43] text-white font-bold text-[14px] text-center transition-all shadow-md active:scale-[0.98]"
           >
             Vulnerability Test
           </Link>
         </div>
       </section>
+
+      {/* ── Edit Property Modal / Drawer with Identity Lock Guardrail ── */}
+      {showEditModal && (() => {
+        const isIdentityLocked =
+          property.ownershipVerificationStatus === "VERIFIED" ||
+          property.reviewStatus === "APPROVED" ||
+          (property.tasks && property.tasks.length > 0);
+
+        const handleSaveEdit = async (e: React.FormEvent) => {
+          e.preventDefault();
+          setIsSavingEdit(true);
+          setEditFeedback(null);
+          try {
+            const token =
+              typeof window !== "undefined"
+                ? localStorage.getItem("oversite_token")
+                : null;
+            const headers: Record<string, string> = {
+              "Content-Type": "application/json",
+            };
+            if (token) headers["Authorization"] = `Bearer ${token}`;
+
+            const res = await fetch(`/api/v1/properties/${property.id}`, {
+              method: "PATCH",
+              headers,
+              body: JSON.stringify({
+                title: editTitle.trim(),
+                ...(isIdentityLocked ? {} : { address: editAddress.trim() }),
+                description: editDescription.trim(),
+              }),
+            });
+            const json = await res.json();
+            if (!res.ok || !json.success) {
+              throw new Error(json.error?.message || "Failed to update property");
+            }
+            setProperty((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    title: json.data.title,
+                    address: json.data.address,
+                    description: json.data.description,
+                  }
+                : prev
+            );
+            setShowEditModal(false);
+          } catch (err: any) {
+            setEditFeedback(err.message || "Could not update property");
+          } finally {
+            setIsSavingEdit(false);
+          }
+        };
+
+        return (
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+            onClick={() => setShowEditModal(false)}
+          >
+            <form
+              onSubmit={handleSaveEdit}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-2xl sm:rounded-xl p-5 space-y-4 shadow-2xl"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-[var(--text-heading)]">
+                  Edit Property Details
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="p-1 text-[var(--text-muted)] hover:text-[var(--text-heading)] cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {isIdentityLocked && (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
+                  <Lock className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    Physical site address and ownership classification are locked once verification or field tasks have commenced. You can still update your property nickname and landmark instructions.
+                  </span>
+                </div>
+              )}
+
+              {editFeedback && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-xs text-red-500">
+                  {editFeedback}
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[var(--text-heading)] block">
+                  Property Label / Nickname
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[var(--text-heading)] flex items-center justify-between">
+                  <span>Physical Address</span>
+                  {isIdentityLocked && (
+                    <span className="text-[10.5px] text-amber-600 dark:text-amber-400 inline-flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Locked
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  disabled={isIdentityLocked}
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] disabled:opacity-60 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[var(--text-heading)] block">
+                  Landmark &amp; Access Notes
+                </label>
+                <textarea
+                  rows={3}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Describe perimeter features, nearest landmarks, or caretaker instructions..."
+                  className="w-full p-3 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-heading)] focus:outline-none focus:border-[var(--primary)]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 h-9 rounded-lg border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="px-4 h-9 rounded-lg bg-[#22b14c] hover:bg-[#1e9e43] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingEdit ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5" />
+                  )}
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+      })()}
+
+      {/* ── Delete Property Confirmation Modal with Anti-Abuse Notice ── */}
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setShowDeleteModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-[var(--bg-card)] border-t sm:border border-[var(--border-color)] rounded-t-2xl sm:rounded-xl p-5 space-y-4 shadow-2xl"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-[var(--text-heading)]">
+                Remove Property Listing?
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="p-1 text-[var(--text-muted)] hover:text-[var(--text-heading)] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+              Are you sure you want to remove{" "}
+              <strong className="text-[var(--text-heading)]">{property.title}</strong>?
+              Note: Properties removed after listing still count toward your 30-day subscription quota cycle to prevent slot rotation abuse, and properties with active in-field tasks cannot be deleted until completion.
+            </p>
+
+            {deleteError && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-xs text-red-500 font-medium">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 h-9 rounded-lg border border-[var(--border-color)] text-xs font-semibold text-[var(--text-heading)] cursor-pointer"
+              >
+                Keep Property
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={async () => {
+                  setIsDeleting(true);
+                  setDeleteError(null);
+                  try {
+                    const token =
+                      typeof window !== "undefined"
+                        ? localStorage.getItem("oversite_token")
+                        : null;
+                    const headers: Record<string, string> = {};
+                    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+                    const res = await fetch(`/api/v1/properties/${property.id}`, {
+                      method: "DELETE",
+                      headers,
+                    });
+                    const json = await res.json();
+                    if (!res.ok || !json.success) {
+                      throw new Error(
+                        json.error?.message || "Could not delete property"
+                      );
+                    }
+                    router.push("/properties");
+                  } catch (err: any) {
+                    setDeleteError(err.message || "Failed to delete property");
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                className="px-4 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                <span>Confirm Remove</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -68,6 +68,15 @@ interface TaskDetail {
   milestones?: MilestoneItem[];
   images?: string[];
   priceNgn?: number | null;
+  completedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  clientRating?: {
+    rating: number;
+    feedback?: string;
+    comment?: string;
+    ratedAt?: string;
+  } | null;
   proposalDetails?: {
     scope: string;
     baseFee: number;
@@ -276,6 +285,10 @@ export default function TaskDetailPage({
           reportName: t.report?.title || `${t.title || "Project review"} report`,
           reportSize: "Today · 1.8 MB",
           priceNgn: t.priceNgn ? Number(t.priceNgn) : 15000,
+          completedAt: t.completedAt || null,
+          createdAt: t.createdAt || null,
+          updatedAt: t.updatedAt || null,
+          clientRating: (t.formData as any)?.clientRating || null,
           milestones: rawMilestones,
           images: SAMPLE_STAGE_PHOTOS,
           proposalDetails: t.proposalDetails ?? null,
@@ -385,11 +398,31 @@ export default function TaskDetailPage({
       };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      await fetch(`/api/v1/tasks/${task.id}/rate`, {
+      const res = await fetch(`/api/v1/tasks/${task.id}/rate`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ rating, comment: ratingComment }),
+        body: JSON.stringify({
+          rating,
+          comment: ratingComment,
+          feedback: ratingComment,
+        }),
       });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success) {
+        setTask((prev) =>
+          prev
+            ? {
+                ...prev,
+                clientRating: {
+                  rating,
+                  comment: ratingComment,
+                  feedback: ratingComment,
+                  ratedAt: new Date().toISOString(),
+                },
+              }
+            : prev
+        );
+      }
     } catch {
       // Best-effort
     } finally {
@@ -923,25 +956,59 @@ export default function TaskDetailPage({
                     Report an Issue
                   </button>
                 </div>
-              ) : (
-                <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[var(--bg-body)]/95 backdrop-blur-md pt-4 pb-4 -mx-2 sm:-mx-4 px-2 sm:px-4 border-t border-[var(--border-color)] flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsRatingModalOpen(true)}
-                    className="flex-1 py-4 rounded-full bg-[var(--primary)] hover:bg-[#23993e] text-white font-bold text-[15px] sm:text-[16px] transition-all shadow-md active:scale-[0.98] cursor-pointer text-center"
-                  >
-                    Rate Agent
-                  </button>
+              ) : (() => {
+                const alreadyRated = Boolean(task.clientRating);
+                const completionBaseMs = task.completedAt
+                  ? new Date(task.completedAt).getTime()
+                  : task.updatedAt
+                  ? new Date(task.updatedAt).getTime()
+                  : 0;
+                const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+                const isRatingWindowExpired =
+                  !alreadyRated &&
+                  task.status === "COMPLETED" &&
+                  completionBaseMs > 0 &&
+                  Date.now() - completionBaseMs > SEVEN_DAYS_MS;
+                const ratingDisabled = alreadyRated || isRatingWindowExpired;
 
-                  <button
-                    type="button"
-                    onClick={() => setIsIssueModalOpen(true)}
-                    className="flex-1 py-4 rounded-full bg-[var(--bg-secondary)] hover:bg-[var(--border-color)] text-[var(--primary)] font-bold text-[15px] sm:text-[16px] border border-[var(--border-color)] transition-all active:scale-[0.98] cursor-pointer text-center"
-                  >
-                    Report an Issue
-                  </button>
-                </div>
-              )}
+                return (
+                  <div className="sticky bottom-[68px] md:bottom-0 z-40 bg-[var(--bg-body)]/95 backdrop-blur-md pt-4 pb-4 -mx-2 sm:-mx-4 px-2 sm:px-4 border-t border-[var(--border-color)] flex items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={ratingDisabled}
+                      onClick={() => {
+                        if (!ratingDisabled) setIsRatingModalOpen(true);
+                      }}
+                      title={
+                        alreadyRated
+                          ? `You rated this agent ${task.clientRating?.rating}/5 ★`
+                          : isRatingWindowExpired
+                          ? "Rating window closed (7 days after task completion)"
+                          : "Rate Agent"
+                      }
+                      className={`flex-1 py-4 rounded-xl font-bold text-[14px] sm:text-[15px] transition-all text-center ${
+                        ratingDisabled
+                          ? "bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-muted)] cursor-not-allowed opacity-75"
+                          : "bg-[var(--primary)] hover:bg-[#23993e] text-white shadow-md active:scale-[0.98] cursor-pointer"
+                      }`}
+                    >
+                      {alreadyRated
+                        ? `Rated (${task.clientRating?.rating}/5 ★)`
+                        : isRatingWindowExpired
+                        ? "Rating Closed (7d Passed)"
+                        : "Rate Agent"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsIssueModalOpen(true)}
+                      className="flex-1 py-4 rounded-xl bg-[var(--bg-secondary)] hover:bg-[var(--border-color)] text-[var(--primary)] font-bold text-[14px] sm:text-[15px] border border-[var(--border-color)] transition-all active:scale-[0.98] cursor-pointer text-center"
+                    >
+                      Report an Issue
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

@@ -28,10 +28,20 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
     if (user.role === "USER") {
       conditions.push(eq(tasks.userId, user.sub));
     } else if (user.role === "AGENT") {
-      if (status === "open" || status === "PENDING") {
-        // Unassigned open tasks available for agents to claim
+      const isQueueQuery =
+        searchParams.get("queue") === "true" ||
+        (status && status.includes("PENDING") && status.includes("MATCHED"));
+      if (isQueueQuery) {
+        // Return both:
+        // 1) Tasks directly assigned to this agent awaiting acceptance (status = MATCHED)
+        // 2) Unassigned tasks in the public pool (agentId IS NULL and status = PENDING)
         conditions.push(
-          sql`${tasks.agentId} IS NULL AND ${tasks.status} IN ('PENDING', 'MATCHED')`
+          sql`((${tasks.agentId} = ${user.sub} AND ${tasks.status} = 'MATCHED') OR (${tasks.agentId} IS NULL AND ${tasks.status} = 'PENDING'))`
+        );
+      } else if (status === "open" || status === "PENDING") {
+        // Unassigned open tasks available for agents to apply for
+        conditions.push(
+          sql`${tasks.agentId} IS NULL AND ${tasks.status} = 'PENDING'`
         );
       } else {
         // Default: tasks assigned to this agent

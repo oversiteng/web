@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import { getStoredToken } from "@/lib/storage/clientStorage";
 import {
   ArrowLeft,
   Check,
@@ -12,7 +14,9 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const PIN_STORAGE_KEY = "oversite_withdrawal_pin";
+function getUserPinStorageKey(userId?: string | null) {
+  return userId ? `oversite_withdrawal_pin_${userId}` : null;
+}
 
 const KEYPAD_KEYS = [
   { digit: "1", letters: "" },
@@ -27,6 +31,7 @@ const KEYPAD_KEYS = [
 ];
 
 type PinFlowStep =
+  | "loading"
   | "verify_current"
   | "forgot_otp"
   | "enter_new"
@@ -35,11 +40,13 @@ type PinFlowStep =
 
 export default function ChangeTransactionPinPage() {
   const router = useRouter();
+  const { user } = useAuth();
 
   const [hasExistingPin, setHasExistingPin] = useState(false);
-  const [storedPin, setStoredPin] = useState<string | null>(null);
+  const [verifiedCurrentPin, setVerifiedCurrentPin] = useState<string>("");
+  const [isResetViaOtp, setIsResetViaOtp] = useState(false);
 
-  const [step, setStep] = useState<PinFlowStep>("verify_current");
+  const [step, setStep] = useState<PinFlowStep>("loading");
   const [pin, setPin] = useState<string>("");
   const [tempNewPin, setTempNewPin] = useState<string>("");
 
@@ -51,21 +58,46 @@ export default function ChangeTransactionPinPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load existing PIN from localStorage
+  // Clean up legacy unscoped key and query authoritative backend PIN status for THIS user
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(PIN_STORAGE_KEY);
-      if (saved && /^\d{4}$/.test(saved)) {
-        setHasExistingPin(true);
-        setStoredPin(saved);
-        setStep("verify_current");
-      } else {
-        setHasExistingPin(false);
-        setStoredPin(null);
-        setStep("enter_new");
+      localStorage.removeItem("oversite_withdrawal_pin");
+    }
+
+    let cancelled = false;
+    async function checkPinStatus() {
+      try {
+        const token = await getStoredToken();
+        if (!token) {
+          if (!cancelled) {
+            setHasExistingPin(false);
+            setStep("enter_new");
+          }
+          return;
+        }
+        const res = await fetch("/api/v1/agent/wallet/pin", {
+          credentials: "include",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (!cancelled) {
+          const exists = Boolean(json?.data?.hasWithdrawalPin);
+          setHasExistingPin(exists);
+          setStep(exists ? "verify_current" : "enter_new");
+        }
+      } catch {
+        if (!cancelled) {
+          setHasExistingPin(false);
+          setStep("enter_new");
+        }
       }
     }
-  }, []);
+
+    checkPinStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   // OTP Countdown timer
   useEffect(() => {
@@ -79,6 +111,7 @@ export default function ChangeTransactionPinPage() {
   // Keypad Handlers
   const handleDigit = useCallback(
     (digit: string) => {
+      if (isSubmitting) return;
       setErrorMessage(null);
       if (step === "forgot_otp") {
         setOtpCode((prev) => (prev.length < 6 ? prev + digit : prev));
@@ -86,33 +119,57 @@ export default function ChangeTransactionPinPage() {
         setPin((prev) => (prev.length < 4 ? prev + digit : prev));
       }
     },
-    [step]
+    [step, isSubmitting]
   );
 
   const handleBackspace = useCallback(() => {
+    if (isSubmitting) return;
     setErrorMessage(null);
     if (step === "forgot_otp") {
       setOtpCode((prev) => prev.slice(0, -1));
     } else {
       setPin((prev) => prev.slice(0, -1));
     }
-  }, [step]);
+  }, [step, isSubmitting]);
 
   // Auto-advance logic when PIN reaches 4 digits
   useEffect(() => {
-    if (pin.length !== 4) return;
+    if (pin.length !== 4 || isSubmitting) return;
 
     if (step === "verify_current") {
-      if (pin === storedPin) {
-        setErrorMessage(null);
-        setPin("");
-        setStep("enter_new");
-      } else {
-        setErrorMessage("Incorrect current PIN. Please try again.");
-        setPin("");
-      }
+      const candidate = pin;
+      setIsSubmitting(true);
+      (async () => {
+        try {
+          const token = await getStoredToken();
+          const res = await fetch("/api/v1/agent/wallet/pin", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ currentPin: candidate, verifyOnly: true }),
+          });
+          const json = await res.json();
+          if (res.ok && json.success) {
+            setVerifiedCurrentPin(candidate);
+            setErrorMessage(null);
+            setPin("");
+            setStep("enter_new");
+          } else {
+            setErrorMessage(json.error?.message || "Incorrect current PIN. Please try again.");
+            setPin("");
+          }
+        } catch {
+          setErrorMessage("Network error verifying PIN. Please try again.");
+          setPin("");
+        } finally {
+          setIsSubmitting(false);
+        }
+      })();
     } else if (step === "enter_new") {
-      if (hasExistingPin && pin === storedPin) {
+      if (hasExistingPin && !isResetViaOtp && pin === verifiedCurrentPin) {
         setErrorMessage("New PIN must be different from current PIN.");
         setPin("");
         return;
@@ -122,26 +179,56 @@ export default function ChangeTransactionPinPage() {
       setPin("");
       setStep("confirm_new");
     } else if (step === "confirm_new") {
-      if (pin === tempNewPin) {
-        setIsSubmitting(true);
-        setTimeout(() => {
-          if (typeof window !== "undefined") {
-            localStorage.setItem(PIN_STORAGE_KEY, pin);
+      if (pin !== tempNewPin) {
+        setErrorMessage("PINs do not match. Please re-enter.");
+        setPin("");
+        return;
+      }
+
+      const finalPin = pin;
+      setIsSubmitting(true);
+      (async () => {
+        try {
+          const token = await getStoredToken();
+          const res = await fetch("/api/v1/agent/wallet/pin", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              pin: finalPin,
+              currentPin: hasExistingPin && !isResetViaOtp ? verifiedCurrentPin : undefined,
+              resetViaOtp: isResetViaOtp || undefined,
+            }),
+          });
+          const json = await res.json();
+          if (!res.ok || !json.success) {
+            setErrorMessage(json.error?.message || "Could not save PIN.");
+            setPin("");
+            setIsSubmitting(false);
+            return;
+          }
+          const userKey = getUserPinStorageKey(user?.id);
+          if (typeof window !== "undefined" && userKey) {
+            localStorage.setItem(userKey, finalPin);
           }
           setIsSubmitting(false);
           setStep("success");
-        }, 500);
-      } else {
-        setErrorMessage("PINs do not match. Please re-enter.");
-        setPin("");
-      }
+        } catch {
+          setErrorMessage("Network error saving PIN. Please try again.");
+          setPin("");
+          setIsSubmitting(false);
+        }
+      })();
     }
-  }, [pin, step, storedPin, tempNewPin, hasExistingPin]);
+  }, [pin, step, verifiedCurrentPin, tempNewPin, hasExistingPin, isResetViaOtp, isSubmitting, user?.id]);
 
   // Physical keyboard support
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (step === "success") return;
+      if (step === "success" || step === "loading") return;
       if (/^\d$/.test(e.key)) {
         handleDigit(e.key);
       } else if (e.key === "Backspace") {
@@ -161,23 +248,24 @@ export default function ChangeTransactionPinPage() {
     setIsVerifyingOtp(true);
     setTimeout(() => {
       setIsVerifyingOtp(false);
+      setIsResetViaOtp(true);
       setErrorMessage(null);
       setOtpCode("");
       setPin("");
       setStep("enter_new");
-    }, 600);
+    }, 500);
   };
 
   // Back Button Navigation
   const handleBack = () => {
     setErrorMessage(null);
     setPin("");
-    if (step === "verify_current") {
+    if (step === "verify_current" || step === "loading") {
       router.back();
     } else if (step === "forgot_otp") {
       setStep("verify_current");
     } else if (step === "enter_new") {
-      if (hasExistingPin) {
+      if (hasExistingPin && !isResetViaOtp) {
         setStep("verify_current");
       } else {
         router.back();
@@ -189,14 +277,19 @@ export default function ChangeTransactionPinPage() {
     }
   };
 
-  // ── Step Titles and Subtitles ──
   const getStepInfo = () => {
     switch (step) {
+      case "loading":
+        return {
+          title: "Transaction PIN",
+          screenTitle: "Checking security status...",
+          subtitle: "Verifying your account PIN configuration",
+        };
       case "verify_current":
         return {
           title: "Change transaction pin",
           screenTitle: "Enter current PIN",
-          subtitle: "Enter your 4-digit withdrawal PIN to continue",
+          subtitle: "Enter your current 4-digit withdrawal PIN to continue",
         };
       case "forgot_otp":
         return {
@@ -219,16 +312,25 @@ export default function ChangeTransactionPinPage() {
       case "success":
         return {
           title: "Success",
-          screenTitle: "Transaction PIN updated",
-          subtitle: "Your withdrawal PIN has been updated successfully",
+          screenTitle: hasExistingPin ? "Transaction PIN updated" : "Transaction PIN set",
+          subtitle: "Your withdrawal PIN has been configured successfully",
         };
     }
   };
 
   const { title, screenTitle, subtitle } = getStepInfo();
 
+  if (step === "loading") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60dvh] gap-2">
+        <Loader2 className="w-7 h-7 animate-spin text-[var(--primary)]" />
+        <p className="text-xs text-[var(--text-muted)]">{screenTitle}</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-12 select-none min-h-[calc(100dvh-120px)] flex flex-col justify-between">
+    <div className="relative w-full max-w-md mx-auto text-[var(--text-heading)] pb-20 select-none min-h-[calc(100dvh-120px)] flex flex-col justify-between">
       {/* ── Top Header Bar ── */}
       {step !== "success" && (
         <div className="flex items-center gap-3 py-3 mb-2">
@@ -236,7 +338,7 @@ export default function ChangeTransactionPinPage() {
             type="button"
             onClick={handleBack}
             aria-label="Go back"
-            className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-colors cursor-pointer -ml-1"
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] transition-colors cursor-pointer -ml-1"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -276,23 +378,20 @@ export default function ChangeTransactionPinPage() {
               })}
             </div>
 
-            {/* Submitting indicator */}
             {isSubmitting && (
               <div className="flex items-center justify-center gap-2 text-xs text-[var(--primary)] font-semibold pt-1">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Saving PIN...</span>
+                <span>{step === "verify_current" ? "Verifying PIN..." : "Saving PIN..."}</span>
               </div>
             )}
 
-            {/* Error Message */}
             {errorMessage && (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--danger-light)] text-[var(--danger)] text-xs font-medium animate-in fade-in">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--danger-light)] text-[var(--danger)] text-xs font-medium animate-in fade-in">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 <span>{errorMessage}</span>
               </div>
             )}
 
-            {/* Forgot PIN Option (Only on verify_current) */}
             {step === "verify_current" && (
               <div className="pt-2">
                 <button
@@ -310,8 +409,8 @@ export default function ChangeTransactionPinPage() {
             )}
           </div>
 
-          {/* ── Keypad (Matches Images 2 & 3) ── */}
-          <div className="mt-8 bg-[var(--bg-secondary)] dark:bg-[var(--bg-card)]/60 border border-[var(--border-color)]/70 rounded-[28px] p-3 shadow-xs">
+          {/* ── Keypad ── */}
+          <div className="mt-8 bg-[var(--bg-secondary)] dark:bg-[var(--bg-card)]/60 border border-[var(--border-color)]/70 rounded-xl p-3 shadow-xs">
             <div className="grid grid-cols-3 gap-2">
               {KEYPAD_KEYS.map(({ digit, letters }) => (
                 <button
@@ -319,7 +418,7 @@ export default function ChangeTransactionPinPage() {
                   type="button"
                   disabled={isSubmitting}
                   onClick={() => handleDigit(digit)}
-                  className="bg-[var(--bg-card)] hover:bg-[var(--bg-secondary)] active:scale-95 border border-[var(--border-color)]/60 rounded-2xl py-3 flex flex-col items-center justify-center shadow-2xs transition-all cursor-pointer select-none disabled:opacity-50"
+                  className="bg-[var(--bg-card)] hover:bg-[var(--bg-secondary)] active:scale-95 border border-[var(--border-color)]/60 rounded-lg py-3 flex flex-col items-center justify-center shadow-2xs transition-all cursor-pointer select-none disabled:opacity-50"
                 >
                   <span className="text-lg font-bold text-[var(--text-heading)] leading-none">
                     {digit}
@@ -334,10 +433,9 @@ export default function ChangeTransactionPinPage() {
                 </button>
               ))}
 
-              {/* Bottom Row */}
               <div
                 aria-hidden="true"
-                className="rounded-2xl py-3 flex items-center justify-center text-xs font-semibold text-[var(--text-muted)]/60 select-none"
+                className="rounded-lg py-3 flex items-center justify-center text-xs font-semibold text-[var(--text-muted)]/60 select-none"
               >
                 + * #
               </div>
@@ -346,7 +444,7 @@ export default function ChangeTransactionPinPage() {
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => handleDigit("0")}
-                className="bg-[var(--bg-card)] hover:bg-[var(--bg-secondary)] active:scale-95 border border-[var(--border-color)]/60 rounded-2xl py-3 flex items-center justify-center shadow-2xs transition-all cursor-pointer select-none disabled:opacity-50"
+                className="bg-[var(--bg-card)] hover:bg-[var(--bg-secondary)] active:scale-95 border border-[var(--border-color)]/60 rounded-lg py-3 flex items-center justify-center shadow-2xs transition-all cursor-pointer select-none disabled:opacity-50"
               >
                 <span className="text-lg font-bold text-[var(--text-heading)] leading-none">
                   0
@@ -358,7 +456,7 @@ export default function ChangeTransactionPinPage() {
                 disabled={isSubmitting || pin.length === 0}
                 onClick={handleBackspace}
                 aria-label="Delete digit"
-                className="rounded-2xl py-3 flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] active:scale-95 transition-all cursor-pointer disabled:opacity-35"
+                className="rounded-lg py-3 flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] active:scale-95 transition-all cursor-pointer disabled:opacity-35"
               >
                 <Delete className="w-5 h-5 stroke-[1.8]" />
               </button>
@@ -380,14 +478,13 @@ export default function ChangeTransactionPinPage() {
               </p>
             </div>
 
-            {/* 6 OTP Code Display Boxes */}
             <div className="flex items-center justify-center gap-2.5 pt-4">
               {[0, 1, 2, 3, 4, 5].map((idx) => {
                 const char = otpCode[idx] || "";
                 return (
                   <div
                     key={idx}
-                    className={`w-11 h-12 rounded-xl border flex items-center justify-center text-lg font-bold transition-all ${
+                    className={`w-11 h-12 rounded-lg border flex items-center justify-center text-lg font-bold transition-all ${
                       char
                         ? "border-[var(--primary)] bg-[var(--primary-light)]/20 text-[var(--text-heading)]"
                         : "border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)]"
@@ -399,15 +496,13 @@ export default function ChangeTransactionPinPage() {
               })}
             </div>
 
-            {/* Error Message */}
             {errorMessage && (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--danger-light)] text-[var(--danger)] text-xs font-medium animate-in fade-in">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--danger-light)] text-[var(--danger)] text-xs font-medium animate-in fade-in">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 <span>{errorMessage}</span>
               </div>
             )}
 
-            {/* Resend Code Action */}
             <div className="pt-1 flex items-center justify-center gap-2 text-xs">
               <span className="text-[var(--text-muted)]">Didn&apos;t receive code?</span>
               {resendTimer > 0 ? (
@@ -425,13 +520,12 @@ export default function ChangeTransactionPinPage() {
               )}
             </div>
 
-            {/* Verify Button */}
             <div className="pt-2 px-2">
               <button
                 type="button"
                 disabled={otpCode.length < 4 || isVerifyingOtp}
                 onClick={handleVerifyOtp}
-                className="w-full py-3.5 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-sm transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-sm transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isVerifyingOtp ? (
                   <>
@@ -445,8 +539,7 @@ export default function ChangeTransactionPinPage() {
             </div>
           </div>
 
-          {/* Keypad for OTP entry */}
-          <div className="mt-6 bg-[var(--bg-secondary)] dark:bg-[var(--bg-card)]/60 border border-[var(--border-color)]/70 rounded-[28px] p-3 shadow-xs">
+          <div className="mt-6 bg-[var(--bg-secondary)] dark:bg-[var(--bg-card)]/60 border border-[var(--border-color)]/70 rounded-xl p-3 shadow-xs">
             <div className="grid grid-cols-3 gap-2">
               {KEYPAD_KEYS.map(({ digit, letters }) => (
                 <button
@@ -454,7 +547,7 @@ export default function ChangeTransactionPinPage() {
                   type="button"
                   disabled={isVerifyingOtp}
                   onClick={() => handleDigit(digit)}
-                  className="bg-[var(--bg-card)] hover:bg-[var(--bg-secondary)] active:scale-95 border border-[var(--border-color)]/60 rounded-2xl py-3 flex flex-col items-center justify-center shadow-2xs transition-all cursor-pointer select-none disabled:opacity-50"
+                  className="bg-[var(--bg-card)] hover:bg-[var(--bg-secondary)] active:scale-95 border border-[var(--border-color)]/60 rounded-lg py-3 flex flex-col items-center justify-center shadow-2xs transition-all cursor-pointer select-none disabled:opacity-50"
                 >
                   <span className="text-lg font-bold text-[var(--text-heading)] leading-none">
                     {digit}
@@ -471,7 +564,7 @@ export default function ChangeTransactionPinPage() {
 
               <div
                 aria-hidden="true"
-                className="rounded-2xl py-3 flex items-center justify-center text-xs font-semibold text-[var(--text-muted)]/60 select-none"
+                className="rounded-lg py-3 flex items-center justify-center text-xs font-semibold text-[var(--text-muted)]/60 select-none"
               >
                 + * #
               </div>
@@ -480,7 +573,7 @@ export default function ChangeTransactionPinPage() {
                 type="button"
                 disabled={isVerifyingOtp}
                 onClick={() => handleDigit("0")}
-                className="bg-[var(--bg-card)] hover:bg-[var(--bg-secondary)] active:scale-95 border border-[var(--border-color)]/60 rounded-2xl py-3 flex items-center justify-center shadow-2xs transition-all cursor-pointer select-none disabled:opacity-50"
+                className="bg-[var(--bg-card)] hover:bg-[var(--bg-secondary)] active:scale-95 border border-[var(--border-color)]/60 rounded-lg py-3 flex items-center justify-center shadow-2xs transition-all cursor-pointer select-none disabled:opacity-50"
               >
                 <span className="text-lg font-bold text-[var(--text-heading)] leading-none">
                   0
@@ -492,7 +585,7 @@ export default function ChangeTransactionPinPage() {
                 disabled={isVerifyingOtp || otpCode.length === 0}
                 onClick={handleBackspace}
                 aria-label="Delete digit"
-                className="rounded-2xl py-3 flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] active:scale-95 transition-all cursor-pointer disabled:opacity-35"
+                className="rounded-lg py-3 flex items-center justify-center text-[var(--text-heading)] hover:bg-[var(--bg-card)] active:scale-95 transition-all cursor-pointer disabled:opacity-35"
               >
                 <Delete className="w-5 h-5 stroke-[1.8]" />
               </button>
@@ -501,11 +594,10 @@ export default function ChangeTransactionPinPage() {
         </div>
       )}
 
-      {/* ── VIEW 3: Success Screen (Matches Image 4 pattern) ── */}
+      {/* ── VIEW 3: Success Screen ── */}
       {step === "success" && (
         <div className="flex-1 flex flex-col justify-between pt-16 pb-4">
           <div className="space-y-6 text-center">
-            {/* Green Check Circle */}
             <div className="w-16 h-16 rounded-full border-2 border-[var(--primary)] bg-[var(--primary-light)]/40 text-[var(--primary)] flex items-center justify-center mx-auto">
               <Check className="w-8 h-8 stroke-[2.5]" />
             </div>
@@ -519,8 +611,7 @@ export default function ChangeTransactionPinPage() {
               </p>
             </div>
 
-            {/* Details Receipt Card */}
-            <div className="rounded-[24px] bg-[var(--bg-card)] border border-[var(--border-color)] p-5 space-y-3.5 text-xs text-left shadow-xs">
+            <div className="rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] p-5 space-y-3.5 text-xs text-left shadow-xs">
               <div className="flex items-center justify-between">
                 <span className="text-[var(--text-muted)]">Security status</span>
                 <span className="font-semibold text-[var(--primary)] flex items-center gap-1">
@@ -545,12 +636,11 @@ export default function ChangeTransactionPinPage() {
             </div>
           </div>
 
-          {/* Bottom Done Button */}
           <div className="pt-6">
             <button
               type="button"
               onClick={() => router.push("/security")}
-              className="w-full py-4 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-sm transition-all shadow-xs cursor-pointer text-center"
+              className="w-full py-3.5 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-sm transition-all shadow-xs cursor-pointer text-center"
             >
               Done
             </button>
